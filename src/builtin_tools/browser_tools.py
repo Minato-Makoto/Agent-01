@@ -22,6 +22,11 @@ class BrowserManager:
     _browser = None
     _page = None
 
+    @staticmethod
+    def _headless_from_env() -> bool:
+        value = os.environ.get("AGENTFORGE_BROWSER_HEADLESS", "0").strip().lower()
+        return value in {"1", "true", "yes", "on"}
+
     @classmethod
     def get_page(cls):
         """Get or create the browser page."""
@@ -29,7 +34,10 @@ class BrowserManager:
             try:
                 from playwright.sync_api import sync_playwright
                 cls._playwright = sync_playwright().start()
-                cls._browser = cls._playwright.chromium.launch(headless=True)
+                # Default to visible browser so users can see interaction.
+                cls._browser = cls._playwright.chromium.launch(
+                    headless=cls._headless_from_env()
+                )
                 cls._page = cls._browser.new_page()
             except ImportError:
                 raise ImportError(

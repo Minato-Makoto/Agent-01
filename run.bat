@@ -1,12 +1,15 @@
 @echo off
 setlocal EnableExtensions
 
-echo ========================================
-echo  AgentForge CLI
-echo ========================================
-echo.
-echo Default mode: LOCAL llama-server (v1.0.1)
-echo.
+if not defined SHOW_BANNER set SHOW_BANNER=0
+if /I "%SHOW_BANNER%"=="1" (
+    echo ========================================
+    echo  AgentForge CLI
+    echo ========================================
+    echo.
+    echo Default mode: LOCAL llama-server ^(v1.0.1^)
+    echo.
+)
 
 REM ============================================================
 REM  CONFIGURATION DEFAULTS
@@ -15,7 +18,7 @@ REM ============================================================
 
 if not defined PROVIDER set PROVIDER=local
 if not defined SERVER_EXE set SERVER_EXE=%~dp0llama-b8069-bin-win-cuda-13.1-x64\llama-server.exe
-if not defined MODEL_PATH set MODEL_PATH=
+if not defined MODEL_PATH set MODEL_PATH=D:\Personal\MinatoZeroFace\AI Agent\model\Qwen3VL-Thinking\Qwen3VL-8B-Thinking-Q4_K_M.gguf
 
 if not defined BASE_URL set BASE_URL=http://127.0.0.1:8080
 if not defined MODEL_ID set MODEL_ID=local
@@ -43,6 +46,7 @@ if not defined COMPAT_RETRY_LIMIT set COMPAT_RETRY_LIMIT=8
 
 if not defined WORKSPACE set WORKSPACE=%~dp0workspace
 if not defined EXTRA_ARGS set EXTRA_ARGS=
+if not defined AGENTFORGE_BROWSER_HEADLESS set AGENTFORGE_BROWSER_HEADLESS=0
 
 REM Optional:
 REM - AUTO_SETUP=1  : install dependencies automatically (default)

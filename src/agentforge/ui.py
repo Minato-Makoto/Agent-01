@@ -146,22 +146,24 @@ class ChatUI:
         self._rule()
         for line in _BANNER_LINES:
             self._emit(line, style=self.theme["banner"])
+        self._emit("  Agent Forge", style=self.theme["banner"])
         self._emit(f"  v{__version__}", style=self.theme["version"])
         self._rule()
 
-        tool_count = len(tools) if tools else 0
         self._prefixed(PREFIX_STATUS, f"model   : {model_name}", self.theme["status"])
-        if provider:
-            self._prefixed(PREFIX_STATUS, f"runtime : {provider}", self.theme["status"])
-        self._prefixed(
-            PREFIX_STATUS,
-            f"tools   : {tool_count} active | {skill_count} skills ({total_tool_count} total)",
-            self.theme["status"],
-        )
-        if workspace:
-            self._prefixed(PREFIX_STATUS, f"workspace: {workspace}", self.theme["hint"])
         if session_id:
             self._prefixed(PREFIX_STATUS, f"session : {session_id}", self.theme["hint"])
+        if self.verbose:
+            tool_count = len(tools) if tools else 0
+            if provider:
+                self._prefixed(PREFIX_STATUS, f"runtime : {provider}", self.theme["status"])
+            self._prefixed(
+                PREFIX_STATUS,
+                f"tools   : {tool_count} active | {skill_count} skills ({total_tool_count} total)",
+                self.theme["status"],
+            )
+            if workspace:
+                self._prefixed(PREFIX_STATUS, f"workspace: {workspace}", self.theme["hint"])
         self._prefixed(
             PREFIX_STATUS,
             "commands: exit | reset | clear | skills | memory | session",
