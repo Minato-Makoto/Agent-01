@@ -217,7 +217,7 @@ class LLMInference:
                 if status == "ok":
                     return True
             except (urllib.error.URLError, ConnectionError, OSError, json.JSONDecodeError):
-                pass
+                logger.debug("[LLM] Health probe not ready yet.", exc_info=True)
             time.sleep(self._config.health_poll_interval_s)
         return False
 
@@ -231,7 +231,7 @@ class LLMInference:
                 except subprocess.TimeoutExpired:
                     self._server_process.kill()
             except (OSError, ValueError):
-                pass
+                logger.debug("[LLM] Failed to terminate server process cleanly.", exc_info=True)
             self._server_process = None
         self._loaded = False
 
@@ -468,6 +468,7 @@ class LLMInference:
                 self._capabilities.supports_tools = False
             else:
                 # Keep optimistic default if failure is unrelated.
+                logger.debug("[LLM] Tool support probe failed with non-tools error.", exc_info=True)
                 self._capabilities.supports_tools = True
         return bool(self._capabilities.supports_tools)
 
@@ -657,14 +658,21 @@ class LLMInference:
                 return ChatCompletionResult(error=str(e))
         return ChatCompletionResult(error="Provider compatibility retry limit reached.")
 
-    def _post(self, endpoint: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-        self._consume_rate_limit_slot()
+    def _build_json_post_request(self, endpoint: str, payload: Dict[str, Any]) -> urllib.request.Request:
         url = f"{self._base_url}{endpoint}"
         data = json.dumps(payload).encode("utf-8")
         headers = {"Content-Type": "application/json"}
         if self._api_key:
             headers["Authorization"] = f"Bearer {self._api_key}"
-        req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+        return urllib.request.Request(url, data=data, headers=headers, method="POST")
+
+    def _raise_http_error(self, err: urllib.error.HTTPError) -> None:
+        body = err.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"HTTP {err.code}: {body[:self._config.http_error_body_chars]}")
+
+    def _post(self, endpoint: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        self._consume_rate_limit_slot()
+        req = self._build_json_post_request(endpoint, payload)
         try:
             with urllib.request.urlopen(req, timeout=self._config.request_timeout_s) as resp:
                 body = resp.read().decode("utf-8", errors="replace")
@@ -672,9 +680,8 @@ class LLMInference:
                     return json.loads(body)
                 except json.JSONDecodeError as exc:
                     raise RuntimeError(f"Invalid JSON response: {body[:300]}") from exc
-        except urllib.error.HTTPError as e:
-            body = e.read().decode("utf-8", errors="replace")
-            raise RuntimeError(f"HTTP {e.code}: {body[:self._config.http_error_body_chars]}")
+        except urllib.error.HTTPError as err:
+            self._raise_http_error(err)
         except urllib.error.URLError as e:
             raise RuntimeError(f"Network error: {e}")
 
@@ -682,12 +689,7 @@ class LLMInference:
         self, endpoint: str, payload: Dict[str, Any], on_token=None, on_reasoning=None
     ) -> ChatCompletionResult:
         self._consume_rate_limit_slot()
-        url = f"{self._base_url}{endpoint}"
-        data = json.dumps(payload).encode("utf-8")
-        headers = {"Content-Type": "application/json"}
-        if self._api_key:
-            headers["Authorization"] = f"Bearer {self._api_key}"
-        req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+        req = self._build_json_post_request(endpoint, payload)
 
         full_text = ""
         finish_reason = "stop"
@@ -744,9 +746,8 @@ class LLMInference:
                                     entry["name"] = fn["name"]
                                 if isinstance(fn.get("arguments"), str):
                                     entry["arguments_parts"].append(fn["arguments"])
-        except urllib.error.HTTPError as e:
-            body = e.read().decode("utf-8", errors="replace")
-            raise RuntimeError(f"HTTP {e.code}: {body[:self._config.http_error_body_chars]}")
+        except urllib.error.HTTPError as err:
+            self._raise_http_error(err)
         except urllib.error.URLError as e:
             raise RuntimeError(f"Network error: {e}")
 
