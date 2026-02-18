@@ -1,8 +1,9 @@
 import argparse
 import os
+import subprocess
 from pathlib import Path
 
-from agentforge import cli
+from agentforge import cli, cli_runtime
 from agentforge.contracts import ChatCompletionResult
 
 
@@ -63,6 +64,32 @@ def test_run_bat_keeps_local_default_mode():
         'set "RUN_ARGS=run --provider openai_compatible --base-url \\"%BASE_URL%\\" --model-id \\"%MODEL_ID%\\" --api-key-env \\"%API_KEY_ENV%\\""' 
         in run_bat
     )
+
+
+def test_run_bat_uses_crlf_line_endings():
+    data = Path("run.bat").read_bytes()
+    assert b"\r\n" in data
+    assert b"\n" not in data.replace(b"\r\n", b"")
+
+
+def test_run_bat_smoke_openai_compatible_help():
+    root = Path(__file__).resolve().parents[2]
+    env = os.environ.copy()
+    env["PROVIDER"] = "openai_compatible"
+    env["BASE_URL"] = "http://127.0.0.1:8080"
+    env["MODEL_ID"] = "local"
+    env["EXTRA_ARGS"] = "--help"
+
+    proc = subprocess.run(
+        ["cmd", "/c", "run.bat"],
+        cwd=str(root),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert proc.returncode == 0
+    assert "usage: agentforge run" in proc.stdout
 
 
 def test_remote_mode_smoke_with_mock_endpoint(monkeypatch, mock_chat_server, minimal_workspace):
@@ -174,3 +201,58 @@ def test_local_mode_smoke_without_starting_real_server(monkeypatch, minimal_work
 
     rc = cli.run_interactive(args)
     assert rc == 0
+
+
+def test_runtime_applies_agent_loop_overrides(monkeypatch, minimal_workspace):
+    captured = {}
+
+    class _FakeAgent:
+        def __init__(self, config, **kwargs):
+            captured["config"] = config
+
+        def run(self, user_input, callbacks=None):
+            return "ok"
+
+        def reset(self):
+            return None
+
+    monkeypatch.setattr(cli_runtime, "Agent", _FakeAgent)
+    monkeypatch.setattr(cli, "ChatUI", lambda verbose=False: _DummyUI(["exit"], verbose))
+
+    def fake_load_model(self, model_path, config=None, server_exe=""):
+        self._loaded = True
+        self.capabilities.supports_tools = True
+        return True
+
+    def fake_unload(self):
+        self._loaded = False
+
+    monkeypatch.setattr(cli.LLMInference, "load_model", fake_load_model)
+    monkeypatch.setattr(cli.LLMInference, "unload", fake_unload)
+
+    args = argparse.Namespace(
+        provider="local",
+        model="dummy.gguf",
+        server_exe="llama-server.exe",
+        base_url="",
+        model_id="local",
+        api_key_env="OPENAI_API_KEY",
+        ctx_size=1024,
+        gpu_layers=-1,
+        threads=0,
+        temp=0.1,
+        max_tokens=128,
+        port=8080,
+        verbose=False,
+        workspace=str(minimal_workspace),
+        session="",
+        max_iterations=17,
+        max_repeats=5,
+        agent_timeout=42.5,
+    )
+
+    rc = cli.run_interactive(args)
+    assert rc == 0
+    assert captured["config"].max_iterations == 17
+    assert captured["config"].max_repeats == 5
+    assert captured["config"].timeout == 42.5
