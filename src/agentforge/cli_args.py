@@ -65,8 +65,12 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--boot-timeout", type=int, default=None)
     run_parser.add_argument("--health-timeout", type=int, default=None)
     run_parser.add_argument("--request-timeout", type=int, default=None)
+    run_parser.add_argument("--shutdown-timeout", type=int, default=None)
     run_parser.add_argument("--compat-retry-limit", type=int, default=None)
     run_parser.add_argument("--max-requests-per-minute", type=int, default=None)
+    run_parser.add_argument("--max-iterations", type=int, default=None)
+    run_parser.add_argument("--max-repeats", type=int, default=None)
+    run_parser.add_argument("--agent-timeout", type=float, default=None)
 
     run_parser.add_argument("-v", "--verbose", action="store_true", help="Verbose logging")
     run_parser.add_argument("--workspace", default="", help="Path to workspace directory")
@@ -147,6 +151,7 @@ def build_inference_config(args: Any) -> InferenceConfig:
         ("boot_timeout", "boot_timeout_s"),
         ("health_timeout", "health_timeout_s"),
         ("request_timeout", "request_timeout_s"),
+        ("shutdown_timeout", "shutdown_timeout_s"),
         ("compat_retry_limit", "compat_retry_limit"),
         ("max_requests_per_minute", "max_requests_per_minute"),
     ]
@@ -172,4 +177,3 @@ def build_inference_config(args: Any) -> InferenceConfig:
         config.model_id = model_id
 
     return config
-

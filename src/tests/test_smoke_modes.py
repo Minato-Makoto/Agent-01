@@ -55,10 +55,12 @@ class _DummyUI:
 
 def test_run_bat_keeps_local_default_mode():
     run_bat = Path("run.bat").read_text(encoding="utf-8")
-    assert "set PROVIDER=local" in run_bat
-    assert 'set RUN_ARGS=run "%MODEL_PATH%" --provider local --server-exe "%SERVER_EXE%"' in run_bat
+    assert 'set "PROVIDER=local"' in run_bat
     assert (
-        'set RUN_ARGS=run --provider openai_compatible --base-url "%BASE_URL%" --model-id "%MODEL_ID%" --api-key-env "%API_KEY_ENV%"'
+        'set "RUN_ARGS=run \\"%MODEL_PATH%\\" --provider local --server-exe \\"%SERVER_EXE%\\""' in run_bat
+    )
+    assert (
+        'set "RUN_ARGS=run --provider openai_compatible --base-url \\"%BASE_URL%\\" --model-id \\"%MODEL_ID%\\" --api-key-env \\"%API_KEY_ENV%\\""' 
         in run_bat
     )
 

@@ -50,6 +50,7 @@ class InferenceConfig:
     boot_timeout_s: int = 120
     health_timeout_s: int = 2
     request_timeout_s: int = 300
+    shutdown_timeout_s: int = 5
     health_path: str = "/health"
     local_chat_endpoint: str = "/v1/chat/completions"
     local_completion_endpoint: str = "/completion"
@@ -226,7 +227,7 @@ class LLMInference:
             try:
                 self._server_process.terminate()
                 try:
-                    self._server_process.wait(timeout=5)
+                    self._server_process.wait(timeout=self._config.shutdown_timeout_s)
                 except subprocess.TimeoutExpired:
                     self._server_process.kill()
             except (OSError, ValueError):

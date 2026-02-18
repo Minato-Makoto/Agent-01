@@ -21,6 +21,22 @@ from .summarizer import Summarizer
 from .tools import ToolRegistry
 
 
+def _coerce_positive_int(value: Any, default: int) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default
+    return parsed if parsed > 0 else default
+
+
+def _coerce_positive_float(value: Any, default: float) -> float:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return default
+    return parsed if parsed > 0 else default
+
+
 def _create_or_load_session(session_mgr: SessionManager, requested_id: str, ui: Any):
     if requested_id:
         session = session_mgr.load_session(requested_id)
@@ -207,10 +223,16 @@ def run_interactive(
     ui.status(f"Workspace: {workspace_dir}")
     ui.status(f"Skills discovered: {skill_count} ({discovered_tool_count} tools total)")
 
+    max_iterations = _coerce_positive_int(get_arg(args, "max_iterations", 10), 10)
+    max_repeats = _coerce_positive_int(get_arg(args, "max_repeats", 3), 3)
+    agent_timeout = _coerce_positive_float(get_arg(args, "agent_timeout", 300.0), 300.0)
+
     agent = Agent(
         config=AgentConfig(
             workspace_dir=workspace_dir,
-            max_iterations=10,
+            max_iterations=max_iterations,
+            max_repeats=max_repeats,
+            timeout=agent_timeout,
             verbose=bool(get_arg(args, "verbose", False)),
         ),
         llm=llm,
@@ -265,4 +287,3 @@ def run_interactive(
         ui.goodbye()
         llm.unload()
     return 0
-

@@ -53,6 +53,10 @@ REM   HEALTH_TIMEOUT -> --health-timeout
 REM   REQUEST_TIMEOUT -> --request-timeout
 REM   COMPAT_RETRY_LIMIT -> --compat-retry-limit
 REM   MAX_REQUESTS_PER_MINUTE -> --max-requests-per-minute
+REM   SHUTDOWN_TIMEOUT -> --shutdown-timeout
+REM   MAX_ITERATIONS -> --max-iterations
+REM   MAX_REPEATS -> --max-repeats
+REM   AGENT_TIMEOUT -> --agent-timeout
 REM   WORKSPACE -> --workspace
 REM   EXTRA_ARGS -> raw passthrough arguments
 REM ============================================================
@@ -90,11 +94,15 @@ if not defined HEALTH_TIMEOUT set "HEALTH_TIMEOUT=2"
 if not defined REQUEST_TIMEOUT set "REQUEST_TIMEOUT=300"
 if not defined COMPAT_RETRY_LIMIT set "COMPAT_RETRY_LIMIT=8"
 if not defined MAX_REQUESTS_PER_MINUTE set "MAX_REQUESTS_PER_MINUTE=60"
+if not defined SHUTDOWN_TIMEOUT set "SHUTDOWN_TIMEOUT=5"
 
 REM ---- Runtime ----
 if not defined WORKSPACE set "WORKSPACE=%~dp0workspace"
 if not defined EXTRA_ARGS set "EXTRA_ARGS="
 if not defined AGENTFORGE_BROWSER_HEADLESS set "AGENTFORGE_BROWSER_HEADLESS=0"
+if not defined MAX_ITERATIONS set "MAX_ITERATIONS=10"
+if not defined MAX_REPEATS set "MAX_REPEATS=3"
+if not defined AGENT_TIMEOUT set "AGENT_TIMEOUT=300"
 
 REM ---- Tool timeout env defaults (read by runtime/tool modules) ----
 if not defined TOOL_TIMEOUT_BROWSER_NAV_MS set "TOOL_TIMEOUT_BROWSER_NAV_MS=30000"
@@ -184,8 +192,12 @@ python -m agentforge.cli %RUN_ARGS% ^
   --boot-timeout %BOOT_TIMEOUT% ^
   --health-timeout %HEALTH_TIMEOUT% ^
   --request-timeout %REQUEST_TIMEOUT% ^
+  --shutdown-timeout %SHUTDOWN_TIMEOUT% ^
   --compat-retry-limit %COMPAT_RETRY_LIMIT% ^
   --max-requests-per-minute %MAX_REQUESTS_PER_MINUTE% ^
+  --max-iterations %MAX_ITERATIONS% ^
+  --max-repeats %MAX_REPEATS% ^
+  --agent-timeout %AGENT_TIMEOUT% ^
   --workspace "%WORKSPACE%" ^
   %EXTRA_ARGS%
 set "EXIT_CODE=%ERRORLEVEL%"
