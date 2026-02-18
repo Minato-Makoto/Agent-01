@@ -38,11 +38,3 @@ jobs:
         run: |
           $env:PYTHONPATH = "src"
           python -m agentforge.cli --help
-
-      - name: Launcher smoke (no backend start)
-        shell: cmd
-        run: |
-          set CHECK_ONLY=1
-          set NO_PAUSE=1
-          set AUTO_SETUP=0
-          run.bat

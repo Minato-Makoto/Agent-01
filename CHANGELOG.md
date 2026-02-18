@@ -4,20 +4,34 @@
 
 ### Changed
 - Standardized ignore policy for runtime-generated artifacts (`workspace/sessions`, `workspace/screenshots`, `workspace/memory`, logs), local environment files, and local runtime binaries/models.
-- Reworked `run.bat` for Windows-first standardized launch:
-  - env-overridable defaults (`if not defined ...`)
-  - `AUTO_SETUP`, `CHECK_ONLY`, `NO_PAUSE` control flags
-  - explicit provider validation and cleaner exit flow
+- Reworked `run.bat` to a single-file Windows launcher:
+  - removed hidden/banner toggles and extra control flags
+  - removed dependency on helper scripts (`scripts\\setup.bat`)
+  - keeps parameter comments + examples directly inside the launcher
 - Added optional CLI `--env-file` support for centralized environment loading.
-- Added standardized root scripts in `scripts/` for setup/lint/test/build/start routines.
 - Added project metadata/config in `pyproject.toml` and Windows CI workflow (`.github/workflows/ci.yml`).
-- Added deploy/runbook docs and refreshed architecture/readme paths.
+- Consolidated documentation into:
+  - `docs/BLUEPRINT.md`
+  - `docs/TUTORIAL.md`
 - `adb-mcp` is now kept in-repo as optional integration (not required for base runtime startup).
 
 ### Removed
 - Deleted generated Python cache artifacts from `src/**/__pycache__` and `.pytest_cache`.
   - Reason: generated runtime files are non-source artifacts and caused noisy audits.
   - Impact: no runtime behavior change; caches are regenerated automatically.
+- Deleted helper launcher wrappers under `scripts/`.
+  - Reason: launcher flow was over-split and conflicted with Windows-only single-file run requirement.
+  - Impact: all startup should use `run.bat`; quality gates use direct Python commands.
+- Deleted legacy docs:
+  - `docs/AUDIT_BASELINE.md`
+  - `docs/ARCHITECTURE.md`
+  - `docs/DEPLOYMENT.md`
+  - `docs/MIGRATION.md`
+  - `docs/MODEL_COMPATIBILITY.md`
+  - `docs/RUNBOOK.md`
+  - `docs/RUNTIME_PARAMETERS.md`
+  - Reason: merged into `docs/BLUEPRINT.md` and `docs/TUTORIAL.md` to remove duplication.
+  - Impact: docs links must point to the two new files.
 
 ## [1.0.1] - 2026-02-17
 
