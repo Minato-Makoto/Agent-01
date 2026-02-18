@@ -39,37 +39,56 @@ REM   Safe shell mode (default):
 REM     set SHELL_WORKSPACE_ONLY=1
 REM     run.bat
 REM
-REM Parameter map:
-REM   PROVIDER -> --provider
-REM   SERVER_EXE -> --server-exe
-REM   MODEL_PATH -> positional model
-REM   BASE_URL -> --base-url
-REM   MODEL_ID -> --model-id
-REM   API_KEY_ENV -> --api-key-env
-REM   CTX_SIZE -> --ctx-size
-REM   GPU_LAYERS -> --gpu-layers
-REM   THREADS -> --threads
-REM   TEMPERATURE -> --temp
-REM   TOP_P -> --top-p
-REM   TOP_K -> --top-k
-REM   REPEAT_PENALTY -> --repeat-penalty
-REM   SEED -> --seed
-REM   REASONING_FORMAT -> --reasoning-format
-REM   REASONING_EFFORT -> --reasoning-effort
-REM   MAX_TOKENS -> --max-tokens
-REM   HOST -> --host
-REM   PORT -> --port
-REM   BOOT_TIMEOUT -> --boot-timeout
-REM   HEALTH_TIMEOUT -> --health-timeout
-REM   REQUEST_TIMEOUT -> --request-timeout
-REM   COMPAT_RETRY_LIMIT -> --compat-retry-limit
-REM   MAX_REQUESTS_PER_MINUTE -> --max-requests-per-minute
-REM   SHUTDOWN_TIMEOUT -> --shutdown-timeout
-REM   MAX_ITERATIONS -> --max-iterations
-REM   MAX_REPEATS -> --max-repeats
-REM   AGENT_TIMEOUT -> --agent-timeout
-REM   WORKSPACE -> --workspace
-REM   EXTRA_ARGS -> raw passthrough arguments
+REM Parameter guide (y nghia + tac dong + vi du):
+REM   PROVIDER (-> --provider):
+REM     local  = tu mo llama-server trong may.
+REM     openai_compatible = goi endpoint san co qua BASE_URL.
+REM     Vi du: set PROVIDER=openai_compatible -> khong can MODEL_PATH.
+REM
+REM   MODEL_PATH / SERVER_EXE:
+REM     MODEL_PATH la file .gguf se duoc nap.
+REM     Vi du: MODEL_PATH rong => fail-fast ngay, khong vao runtime.
+REM
+REM   CTX_SIZE:
+REM     Tang CTX_SIZE -> giu duoc lich su dai hon, ton RAM/VRAM hon.
+REM     Vi du: 8192 nhanh hon, 16384 giu context tot hon.
+REM
+REM   TEMPERATURE + TOP_P + TOP_K:
+REM     Temperature thap -> output on dinh, cao -> da dang nhung de lang man.
+REM     Vi du: TEMP=0.1 cho coding on dinh; TEMP=0.7 cho brainstorming.
+REM
+REM   MAX_TOKENS:
+REM     Tran do dai cau tra loi moi lan model sinh.
+REM     Vi du: 2048 tranh output qua dai; 8192 cho task can giai thich dai.
+REM
+REM   BOOT_TIMEOUT / REQUEST_TIMEOUT / SHUTDOWN_TIMEOUT:
+REM     BOOT_TIMEOUT: cho local server khoi dong.
+REM     REQUEST_TIMEOUT: gioi han 1 request den model.
+REM     SHUTDOWN_TIMEOUT: cho local process tat em truoc khi kill.
+REM     Vi du: model lon khoi dong cham -> tang BOOT_TIMEOUT 120 -> 240.
+REM
+REM   MAX_REQUESTS_PER_MINUTE:
+REM     Gioi han request de tranh runaway loop dot credit.
+REM     Vi du: dat 30 khi debug, 60 cho run thuong.
+REM
+REM   MAX_ITERATIONS / MAX_REPEATS / AGENT_TIMEOUT:
+REM     Guard rail cho vong tool loop.
+REM     Vi du: MAX_ITERATIONS=5 -> dung som neu model goi tool qua nhieu.
+REM
+REM   TOOL_TIMEOUT_*:
+REM     Timeout rieng cho tung nhom tool browser/web/photoshop/process_list.
+REM     Vi du: web cham -> tang TOOL_TIMEOUT_WEB_REQUEST_S=60.
+REM
+REM   SHELL_WORKSPACE_ONLY:
+REM     1 = shell_command chi cho chay trong WORKSPACE (an toan, mac dinh).
+REM     0 = cho phep cwd ben ngoai workspace (it an toan hon).
+REM
+REM   AGENTFORGE_BROWSER_HEADLESS:
+REM     0 = mo browser de user xem; 1 = chay an.
+REM
+REM   EXTRA_ARGS:
+REM     Truyen them flag raw vao `agentforge run`.
+REM     Vi du: set EXTRA_ARGS=--help
 REM ============================================================
 
 REM ---- Provider mode ----

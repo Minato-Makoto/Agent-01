@@ -143,7 +143,9 @@ Final Assistant Text → UI Output
 ### Bootstrap Tools (hardcoded in `agent_core.py`)
 
 - `read_file` — Read any file; also used to activate skills.
-- `think` — Internal reasoning (silent, not shown to user).
+- `think` — Transparent reasoning note; the thought content is shown to the user.
+
+Note: UI `thinking` stream comes from model `reasoning_content` tokens and is separate from the `think` tool.
 
 ---
 

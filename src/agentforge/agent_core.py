@@ -371,12 +371,13 @@ class Agent:
             thought = str(args.get("thought", "")).strip()
             if not thought:
                 return ToolResult.error_result("Missing 'thought' parameter")
-            return ToolResult.silent_result("Thinking complete.")
+            visible = f"Thought: {thought}"
+            return ToolResult.llm_result(for_llm=visible, for_user=visible)
 
         self.tools.register(
             Tool(
                 name="think",
-                description="Internal reasoning tool. Use for planning before acting.",
+                description="Reasoning note tool. The provided thought is shown to the user.",
                 input_schema={
                     "type": "object",
                     "properties": {

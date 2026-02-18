@@ -143,7 +143,9 @@ Final Assistant Text → UI Output
 ### Bootstrap tools (được mã hoá cứng trong `agent_core.py`)
 
 - `read_file` — Đọc file bất kỳ; cũng dùng để kích hoạt skill.
-- `think` — Suy luận nội bộ (ẩn, không hiển thị cho user).
+- `think` — Ghi chú suy luận minh bạch; nội dung thought được hiển thị cho user.
+
+Luu y: `thinking` stream trong UI la `reasoning_content` do model stream tra ve, khac voi tool `think`.
 
 ---
 
