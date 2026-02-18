@@ -33,7 +33,7 @@ if not defined TOP_K set TOP_K=40
 if not defined REPEAT_PENALTY set REPEAT_PENALTY=1.1
 if not defined SEED set SEED=-1
 if not defined REASONING_FORMAT set REASONING_FORMAT=auto
-if not defined REASONING_EFFORT set REASONING_EFFORT=
+if not defined REASONING_EFFORT set REASONING_EFFORT=low
 if not defined MAX_TOKENS set MAX_TOKENS=8192
 
 if not defined HOST set HOST=127.0.0.1

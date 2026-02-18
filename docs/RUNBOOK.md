@@ -9,6 +9,21 @@
 - Start runtime: `run.bat`
 - Local review pass before merge: `scripts\review-local.bat`
 
+## Chỉnh tham số `.bat` nhanh
+
+- File chỉnh chính: `run.bat` (khối `if not defined ... set ...`).
+- Tài liệu tham số + preset mẫu: `docs/RUNTIME_PARAMETERS.md`.
+- Override tạm thời bằng env trước khi chạy:
+
+```bat
+set PROVIDER=openai_compatible
+set MODEL_ID=gpt-5-mini
+set BASE_URL=https://api.openai.com/v1
+run.bat
+```
+
+Mẹo: nếu chạy trong terminal hoặc automation, set `NO_PAUSE=1` để script thoát ngay khi kết thúc.
+
 ## Startup troubleshooting
 
 ### `Workspace not found`

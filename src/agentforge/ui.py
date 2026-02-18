@@ -144,9 +144,14 @@ class ChatUI:
         provider: str = "",
     ) -> None:
         self._rule()
-        for line in _BANNER_LINES.strip("\n").splitlines():
+        banner_lines = _BANNER_LINES.strip("\n").splitlines()
+        for line in banner_lines:
             self._emit(line, style=self.theme["banner"])
-        self._emit(f"  v{__version__}", style=self.theme["version"])
+        left_pad = 0
+        if banner_lines:
+            first = banner_lines[0]
+            left_pad = len(first) - len(first.lstrip(" "))
+        self._emit(f"{' ' * left_pad}v{__version__}", style=self.theme["version"])
         self._rule()
 
         self._prefixed(PREFIX_STATUS, f"model   : {model_name}", self.theme["status"])
