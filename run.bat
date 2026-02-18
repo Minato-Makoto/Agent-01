@@ -181,7 +181,6 @@ if errorlevel 1 (
     )
 )
 
-set "RUN_ARGS="
 if /I "%PROVIDER%"=="local" (
     if "%MODEL_PATH%"=="" (
         echo ERROR: MODEL_PATH is required when PROVIDER=local.
@@ -198,7 +197,7 @@ if /I "%PROVIDER%"=="local" (
         echo ERROR: model file not found: %MODEL_PATH%
         goto :fail
     )
-    set "RUN_ARGS=run \"%MODEL_PATH%\" --provider local --server-exe \"%SERVER_EXE%\""
+    goto :run_local
 ) else if /I "%PROVIDER%"=="openai_compatible" (
     if "%BASE_URL%"=="" (
         echo ERROR: BASE_URL is required in openai_compatible mode.
@@ -208,14 +207,44 @@ if /I "%PROVIDER%"=="local" (
         echo ERROR: MODEL_ID is required in openai_compatible mode.
         goto :fail
     )
-    set "RUN_ARGS=run --provider openai_compatible --base-url \"%BASE_URL%\" --model-id \"%MODEL_ID%\" --api-key-env \"%API_KEY_ENV%\""
+    goto :run_remote
 ) else (
     echo ERROR: invalid PROVIDER value: "%PROVIDER%"
     echo Allowed values: local, openai_compatible
     goto :fail
 )
 
-python -m agentforge.cli %RUN_ARGS% ^
+:run_local
+python -m agentforge.cli run "%MODEL_PATH%" --provider local --server-exe "%SERVER_EXE%" ^
+  --host "%HOST%" ^
+  --ctx-size %CTX_SIZE% ^
+  --gpu-layers %GPU_LAYERS% ^
+  --threads %THREADS% ^
+  --temp %TEMPERATURE% ^
+  --top-p %TOP_P% ^
+  --top-k %TOP_K% ^
+  --repeat-penalty %REPEAT_PENALTY% ^
+  --seed %SEED% ^
+  --reasoning-format "%REASONING_FORMAT%" ^
+  --reasoning-effort "%REASONING_EFFORT%" ^
+  --max-tokens %MAX_TOKENS% ^
+  --port %PORT% ^
+  --boot-timeout %BOOT_TIMEOUT% ^
+  --health-timeout %HEALTH_TIMEOUT% ^
+  --request-timeout %REQUEST_TIMEOUT% ^
+  --shutdown-timeout %SHUTDOWN_TIMEOUT% ^
+  --compat-retry-limit %COMPAT_RETRY_LIMIT% ^
+  --max-requests-per-minute %MAX_REQUESTS_PER_MINUTE% ^
+  --max-iterations %MAX_ITERATIONS% ^
+  --max-repeats %MAX_REPEATS% ^
+  --agent-timeout %AGENT_TIMEOUT% ^
+  --workspace "%WORKSPACE%" ^
+  %EXTRA_ARGS%
+set "EXIT_CODE=%ERRORLEVEL%"
+goto :end
+
+:run_remote
+python -m agentforge.cli run --provider openai_compatible --base-url "%BASE_URL%" --model-id "%MODEL_ID%" --api-key-env "%API_KEY_ENV%" ^
   --host "%HOST%" ^
   --ctx-size %CTX_SIZE% ^
   --gpu-layers %GPU_LAYERS% ^

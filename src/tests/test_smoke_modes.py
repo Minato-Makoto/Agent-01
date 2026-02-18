@@ -57,11 +57,9 @@ class _DummyUI:
 def test_run_bat_keeps_local_default_mode():
     run_bat = Path("run.bat").read_text(encoding="utf-8")
     assert 'set "PROVIDER=local"' in run_bat
+    assert 'python -m agentforge.cli run "%MODEL_PATH%" --provider local --server-exe "%SERVER_EXE%"' in run_bat
     assert (
-        'set "RUN_ARGS=run \\"%MODEL_PATH%\\" --provider local --server-exe \\"%SERVER_EXE%\\""' in run_bat
-    )
-    assert (
-        'set "RUN_ARGS=run --provider openai_compatible --base-url \\"%BASE_URL%\\" --model-id \\"%MODEL_ID%\\" --api-key-env \\"%API_KEY_ENV%\\""' 
+        'python -m agentforge.cli run --provider openai_compatible --base-url "%BASE_URL%" --model-id "%MODEL_ID%" --api-key-env "%API_KEY_ENV%"'
         in run_bat
     )
 
@@ -94,7 +92,7 @@ def test_run_bat_smoke_openai_compatible_help():
 
 def test_run_bat_local_help_accepts_quoted_model_path():
     root = Path(__file__).resolve().parents[2]
-    model_file = root / "workspace" / "tmp-model-for-smoke.gguf"
+    model_file = root / "workspace" / "tmp model for smoke.gguf"
     model_file.parent.mkdir(parents=True, exist_ok=True)
     model_file.write_text("x", encoding="utf-8")
 
@@ -102,6 +100,33 @@ def test_run_bat_local_help_accepts_quoted_model_path():
     env["PROVIDER"] = "local"
     env["SERVER_EXE"] = str(root / "llama-b8069-bin-win-cuda-13.1-x64" / "llama-server.exe")
     env["MODEL_PATH"] = f"\"{model_file}\""
+    env["EXTRA_ARGS"] = "--help"
+
+    try:
+        proc = subprocess.run(
+            ["cmd", "/c", "run.bat"],
+            cwd=str(root),
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        assert proc.returncode == 0
+        assert "usage: agentforge run" in proc.stdout
+    finally:
+        model_file.unlink(missing_ok=True)
+
+
+def test_run_bat_local_help_accepts_unquoted_model_path_with_spaces():
+    root = Path(__file__).resolve().parents[2]
+    model_file = root / "workspace" / "tmp model for smoke 2.gguf"
+    model_file.parent.mkdir(parents=True, exist_ok=True)
+    model_file.write_text("x", encoding="utf-8")
+
+    env = os.environ.copy()
+    env["PROVIDER"] = "local"
+    env["SERVER_EXE"] = str(root / "llama-b8069-bin-win-cuda-13.1-x64" / "llama-server.exe")
+    env["MODEL_PATH"] = str(model_file)
     env["EXTRA_ARGS"] = "--help"
 
     try:
