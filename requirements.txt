@@ -1,0 +1,15 @@
+# Core
+rich
+
+# Web Operations
+beautifulsoup4
+
+# Browser Skill (Playwright)
+playwright
+
+# Photoshop Skill (Socket.IO)
+python-socketio
+websocket-client
+
+# Skill metadata parsing
+pyyaml

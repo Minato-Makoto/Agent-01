@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Runtime/session artifacts
+workspace/sessions/*.json
+
+# Reference repos (local development only)
+reference/
+
+# Third-party MCP tools
+adb-mcp/
+
+# IDE/editor
+.vscode/
+.idea/
+*.swp
+
+# OS files
+Thumbs.db
+.DS_Store
