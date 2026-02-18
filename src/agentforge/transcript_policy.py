@@ -30,9 +30,10 @@ def detect_provider_kind(mode: str, base_url: str, model_id: str = "") -> str:
     if mode == "local":
         return "llama_cpp"
     host = ""
+    base = (base_url or "").lower()
     try:
         host = (urlparse(base_url).hostname or "").lower()
-    except Exception:
+    except (ValueError, TypeError):
         host = ""
     model = (model_id or "").lower()
 
@@ -44,7 +45,7 @@ def detect_provider_kind(mode: str, base_url: str, model_id: str = "") -> str:
         return "anthropic"
     if "googleapis.com" in host or "generativelanguage" in host:
         return "gemini"
-    if "ollama" in host or host.startswith("localhost") and ":11434" in base_url:
+    if "ollama" in host or (host in {"localhost", "127.0.0.1"} and ":11434" in base):
         return "ollama"
     if "vllm" in host:
         return "vllm"

@@ -12,6 +12,7 @@ import sys
 import json
 import time
 import re
+import logging
 import subprocess
 import urllib.request
 import urllib.error
@@ -26,6 +27,8 @@ from .transcript_policy import (
     resolve_transcript_policy,
 )
 from .tool_id import sanitize_tool_call_id
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -114,11 +117,11 @@ class LLMInference:
         self._provider_kind = "llama_cpp"
 
         if not server_exe or not os.path.exists(server_exe):
-            print(f"[LLM] ERROR: llama-server.exe not found: {server_exe}", file=sys.stderr)
+            logger.error("[LLM] llama-server.exe not found: %s", server_exe)
             return False
 
         if not os.path.exists(model_path):
-            print(f"[LLM] ERROR: Model file not found: {model_path}", file=sys.stderr)
+            logger.error("[LLM] Model file not found: %s", model_path)
             return False
 
         cmd = [
@@ -137,8 +140,8 @@ class LLMInference:
         if self._config.n_threads > 0:
             cmd.extend(["-t", str(self._config.n_threads)])
 
-        print("[LLM] Starting llama-server...", file=sys.stderr)
-        print(f"[LLM] Model: {os.path.basename(model_path)}", file=sys.stderr)
+        logger.info("[LLM] Starting llama-server...")
+        logger.info("[LLM] Model: %s", os.path.basename(model_path))
 
         try:
             self._server_process = subprocess.Popen(
@@ -148,16 +151,16 @@ class LLMInference:
                 creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
             )
         except Exception as e:
-            print(f"[LLM] Failed to start server: {e}", file=sys.stderr)
+            logger.exception("[LLM] Failed to start server")
             return False
 
         if not self._wait_for_server(timeout=self._config.boot_timeout_s):
-            print("[LLM] ERROR: Server failed to start within timeout.", file=sys.stderr)
+            logger.error("[LLM] Server failed to start within timeout.")
             self.unload()
             return False
 
         self._loaded = True
-        print(f"[LLM] Server ready at {self._base_url}", file=sys.stderr)
+        logger.info("[LLM] Server ready at %s", self._base_url)
         return True
 
     def connect_remote(
@@ -167,7 +170,7 @@ class LLMInference:
         if config:
             self._config = config
         if not base_url:
-            print("[LLM] ERROR: base_url is required for remote mode.", file=sys.stderr)
+            logger.error("[LLM] base_url is required for remote mode.")
             return False
 
         self._mode = "remote"
@@ -190,15 +193,17 @@ class LLMInference:
             self._completion_endpoint = self._config.remote_completion_endpoint
 
         self._loaded = True
-        print(f"[LLM] Remote endpoint ready: {self._base_url}", file=sys.stderr)
+        logger.info("[LLM] Remote endpoint ready: %s", self._base_url)
         return True
 
     def _wait_for_server(self, timeout: int = 120) -> bool:
         start = time.time()
         while time.time() - start < timeout:
             if self._server_process and self._server_process.poll() is not None:
-                stderr = self._server_process.stderr.read().decode("utf-8", errors="replace")
-                print(f"[LLM] Server crashed: {stderr[:500]}", file=sys.stderr)
+                stderr = ""
+                if self._server_process.stderr is not None:
+                    stderr = self._server_process.stderr.read().decode("utf-8", errors="replace")
+                logger.error("[LLM] Server crashed: %s", stderr[:500])
                 return False
 
             try:
@@ -216,11 +221,14 @@ class LLMInference:
     def unload(self):
         """Stop local server process (if any)."""
         if self._server_process:
-            self._server_process.terminate()
             try:
-                self._server_process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                self._server_process.kill()
+                self._server_process.terminate()
+                try:
+                    self._server_process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    self._server_process.kill()
+            except (OSError, ValueError):
+                pass
             self._server_process = None
         self._loaded = False
 
@@ -655,7 +663,11 @@ class LLMInference:
         req = urllib.request.Request(url, data=data, headers=headers, method="POST")
         try:
             with urllib.request.urlopen(req, timeout=self._config.request_timeout_s) as resp:
-                return json.loads(resp.read())
+                body = resp.read().decode("utf-8", errors="replace")
+                try:
+                    return json.loads(body)
+                except json.JSONDecodeError as exc:
+                    raise RuntimeError(f"Invalid JSON response: {body[:300]}") from exc
         except urllib.error.HTTPError as e:
             body = e.read().decode("utf-8", errors="replace")
             raise RuntimeError(f"HTTP {e.code}: {body[:self._config.http_error_body_chars]}")
@@ -730,6 +742,8 @@ class LLMInference:
         except urllib.error.HTTPError as e:
             body = e.read().decode("utf-8", errors="replace")
             raise RuntimeError(f"HTTP {e.code}: {body[:self._config.http_error_body_chars]}")
+        except urllib.error.URLError as e:
+            raise RuntimeError(f"Network error: {e}")
 
         tool_calls: List[ToolCall] = []
         for idx in sorted(tc_parts.keys()):

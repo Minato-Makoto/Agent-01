@@ -305,7 +305,8 @@ def normalize_tool_schema_for_provider(schema: Dict[str, Any], provider: str) ->
     Normalize schema then apply provider-specific cleanup pass.
     """
     base = normalize_tool_schema(schema)
-    cleaned = _clean_schema_for_provider_recursive(base, provider)
+    provider_key = (provider or "").strip().lower()
+    cleaned = _clean_schema_for_provider_recursive(base, provider_key)
     if not isinstance(cleaned, dict):
         return base
     if cleaned.get("type") != "object":
@@ -313,7 +314,7 @@ def normalize_tool_schema_for_provider(schema: Dict[str, Any], provider: str) ->
     cleaned.setdefault("properties", {})
     if "required" in cleaned and not isinstance(cleaned.get("required"), list):
         cleaned["required"] = []
-    if provider.strip().lower() != "gemini":
+    if provider_key != "gemini":
         cleaned.setdefault("additionalProperties", True)
     return cleaned
 
