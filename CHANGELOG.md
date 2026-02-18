@@ -4,6 +4,15 @@
 
 ### Changed
 - Standardized ignore policy for runtime-generated artifacts (`workspace/sessions`, `workspace/screenshots`, `workspace/memory`, logs), local environment files, and local runtime binaries/models.
+- Reworked `run.bat` for Windows-first standardized launch:
+  - env-overridable defaults (`if not defined ...`)
+  - `AUTO_SETUP`, `CHECK_ONLY`, `NO_PAUSE` control flags
+  - explicit provider validation and cleaner exit flow
+- Added optional CLI `--env-file` support for centralized environment loading.
+- Added standardized root scripts in `scripts/` for setup/lint/test/build/start routines.
+- Added project metadata/config in `pyproject.toml` and Windows CI workflow (`.github/workflows/ci.yml`).
+- Added deploy/runbook docs and refreshed architecture/readme paths.
+- `adb-mcp` is now kept in-repo as optional integration (not required for base runtime startup).
 
 ### Removed
 - Deleted generated Python cache artifacts from `src/**/__pycache__` and `.pytest_cache`.

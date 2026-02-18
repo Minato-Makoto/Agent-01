@@ -1,75 +1,80 @@
-# Agent-01
+# Agent-01 (AgentForge Runtime)
 
-Local-first AI agent with skill-gated tools and a premium terminal UX.
+Windows-first AI agent runtime with structured tool-calling and OpenAI-compatible transport.
 
-Current runtime path is Chat Completions compatible (`/v1/chat/completions`) with structured tool-calling first and compatibility fallback for mixed OpenAI-compatible providers.
+## Platform
 
-## Production-ready scope
+- Supported OS: Windows (launcher is `.bat`-first by design).
+- Python: 3.10+.
+- Entry command: `run.bat`.
 
-- Structured tool-calling loop (`tools`, `tool_choice`, `tool_calls`, `tool_call_id`)
-- Provider-aware transcript policy and tool schema normalization
-- Capability fallback for rejected optional parameters
-- Remote-mode OpenAI API key preflight when target is `api.openai.com`
-- Reasoning parameter split:
-  - `reasoning_effort` for OpenAI-style providers
-  - `reasoning_format` for local/third-party providers that expose it
-- Token cap routing for OpenAI `o-series` models:
-  - use `max_completion_tokens`
-  - fallback to `max_tokens` automatically if endpoint rejects it
-- ASCII-first terminal UI with upgraded box-drawing and Rich coloring (plain-text fallback included)
+## One-command workflows
+
+- Setup: `scripts\setup.bat`
+- Lint: `scripts\lint.bat`
+- Test: `scripts\test.bat`
+- Build check: `scripts\build.bat`
+- Start (dev): `scripts\start-dev.bat`
+- Start (prod-style, no auto setup): `scripts\start-prod.bat`
+- Local review routine: `scripts\review-local.bat`
 
 ## Quick start
 
-### Local mode
+1. `scripts\setup.bat`
+2. Configure env values:
+   - edit `run.bat` defaults, or
+   - set environment variables before calling `run.bat`, or
+   - use `python -m agentforge.cli run --env-file .env`.
+3. Run `run.bat`
 
-1. Edit `run.bat` and set `PROVIDER=local`.
-2. Set `SERVER_EXE` and `MODEL_PATH` to your llama-server and GGUF model file.
-3. Run `run.bat`.
+Smoke-check launcher only (no backend/model startup):
 
-### Remote mode
-
-1. Edit `run.bat` and set `PROVIDER=openai_compatible`.
-2. Set `BASE_URL`, `MODEL_ID`, and `API_KEY_ENV`.
-3. If `BASE_URL=https://api.openai.com/v1`, ensure `API_KEY_ENV` is set in environment.
-4. Run `run.bat`.
-
-Manual CLI example:
-
-```powershell
-python -m agentforge.cli run `
-  --provider openai_compatible `
-  --base-url https://api.openai.com/v1 `
-  --model-id gpt-5-mini `
-  --api-key-env OPENAI_API_KEY `
-  --workspace .\workspace
+```bat
+set CHECK_ONLY=1
+run.bat
 ```
+
+## Local mode
+
+- `PROVIDER=local`
+- Required:
+  - `SERVER_EXE` -> `llama-server.exe`
+  - `MODEL_PATH` -> `.gguf` model path
+
+## Remote mode
+
+- `PROVIDER=openai_compatible`
+- Required:
+  - `BASE_URL`
+  - `MODEL_ID`
+  - `API_KEY_ENV` (env var name containing API key)
+
+OpenAI API key preflight is enforced when `BASE_URL` points to `api.openai.com`.
+
+## Optional `adb-mcp`
+
+`adb-mcp` is optional and intentionally not required for base runtime startup.
+If needed, install and run it separately from `adb-mcp/` following its own guide.
 
 ## Runtime overview
 
 ```text
 User input
   -> Agent core
-  -> Chat Completions request (messages + optional tools)
+  -> Chat Completions request
   -> assistant tool calls (if any)
   -> local tool execution
   -> tool result messages
   -> final assistant response
 ```
 
-Fallback parser (`<tool_call>...</tool_call>`) is only used when structured tool-calling is unavailable or known-bad textual tool payloads are detected.
+Fallback text parser (`<tool_call>...</tool_call>`) is used only when structured tool-calling is unavailable or provider compatibility fallback is active.
 
-## Key files
-
-- `src/agentforge/llm_inference.py`: transport, probing, compatibility fallback
-- `src/agentforge/agent_core.py`: think-act loop orchestration
-- `src/agentforge/transcript_policy.py`: provider transcript sanitization
-- `src/agentforge/schema_normalizer.py`: provider-aware schema cleanup
-- `src/agentforge/session.py`: session migration and persistence
-- `src/agentforge/ui.py`: Rich-powered terminal renderer
-
-## Documentation
+## Docs
 
 - [Architecture](docs/ARCHITECTURE.md)
+- [Deployment](docs/DEPLOYMENT.md)
+- [Runbook](docs/RUNBOOK.md)
 - [Model Compatibility](docs/MODEL_COMPATIBILITY.md)
 - [Runtime Parameters](docs/RUNTIME_PARAMETERS.md)
 - [Migration Guide](docs/MIGRATION.md)

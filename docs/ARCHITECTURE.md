@@ -85,3 +85,12 @@ The same format is preserved when `rich` is unavailable.
 - `tool_loop.py`: loop safety guards
 - `tools.py`: tool registry and OpenAI-compatible export
 - `context.py`: dynamic system prompt assembly from workspace guidance files
+
+## Root layout (standardized)
+
+- `run.bat`: Windows launcher (dev/prod entry)
+- `scripts/`: setup/lint/test/build/start wrappers
+- `src/agentforge/`: core runtime package
+- `src/builtin_tools/`: builtin skill tool modules
+- `src/tests/`: regression + compatibility test suite
+- `docs/`: architecture, deployment, runbook, migration notes

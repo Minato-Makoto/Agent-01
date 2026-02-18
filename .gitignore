@@ -30,9 +30,6 @@ llama-b*-win-cuda-*/
 # Reference repos (local development only)
 reference/
 
-# Third-party MCP tools
-adb-mcp/
-
 # IDE/editor
 .vscode/
 .idea/
