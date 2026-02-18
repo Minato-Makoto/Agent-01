@@ -8,9 +8,12 @@ Generates status panel for system prompt.
 
 import os
 import re
+import logging
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
+
+logger = logging.getLogger(__name__)
 
 try:
     import yaml
@@ -160,6 +163,9 @@ class SkillLoader:
 
     def _parse_skill_file(self, path: Path, folder: str, source: str) -> Optional[SkillInfo]:
         """Parse a SKILL_xxx.md file to extract metadata."""
+        if yaml is None:
+            logger.warning("PyYAML is not installed; cannot parse skill metadata: %s", path)
+            return None
         try:
             content = path.read_text(encoding="utf-8")
 
@@ -174,6 +180,8 @@ class SkillLoader:
 
             name = str(frontmatter["name"])
             description = str(frontmatter.get("description", ""))
+            tools = [str(t) for t in frontmatter.get("tools", []) if isinstance(t, str)]
+            module = str(frontmatter.get("module", "")).strip()
 
             # Validate skill name (PicoClaw loader.go:14,33)
             if not _SKILL_NAME_RE.match(name):
@@ -188,9 +196,9 @@ class SkillLoader:
                 description=description,
                 skill_file=str(path.resolve()),
                 folder=folder,
-                tools=frontmatter.get("tools", []),
-                module=frontmatter.get("module", ""),
+                tools=tools,
+                module=module,
                 source=source,
             )
-        except Exception:
+        except (OSError, UnicodeDecodeError, ValueError, TypeError):
             return None

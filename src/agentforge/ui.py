@@ -11,11 +11,14 @@ Streaming:
 from __future__ import annotations
 
 import json
+import logging
 import shutil
 import sys
 from typing import Any, Dict, List, Optional
 
 from .__init__ import __version__
+
+logger = logging.getLogger(__name__)
 
 try:
     from rich.console import Console
@@ -212,7 +215,8 @@ class ChatUI:
                 transient=True,
             )
             self._spinner_live.start()
-        except Exception:
+        except Exception as exc:
+            logger.debug("Spinner start failed: %s", exc)
             self._spinner_live = None
 
     def thinking_stop(self) -> None:
@@ -220,8 +224,8 @@ class ChatUI:
             return
         try:
             self._spinner_live.stop()
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Spinner stop failed: %s", exc)
         self._spinner_live = None
 
     # ── Streaming ───────────────────────────────────────────
@@ -361,14 +365,14 @@ class ChatUI:
         try:
             text.encode(self._encoding)
             return True
-        except Exception:
+        except (LookupError, UnicodeEncodeError):
             return False
 
     def _sanitize(self, text: str) -> str:
         try:
             text.encode(self._encoding)
             return text
-        except Exception:
+        except (LookupError, UnicodeEncodeError):
             return text.encode(self._encoding, errors="replace").decode(
                 self._encoding, errors="replace"
             )

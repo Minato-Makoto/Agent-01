@@ -173,6 +173,11 @@ def build_parser():
     run_parser.add_argument("-v", "--verbose", action="store_true", help="Verbose logging")
     run_parser.add_argument("--workspace", default="", help="Path to workspace directory")
     run_parser.add_argument("--session", default="", help="Session ID to resume")
+    run_parser.add_argument(
+        "--env-file",
+        default="",
+        help="Optional .env-style file to preload environment variables.",
+    )
     return parser
 
 
@@ -188,6 +193,34 @@ def find_workspace(args) -> str:
 
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     return os.path.join(project_root, "workspace")
+
+
+def _strip_wrapping_quotes(value: str) -> str:
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+        return value[1:-1]
+    return value
+
+
+def _load_env_file(path: str, override: bool = False) -> Dict[str, str]:
+    loaded: Dict[str, str] = {}
+    with open(path, "r", encoding="utf-8") as handle:
+        for raw in handle:
+            line = raw.strip()
+            if not line or line.startswith("#"):
+                continue
+            if line.startswith("export "):
+                line = line[7:].strip()
+            if "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            if not key:
+                continue
+            value = _strip_wrapping_quotes(value.strip())
+            loaded[key] = value
+            if override or key not in os.environ:
+                os.environ[key] = value
+    return loaded
 
 
 def _is_openai_api_base_url(base_url: str) -> bool:
@@ -393,6 +426,20 @@ def _render_agent_result(ui: ChatUI, result: str, stream_state: Dict[str, bool])
 def run_interactive(args) -> int:
     """Run interactive chat session with skill system."""
     ui = ChatUI(verbose=bool(_arg(args, "verbose", False)))
+
+    env_file = str(_arg(args, "env_file", "") or "").strip()
+    if env_file:
+        env_file_abs = os.path.abspath(env_file)
+        if not os.path.isfile(env_file_abs):
+            ui.error(f"Env file not found: {env_file_abs}")
+            return 1
+        try:
+            loaded = _load_env_file(env_file_abs, override=False)
+            ui.status(f"Loaded {len(loaded)} env vars from: {env_file_abs}")
+        except (OSError, UnicodeDecodeError) as exc:
+            ui.error(f"Failed to load env file: {exc}")
+            return 1
+
     config = build_inference_config(args)
 
     workspace_dir = find_workspace(args)

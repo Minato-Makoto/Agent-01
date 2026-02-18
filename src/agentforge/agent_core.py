@@ -339,7 +339,7 @@ class Agent:
             try:
                 with open(raw_path, "r", encoding="utf-8") as handle:
                     content = handle.read()
-            except Exception as exc:
+            except (OSError, UnicodeDecodeError) as exc:
                 return ToolResult.error_result(str(exc))
 
             if self.skill_loader:
@@ -411,7 +411,7 @@ class Agent:
         except ImportError as exc:
             logger.warning("Could not load tools for skill '%s': %s", skill.name, exc)
         except Exception as exc:
-            logger.error("Error activating skill '%s': %s", skill.name, exc)
+            logger.exception("Error activating skill '%s': %s", skill.name, exc)
 
         self._update_system_prompt()
 

@@ -8,7 +8,10 @@ AgentForge — Context Window Summarizer.
 """
 
 import json
+import logging
 from typing import Any, Callable, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
 
 
 class Summarizer:
@@ -124,8 +127,8 @@ Write a concise summary (max 200 words):"""
                 summary = llm_fn(prompt)
                 if summary:
                     return summary.strip(), recent_messages
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("LLM summarization failed; falling back to local summary: %s", exc)
 
         # Fallback: simple text concatenation
         parts = []
