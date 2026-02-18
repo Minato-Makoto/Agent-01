@@ -48,13 +48,6 @@ Canonical mapping between `run.bat`, CLI flags, and `InferenceConfig`.
 - `NO_PAUSE=0` (mặc định): script dừng ở cuối bằng `pause`, tiện xem lỗi khi chạy bằng double-click.
 - `NO_PAUSE=1`: script thoát ngay khi xong, phù hợp chạy trong terminal, CI, hoặc script tự động.
 
-Ví dụ:
-
-```bat
-set NO_PAUSE=1
-run.bat
-```
-
 ## Token-cap routing rule
 
 `MAX_TOKENS` is a logical cap. Runtime maps it by provider/model:
