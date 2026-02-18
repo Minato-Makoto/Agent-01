@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 from agentforge.tools import Tool, ToolRegistry, ToolResult
+from agentforge.runtime_config import load_shell_policy_config, load_tool_timeout_config
 
 logger = logging.getLogger(__name__)
 
@@ -468,6 +469,8 @@ def _shell_command(args: Dict[str, Any]) -> ToolResult:
     command = str(args.get("command", "")).strip()
     cwd = args.get("cwd")
     timeout = _sanitize_timeout(args.get("timeout", 30))
+    policy = load_shell_policy_config()
+    workspace = _workspace_root()
 
     if not command:
         return ToolResult.error_result("Missing 'command'")
@@ -476,10 +479,29 @@ def _shell_command(args: Dict[str, Any]) -> ToolResult:
     if not allowed:
         return ToolResult.error_result(f"SECURITY[{code}]: {reason}")
 
+    resolved_cwd: Path | None = None
     if cwd:
-        cwd = str(cwd)
-        if not os.path.isdir(cwd):
-            return ToolResult.error_result(f"SECURITY[INVALID_CWD]: Not a directory: {cwd}")
+        candidate = Path(str(cwd)).expanduser()
+        if not candidate.is_absolute():
+            base = workspace if policy.workspace_only else Path.cwd()
+            candidate = (base / candidate).resolve()
+        else:
+            candidate = candidate.resolve()
+        if not candidate.is_dir():
+            return ToolResult.error_result(f"SECURITY[INVALID_CWD]: Not a directory: {candidate}")
+        if policy.workspace_only and not _is_within_workspace(candidate):
+            return ToolResult.error_result(
+                f"SECURITY[CWD_OUTSIDE_WORKSPACE]: cwd must be under workspace: {workspace}"
+            )
+        resolved_cwd = candidate
+    elif policy.workspace_only:
+        if not workspace.is_dir():
+            return ToolResult.error_result(
+                f"SECURITY[INVALID_WORKSPACE]: workspace directory not found: {workspace}"
+            )
+        resolved_cwd = workspace
+
+    cwd_for_subprocess = str(resolved_cwd) if resolved_cwd is not None else None
 
     try:
         if sys.platform == "win32":
@@ -492,7 +514,7 @@ def _shell_command(args: Dict[str, Any]) -> ToolResult:
             capture_output=True,
             text=True,
             timeout=timeout,
-            cwd=cwd,
+            cwd=cwd_for_subprocess,
             env=os.environ.copy(),
         )
 
@@ -513,13 +535,14 @@ def _shell_command(args: Dict[str, Any]) -> ToolResult:
 
 def _process_list(args: Dict[str, Any]) -> ToolResult:
     name_filter = str(args.get("filter", "")).lower().strip()
+    timeout_s = load_tool_timeout_config().process_list_s
     try:
         if sys.platform == "win32":
             result = subprocess.run(
                 ["tasklist", "/FO", "CSV", "/NH"],
                 capture_output=True,
                 text=True,
-                timeout=10,
+                timeout=timeout_s,
             )
             lines = result.stdout.strip().split("\n")
             processes = []
@@ -537,7 +560,7 @@ def _process_list(args: Dict[str, Any]) -> ToolResult:
                 ["ps", "aux", "--sort=-rss"],
                 capture_output=True,
                 text=True,
-                timeout=10,
+                timeout=timeout_s,
             )
             lines = result.stdout.strip().split("\n")[1:51]
             processes = []

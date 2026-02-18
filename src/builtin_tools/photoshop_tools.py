@@ -14,6 +14,7 @@ import logging
 from typing import Any, Dict, Optional
 
 from agentforge.tools import Tool, ToolRegistry, ToolResult
+from agentforge.runtime_config import load_tool_timeout_config
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +66,11 @@ class PhotoshopClient:
         cls._client.on("ps_response", on_response)
         cls._client.on("ps_error", on_error)
 
-        event.wait(timeout=30)
+        timeout_s = load_tool_timeout_config().photoshop_s
+        if not event.wait(timeout=timeout_s):
+            return ToolResult.error_result(
+                f"Photoshop command timed out after {timeout_s}s: {command}"
+            )
 
         if result["error"]:
             return ToolResult(success=False, output=None, error=str(result["error"]))

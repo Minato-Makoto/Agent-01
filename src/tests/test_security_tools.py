@@ -46,3 +46,29 @@ def test_web_url_policy_blocks_basic_ssrf_targets():
     assert "Blocked host" in reason_localhost
     assert ok_metadata is False
     assert "Blocked host" in reason_metadata or "private/local IP" in reason_metadata
+
+
+def test_shell_command_blocks_cwd_outside_workspace_by_default(monkeypatch, tmp_path):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    monkeypatch.setenv("AGENTFORGE_WORKSPACE", str(workspace))
+    monkeypatch.delenv("SHELL_WORKSPACE_ONLY", raising=False)
+
+    result = _shell_command({"command": "echo hello", "cwd": str(outside)})
+    assert result.success is False
+    assert "SECURITY[CWD_OUTSIDE_WORKSPACE]" in result.error
+
+
+def test_shell_command_allows_outside_cwd_when_workspace_policy_disabled(monkeypatch, tmp_path):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    monkeypatch.setenv("AGENTFORGE_WORKSPACE", str(workspace))
+    monkeypatch.setenv("SHELL_WORKSPACE_ONLY", "0")
+
+    result = _shell_command({"command": "echo hello", "cwd": str(outside)})
+    assert result.success is True
+    assert result.output["exit_code"] == 0

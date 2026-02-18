@@ -14,6 +14,7 @@ from html import unescape
 from typing import Any, Dict, List
 
 from agentforge.tools import Tool, ToolRegistry, ToolResult
+from agentforge.runtime_config import load_tool_timeout_config
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +95,7 @@ def _search_duckduckgo(query: str, count: int = 5) -> List[Dict[str, str]]:
     req = urllib.request.Request(url)
     req.add_header("User-Agent", "Agent-01/1.0")
 
-    with urllib.request.urlopen(req, timeout=15) as resp:
+    with urllib.request.urlopen(req, timeout=load_tool_timeout_config().web_search_s) as resp:
         html = resp.read().decode("utf-8", errors="replace")
 
     results = []

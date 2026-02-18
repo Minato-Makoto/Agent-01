@@ -18,6 +18,7 @@ from typing import Any, Dict
 from urllib.parse import urlparse
 
 from agentforge.tools import Tool, ToolRegistry, ToolResult
+from agentforge.runtime_config import load_tool_timeout_config
 
 
 ALLOWED_SCHEMES = {"http", "https"}
@@ -147,6 +148,7 @@ def _http_request(args: Dict[str, Any]) -> ToolResult:
         return ToolResult.error_result(f"BLOCKED: {reason}")
 
     try:
+        request_timeout = load_tool_timeout_config().web_request_s
         data = body.encode("utf-8") if body else None
         req = urllib.request.Request(url, data=data, method=method)
         if isinstance(headers, dict):
@@ -155,7 +157,7 @@ def _http_request(args: Dict[str, Any]) -> ToolResult:
         if "User-Agent" not in {str(k) for k in headers.keys()} if isinstance(headers, dict) else set():
             req.add_header("User-Agent", "Agent-01/1.0")
 
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with urllib.request.urlopen(req, timeout=request_timeout) as resp:
             content = _sanitize_external_text(resp.read().decode("utf-8", errors="replace"))
             return ToolResult(
                 success=True,
@@ -183,9 +185,10 @@ def _web_scrape(args: Dict[str, Any]) -> ToolResult:
         return ToolResult.error_result(f"BLOCKED: {reason}")
 
     try:
+        request_timeout = load_tool_timeout_config().web_request_s
         req = urllib.request.Request(url)
         req.add_header("User-Agent", "Agent-01/1.0")
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with urllib.request.urlopen(req, timeout=request_timeout) as resp:
             html = resp.read().decode("utf-8", errors="replace")
 
         try:

@@ -15,6 +15,7 @@ import logging
 from typing import Any, Dict, Optional
 
 from agentforge.tools import Tool, ToolRegistry, ToolResult
+from agentforge.runtime_config import load_tool_timeout_config
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +61,17 @@ class BrowserManager:
         if cls._playwright:
             cls._playwright.stop()
             cls._playwright = None
+
+
+def _workspace_root() -> str:
+    raw = str(os.environ.get("AGENTFORGE_WORKSPACE", "")).strip()
+    if raw:
+        return os.path.abspath(raw)
+    return os.path.abspath(os.path.join(os.getcwd(), "workspace"))
+
+
+def _tool_timeouts():
+    return load_tool_timeout_config()
 
 
 def register(registry: ToolRegistry, skill_name: str = "Browser") -> None:
@@ -119,7 +131,7 @@ def _navigate(args: Dict[str, Any]) -> ToolResult:
         return ToolResult(success=False, output=None, error="Missing 'url'")
     try:
         page = BrowserManager.get_page()
-        page.goto(url, wait_until="domcontentloaded", timeout=30000)
+        page.goto(url, wait_until="domcontentloaded", timeout=_tool_timeouts().browser_nav_ms)
         return ToolResult(success=True, output={"title": page.title(), "url": page.url})
     except Exception as e:
         return ToolResult.from_exception(e, context="browser_navigate failed", logger=logger)
@@ -130,10 +142,11 @@ def _click(args: Dict[str, Any]) -> ToolResult:
     text = args.get("text", "")
     try:
         page = BrowserManager.get_page()
+        action_timeout = _tool_timeouts().browser_action_ms
         if text:
-            page.get_by_text(text).first.click(timeout=5000)
+            page.get_by_text(text).first.click(timeout=action_timeout)
         elif selector:
-            page.click(selector, timeout=5000)
+            page.click(selector, timeout=action_timeout)
         else:
             return ToolResult(success=False, output=None, error="Provide 'selector' or 'text'")
         return ToolResult(success=True, output="Clicked successfully")
@@ -146,7 +159,7 @@ def _type(args: Dict[str, Any]) -> ToolResult:
     text = args.get("text", "")
     try:
         page = BrowserManager.get_page()
-        page.fill(selector, text, timeout=5000)
+        page.fill(selector, text, timeout=_tool_timeouts().browser_action_ms)
         return ToolResult(success=True, output=f"Typed '{text}' into {selector}")
     except Exception as e:
         return ToolResult.from_exception(e, context="browser_type failed", logger=logger)
@@ -158,7 +171,7 @@ def _screenshot(args: Dict[str, Any]) -> ToolResult:
         page = BrowserManager.get_page()
         screenshot_bytes = page.screenshot(full_page=full_page)
         # Save to file and return path
-        screenshot_dir = os.path.join(os.getcwd(), "workspace", "screenshots")
+        screenshot_dir = os.path.join(_workspace_root(), "screenshots")
         os.makedirs(screenshot_dir, exist_ok=True)
         import time
         filename = f"screenshot_{int(time.time())}.png"
@@ -179,15 +192,16 @@ def _get_content(args: Dict[str, Any]) -> ToolResult:
     mode = args.get("mode", "text")
     try:
         page = BrowserManager.get_page()
+        action_timeout = _tool_timeouts().browser_action_ms
         if mode == "accessibility":
             # Get accessibility tree snapshot
             snapshot = page.accessibility.snapshot()
             return ToolResult(success=True, output=snapshot)
         else:
             if selector:
-                content = page.locator(selector).inner_text(timeout=5000)
+                content = page.locator(selector).inner_text(timeout=action_timeout)
             else:
-                content = page.locator("body").inner_text(timeout=5000)
+                content = page.locator("body").inner_text(timeout=action_timeout)
             # Limit content size
             return ToolResult(success=True, output=content[:10000])
     except Exception as e:
@@ -208,7 +222,11 @@ def _evaluate(args: Dict[str, Any]) -> ToolResult:
 
 def _wait(args: Dict[str, Any]) -> ToolResult:
     selector = args.get("selector", "")
-    timeout = args.get("timeout", 10000)
+    default_timeout = _tool_timeouts().browser_wait_ms
+    try:
+        timeout = int(args.get("timeout", default_timeout))
+    except (TypeError, ValueError):
+        timeout = default_timeout
     try:
         page = BrowserManager.get_page()
         page.wait_for_selector(selector, timeout=timeout)
@@ -234,7 +252,7 @@ def _select(args: Dict[str, Any]) -> ToolResult:
     value = args.get("value", "")
     try:
         page = BrowserManager.get_page()
-        page.select_option(selector, value, timeout=5000)
+        page.select_option(selector, value, timeout=_tool_timeouts().browser_action_ms)
         return ToolResult(success=True, output=f"Selected '{value}' in {selector}")
     except Exception as e:
         return ToolResult.from_exception(e, context="browser_select failed", logger=logger)
