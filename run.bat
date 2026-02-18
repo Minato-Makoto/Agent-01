@@ -19,6 +19,7 @@ REM   Local:
 REM     set PROVIDER=local
 REM     set SERVER_EXE=D:\tools\llama-server.exe
 REM     set MODEL_PATH=D:\models\my-model.gguf
+REM     REM co the dat MODEL_PATH="D:\models\my-model.gguf"
 REM     run.bat
 REM
 REM   Remote:
@@ -96,7 +97,7 @@ if not defined PROVIDER set "PROVIDER=local"
 
 REM ---- Local backend (required when PROVIDER=local) ----
 if not defined SERVER_EXE set "SERVER_EXE=%~dp0llama-b8069-bin-win-cuda-13.1-x64\llama-server.exe"
-if not defined MODEL_PATH set "MODEL_PATH="
+if not defined MODEL_PATH set "MODEL_PATH=D:\Personal\MinatoZeroFace\AI Agent\model\Qwen3VL-Thinking\Qwen3VL-8B-Thinking-Q4_K_M.gguf"
 
 REM ---- Remote backend (required when PROVIDER=openai_compatible) ----
 if not defined BASE_URL set "BASE_URL=http://127.0.0.1:8080"
@@ -143,6 +144,15 @@ if not defined TOOL_TIMEOUT_WEB_SEARCH_S set "TOOL_TIMEOUT_WEB_SEARCH_S=15"
 if not defined TOOL_TIMEOUT_PHOTOSHOP_S set "TOOL_TIMEOUT_PHOTOSHOP_S=30"
 if not defined TOOL_TIMEOUT_PROCESS_LIST_S set "TOOL_TIMEOUT_PROCESS_LIST_S=10"
 if not defined SHELL_WORKSPACE_ONLY set "SHELL_WORKSPACE_ONLY=1"
+
+REM Normalize quoted env inputs (support both: set VAR=value and set VAR="value")
+set "PROVIDER=%PROVIDER:"=%"
+set "SERVER_EXE=%SERVER_EXE:"=%"
+set "MODEL_PATH=%MODEL_PATH:"=%"
+set "BASE_URL=%BASE_URL:"=%"
+set "MODEL_ID=%MODEL_ID:"=%"
+set "API_KEY_ENV=%API_KEY_ENV:"=%"
+set "WORKSPACE=%WORKSPACE:"=%"
 
 if not exist "%WORKSPACE%" (
     mkdir "%WORKSPACE%" >nul 2>&1

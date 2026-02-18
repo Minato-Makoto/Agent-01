@@ -92,6 +92,33 @@ def test_run_bat_smoke_openai_compatible_help():
     assert "usage: agentforge run" in proc.stdout
 
 
+def test_run_bat_local_help_accepts_quoted_model_path():
+    root = Path(__file__).resolve().parents[2]
+    model_file = root / "workspace" / "tmp-model-for-smoke.gguf"
+    model_file.parent.mkdir(parents=True, exist_ok=True)
+    model_file.write_text("x", encoding="utf-8")
+
+    env = os.environ.copy()
+    env["PROVIDER"] = "local"
+    env["SERVER_EXE"] = str(root / "llama-b8069-bin-win-cuda-13.1-x64" / "llama-server.exe")
+    env["MODEL_PATH"] = f"\"{model_file}\""
+    env["EXTRA_ARGS"] = "--help"
+
+    try:
+        proc = subprocess.run(
+            ["cmd", "/c", "run.bat"],
+            cwd=str(root),
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        assert proc.returncode == 0
+        assert "usage: agentforge run" in proc.stdout
+    finally:
+        model_file.unlink(missing_ok=True)
+
+
 def test_remote_mode_smoke_with_mock_endpoint(monkeypatch, mock_chat_server, minimal_workspace):
     mock_chat_server.enqueue_stream(
         [
