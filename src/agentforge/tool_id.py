@@ -18,18 +18,20 @@ def sanitize_tool_call_id(raw_id: str, mode: str = "strict") -> str:
     - strict: alphanumeric only
     - strict9: alphanumeric exactly 9 chars
     """
+    normalized_mode = (mode or "strict").strip().lower()
     if not isinstance(raw_id, str) or not raw_id:
-        return "defaultid" if mode == "strict9" else "defaulttoolid"
+        return "defaultid" if normalized_mode == "strict9" else "defaulttoolid"
 
     cleaned = _ALNUM_RE.sub("", raw_id)
     if not cleaned:
         cleaned = "sanitized"
 
-    if mode == "strict9":
+    if normalized_mode == "strict9":
+        # Keep predictable prefix and deterministic hash tail to reduce collisions.
         if len(cleaned) >= 9:
             return cleaned[:9]
-        digest = hashlib.sha1(cleaned.encode("utf-8")).hexdigest()[:9]
-        return digest
+        digest = hashlib.sha1(cleaned.encode("utf-8")).hexdigest()
+        return (cleaned + digest)[:9]
 
     return cleaned
 
@@ -42,13 +44,15 @@ def remap_tool_call_ids(ids: Dict[str, str], mode: str = "strict") -> Dict[str, 
     out: Dict[str, str] = {}
     for original in ids.keys():
         base = sanitize_tool_call_id(original, mode=mode)
-        candidate = base
+        candidate = base or "toolcall"
         if candidate in used:
-            suffix = hashlib.sha1(original.encode("utf-8")).hexdigest()[:6]
-            if mode == "strict9":
-                candidate = (base[:3] + suffix)[:9]
+            digest = hashlib.sha1(str(original).encode("utf-8")).hexdigest()
+            if (mode or "").strip().lower() == "strict9":
+                candidate = (candidate[:3] + digest)[:9]
             else:
-                candidate = f"{base}{suffix}"
+                candidate = f"{candidate}{digest[:6]}"
+            while candidate in used:
+                candidate = f"{candidate}{digest[-1]}"
         used.add(candidate)
         out[original] = candidate
     return out

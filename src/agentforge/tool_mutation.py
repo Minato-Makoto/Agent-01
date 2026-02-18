@@ -16,6 +16,20 @@ MUTATING_TOOL_NAMES = {
     "ps_save_document",
 }
 
+READ_ONLY_TOOL_NAMES = {
+    "read_file",
+    "list_directory",
+    "search_files",
+    "file_info",
+    "recall",
+    "calculate",
+    "web_search",
+    "web_scrape",
+    "http_request",
+    "process_list",
+    "browser_get_content",
+}
+
 READ_ONLY_ACTIONS = {
     "read",
     "list",
@@ -44,6 +58,8 @@ def is_mutating_tool_call(tool_name: str, args: Dict[str, Any]) -> bool:
     """
     normalized = (tool_name or "").strip().lower()
     if not normalized:
+        return False
+    if normalized in READ_ONLY_TOOL_NAMES:
         return False
     if normalized in MUTATING_TOOL_NAMES:
         return True

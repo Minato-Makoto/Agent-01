@@ -14,11 +14,14 @@ Dynamic sections assembled here:
 
 import platform
 import sys
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
 from .__init__ import __version__
+
+logger = logging.getLogger(__name__)
 
 
 class ContextBuilder:
@@ -41,6 +44,12 @@ class ContextBuilder:
 
     def __init__(self, workspace_dir: str):
         self._workspace = Path(workspace_dir)
+        self._load_errors: list[str] = []
+
+    @property
+    def load_errors(self) -> list[str]:
+        """Return non-fatal file-loading errors from the latest build."""
+        return list(self._load_errors)
 
     def build_system_prompt(
         self,
@@ -106,6 +115,7 @@ class ContextBuilder:
 
     def _load_bootstrap_files(self) -> str:
         """Load workspace .md files — all static content lives here."""
+        self._load_errors.clear()
         parts = []
         for filename in self.BOOTSTRAP_FILES:
             content = self._read_file(filename)
@@ -120,6 +130,9 @@ class ContextBuilder:
         if path.exists():
             try:
                 return path.read_text(encoding="utf-8").strip()
-            except Exception:
+            except (OSError, UnicodeDecodeError) as exc:
+                msg = f"Failed to read bootstrap file '{path}': {exc}"
+                self._load_errors.append(msg)
+                logger.warning(msg)
                 return ""
         return ""

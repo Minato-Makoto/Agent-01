@@ -10,11 +10,25 @@ Supports:
 """
 
 import json
+import logging
 import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Protocol, runtime_checkable
 
 from .schema_normalizer import normalize_tool_schema
+
+logger = logging.getLogger(__name__)
+
+
+def _safe_json(value: Any, *, pretty: bool = False) -> str:
+    kwargs: Dict[str, Any] = {"ensure_ascii": False}
+    if pretty:
+        kwargs["indent"] = 2
+    try:
+        return json.dumps(value, **kwargs)
+    except (TypeError, ValueError):
+        return json.dumps({"raw": str(value)}, **kwargs)
+
 
 @dataclass
 class ToolResult:
@@ -43,7 +57,7 @@ class ToolResult:
         if self.success:
             if isinstance(self.output, str):
                 return self.output
-            return json.dumps(self.output, ensure_ascii=False, indent=2)
+            return _safe_json(self.output, pretty=True)
         return f"Error: {self.error}"
 
     @staticmethod
@@ -84,6 +98,7 @@ class Tool:
             return ToolResult(success=True, output=result, execution_time=elapsed)
         except Exception as e:
             elapsed = time.time() - start
+            logger.exception("Tool '%s' execution failed", self.name)
             return ToolResult(success=False, output=None, error=str(e), execution_time=elapsed)
 
 
@@ -108,6 +123,8 @@ class ToolRegistry:
 
     def register(self, tool: Tool) -> None:
         """Register a single tool."""
+        if tool.name in self._tools:
+            logger.warning("Replacing existing tool registration for '%s'", tool.name)
         self._tools[tool.name] = tool
         if tool.skill_name:
             if tool.skill_name not in self._skill_tools:
@@ -158,17 +175,20 @@ class ToolRegistry:
 
     def to_openai_tools(self) -> List[Dict[str, Any]]:
         """Export tool definitions as OpenAI-compatible tools array."""
-        return [
-            {
-                "type": "function",
-                "function": {
-                    "name": t.name,
-                    "description": t.description,
-                    "parameters": normalize_tool_schema(t.input_schema),
-                },
-            }
-            for t in self._tools.values()
-        ]
+        out: List[Dict[str, Any]] = []
+        for t in sorted(self._tools.values(), key=lambda item: item.name):
+            schema = t.input_schema if isinstance(t.input_schema, dict) else {}
+            out.append(
+                {
+                    "type": "function",
+                    "function": {
+                        "name": t.name,
+                        "description": t.description,
+                        "parameters": normalize_tool_schema(schema),
+                    },
+                }
+            )
+        return out
 
     def to_json(self) -> List[Dict[str, Any]]:
         """

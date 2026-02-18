@@ -9,6 +9,13 @@ import json
 from .contracts import ToolCall
 
 
+def _safe_json(value: Any) -> str:
+    try:
+        return json.dumps(value, ensure_ascii=False)
+    except (TypeError, ValueError):
+        return json.dumps({"raw": str(value)}, ensure_ascii=False)
+
+
 @dataclass
 class ChatMessage:
     """A single normalized message in conversation history."""
@@ -25,6 +32,8 @@ class ChatMessage:
             msg["tool_calls"] = self.tool_calls
         if self.tool_call_id:
             msg["tool_call_id"] = self.tool_call_id
+        if self.role == "tool" and self.tool_name:
+            msg["name"] = self.tool_name
         return msg
 
 
@@ -55,12 +64,11 @@ class PromptBuilder:
         self.add_assistant_tool_calls([ToolCall(id=call_id, name=name, arguments=arguments)])
 
     def add_tool_result(self, call_id: str, name: str, result: Any):
+        serialized = result if isinstance(result, str) else _safe_json(result)
         self.messages.append(
             ChatMessage(
                 role="tool",
-                content=json.dumps(result, ensure_ascii=False)
-                if not isinstance(result, str)
-                else result,
+                content=serialized,
                 tool_call_id=call_id,
                 tool_name=name,
             )
@@ -81,19 +89,19 @@ class PromptBuilder:
         for m in self.messages:
             total += len(m.content) + len(m.role) + 20
             if m.tool_calls:
-                total += len(json.dumps(m.tool_calls, ensure_ascii=False))
+                total += len(_safe_json(m.tool_calls))
 
         while total > max_chars and len(self.messages) >= 2:
             removed = self.messages.pop(0)
             total -= len(removed.content) + len(removed.role) + 20
             if removed.tool_calls:
-                total -= len(json.dumps(removed.tool_calls, ensure_ascii=False))
+                total -= len(_safe_json(removed.tool_calls))
 
             if self.messages:
                 removed2 = self.messages.pop(0)
                 total -= len(removed2.content) + len(removed2.role) + 20
                 if removed2.tool_calls:
-                    total -= len(json.dumps(removed2.tool_calls, ensure_ascii=False))
+                    total -= len(_safe_json(removed2.tool_calls))
 
     def build_messages(self, include_system: bool = True) -> List[Dict[str, Any]]:
         """Build API-ready messages list."""

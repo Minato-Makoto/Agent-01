@@ -4,8 +4,22 @@ AgentForge runtime contracts.
 Shared dataclasses for provider/tool-calling interoperability.
 """
 
+import json
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
+
+
+def _safe_json_dumps(value: Any) -> str:
+    """
+    Serialize tool arguments safely for provider payloads.
+
+    Fallback keeps payload JSON-serializable even if a caller passes
+    non-serializable objects by mistake.
+    """
+    try:
+        return json.dumps(value, ensure_ascii=False)
+    except (TypeError, ValueError):
+        return json.dumps({"raw": str(value)}, ensure_ascii=False)
 
 
 @dataclass
@@ -19,14 +33,12 @@ class ToolCall:
 
     def to_openai_message_tool_call(self) -> Dict[str, Any]:
         """Return OpenAI-compatible assistant.tool_calls item."""
-        import json
-
         return {
             "id": self.id,
             "type": "function",
             "function": {
                 "name": self.name,
-                "arguments": json.dumps(self.arguments, ensure_ascii=False),
+                "arguments": _safe_json_dumps(self.arguments),
             },
         }
 
