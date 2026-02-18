@@ -7,26 +7,26 @@ Supports:
 - Structured tool-calling with runtime capability fallback
 """
 
-from __future__ import annotations
-
-import json
-import logging
 import os
+import sys
+import json
+import time
 import re
+import logging
+import subprocess
+import urllib.request
+import urllib.error
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
 from .contracts import ChatCompletionResult, ProviderCapabilities, ToolCall
-from .inference.compat import CompatFallback
-from .inference.http_transport import HttpTransport
-from .inference.server_manager import LocalServerManager
 from .schema_normalizer import normalize_openai_tools_for_provider
-from .tool_id import sanitize_tool_call_id
 from .transcript_policy import (
     apply_transcript_policy,
     detect_provider_kind,
     resolve_transcript_policy,
 )
+from .tool_id import sanitize_tool_call_id
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +91,7 @@ class LLMInference:
         self._loaded = False
         self._mode = "local"  # local | remote
         self._model_path = ""
+        self._server_process: Optional[subprocess.Popen] = None
         self._server_exe = ""
         self._base_url = ""
         self._chat_endpoint = self._config.local_chat_endpoint
@@ -98,42 +99,14 @@ class LLMInference:
         self._api_key = ""
         self._capabilities = ProviderCapabilities()
         self._provider_kind = "llama_cpp"
-
-        self._server = LocalServerManager()
-        self._transport = HttpTransport()
-        self._compat = CompatFallback(
-            unsupported_error_keywords=self._config.unsupported_error_keywords,
-            capabilities=self._capabilities,
-        )
-        # Backward-compatible attribute for callers/tests that may inspect process state.
-        self._server_process = None
-        self._refresh_runtime_helpers()
-
-    def _set_config(self, config: InferenceConfig) -> None:
-        self._config = config
-        self._refresh_runtime_helpers()
-
-    def _reset_capabilities(self) -> None:
-        self._capabilities = ProviderCapabilities()
-        self._compat.update_capabilities(self._capabilities)
-
-    def _refresh_runtime_helpers(self) -> None:
-        self._compat.update_keywords(self._config.unsupported_error_keywords)
-        self._compat.update_capabilities(self._capabilities)
-        self._transport.configure(
-            base_url=self._base_url,
-            api_key=self._api_key,
-            request_timeout_s=self._config.request_timeout_s,
-            http_error_body_chars=self._config.http_error_body_chars,
-            max_requests_per_minute=self._config.max_requests_per_minute,
-        )
+        self._request_timestamps: List[float] = []
 
     def load_model(
         self, model_path: str, config: Optional[InferenceConfig] = None, server_exe: str = ""
     ) -> bool:
         """Start local llama-server with the given model."""
         if config:
-            self._set_config(config)
+            self._config = config
 
         self._mode = "local"
         self._model_path = model_path
@@ -142,35 +115,48 @@ class LLMInference:
         self._chat_endpoint = self._config.local_chat_endpoint
         self._completion_endpoint = self._config.local_completion_endpoint
         self._api_key = ""
-        self._reset_capabilities()
+        self._capabilities = ProviderCapabilities()
         self._provider_kind = "llama_cpp"
-        self._refresh_runtime_helpers()
 
         if not server_exe or not os.path.exists(server_exe):
             logger.error("[LLM] llama-server.exe not found: %s", server_exe)
             return False
-        if not model_path or not os.path.exists(model_path):
+
+        if not os.path.exists(model_path):
             logger.error("[LLM] Model file not found: %s", model_path)
             return False
 
+        cmd = [
+            server_exe,
+            "-m",
+            model_path,
+            "-c",
+            str(self._config.n_ctx),
+            "-ngl",
+            str(self._config.n_gpu_layers),
+            "--host",
+            self._config.host,
+            "--port",
+            str(self._config.port),
+        ]
+        if self._config.n_threads > 0:
+            cmd.extend(["-t", str(self._config.n_threads)])
+
         logger.info("[LLM] Starting llama-server...")
         logger.info("[LLM] Model: %s", os.path.basename(model_path))
-        started = self._server.start(
-            server_exe=server_exe,
-            model_path=model_path,
-            host=self._config.host,
-            port=self._config.port,
-            n_ctx=self._config.n_ctx,
-            n_gpu_layers=self._config.n_gpu_layers,
-            n_threads=self._config.n_threads,
-            base_url=self._base_url,
-            health_path=self._config.health_path,
-            health_timeout_s=self._config.health_timeout_s,
-            health_poll_interval_s=self._config.health_poll_interval_s,
-            boot_timeout_s=self._config.boot_timeout_s,
-        )
-        self._server_process = self._server.process
-        if not started:
+
+        try:
+            self._server_process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+            )
+        except Exception as e:
+            logger.exception("[LLM] Failed to start server")
+            return False
+
+        if not self._wait_for_server(timeout=self._config.boot_timeout_s):
             logger.error("[LLM] Server failed to start within timeout.")
             self.unload()
             return False
@@ -184,7 +170,7 @@ class LLMInference:
     ) -> bool:
         """Attach to a remote OpenAI-compatible endpoint (no local process)."""
         if config:
-            self._set_config(config)
+            self._config = config
         if not base_url:
             logger.error("[LLM] base_url is required for remote mode.")
             return False
@@ -196,7 +182,7 @@ class LLMInference:
         self._api_key = api_key or ""
         self._config.model_id = model_id or "local"
         self._base_url = base_url.rstrip("/")
-        self._reset_capabilities()
+        self._capabilities = ProviderCapabilities()
         self._provider_kind = detect_provider_kind(
             mode="remote", base_url=self._base_url, model_id=self._config.model_id
         )
@@ -208,15 +194,44 @@ class LLMInference:
             self._chat_endpoint = self._config.remote_chat_endpoint
             self._completion_endpoint = self._config.remote_completion_endpoint
 
-        self._refresh_runtime_helpers()
         self._loaded = True
         logger.info("[LLM] Remote endpoint ready: %s", self._base_url)
         return True
 
+    def _wait_for_server(self, timeout: int = 120) -> bool:
+        start = time.time()
+        while time.time() - start < timeout:
+            if self._server_process and self._server_process.poll() is not None:
+                stderr = ""
+                if self._server_process.stderr is not None:
+                    stderr = self._server_process.stderr.read().decode("utf-8", errors="replace")
+                logger.error("[LLM] Server crashed: %s", stderr[:500])
+                return False
+
+            try:
+                req = urllib.request.Request(f"{self._base_url}{self._config.health_path}")
+                resp = urllib.request.urlopen(req, timeout=self._config.health_timeout_s)
+                data = json.loads(resp.read())
+                status = data.get("status", "")
+                if status == "ok":
+                    return True
+            except (urllib.error.URLError, ConnectionError, OSError, json.JSONDecodeError):
+                pass
+            time.sleep(self._config.health_poll_interval_s)
+        return False
+
     def unload(self):
         """Stop local server process (if any)."""
-        self._server.stop()
-        self._server_process = None
+        if self._server_process:
+            try:
+                self._server_process.terminate()
+                try:
+                    self._server_process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    self._server_process.kill()
+            except (OSError, ValueError):
+                pass
+            self._server_process = None
         self._loaded = False
 
     @property
@@ -267,20 +282,31 @@ class LLMInference:
             if choices:
                 return str(choices[0].get("text", ""))
             return ""
-        except Exception as exc:
-            return f"[Error: {exc}]"
+        except Exception as e:
+            return f"[Error: {e}]"
 
     def _is_unsupported_param_error(self, error_text: str, *params: str) -> bool:
-        return self._compat.is_unsupported_param_error(error_text, *params)
+        msg = (error_text or "").lower()
+        if not msg:
+            return False
+        if not any((p or "").lower() in msg for p in params):
+            return False
+        keywords = self._config.unsupported_error_keywords
+        return any(k in msg for k in keywords)
 
     def _is_tools_unsupported_error(self, error_text: str) -> bool:
-        return self._compat.is_tools_unsupported_error(error_text)
+        return self._is_unsupported_param_error(
+            error_text,
+            "tools",
+            "tool_choice",
+        )
 
     def _should_send_reasoning_format(self) -> bool:
         if self._capabilities.supports_reasoning_format is False:
             return False
         if not self._config.reasoning_format:
             return False
+        # OpenAI-first providers use `reasoning_effort`, not `reasoning_format`.
         return self._provider_kind not in {"openai", "openrouter", "anthropic", "gemini"}
 
     def _should_send_reasoning_effort(self) -> bool:
@@ -297,9 +323,11 @@ class LLMInference:
         return model
 
     def _should_prefer_max_completion_tokens(self) -> bool:
+        # OpenAI Chat Completions marks `max_tokens` incompatible with o-series models.
         if self._provider_kind not in {"openai", "openrouter", "openai_compatible"}:
             return False
-        return bool(re.match(r"^o\d", self._resolved_model_id()))
+        model = self._resolved_model_id()
+        return bool(re.match(r"^o\d", model))
 
     def _apply_chat_token_limit(self, payload: Dict[str, Any], max_tokens: Optional[int]) -> None:
         limit = max_tokens if max_tokens is not None else self._config.max_tokens
@@ -313,7 +341,78 @@ class LLMInference:
     def _apply_compat_payload_fallback(
         self, payload: Dict[str, Any], error_text: str
     ) -> Tuple[bool, bool]:
-        return self._compat.apply_payload_fallback(payload, error_text)
+        """
+        Try to remove unsupported optional params and retry.
+
+        Returns:
+            (changed_payload, used_tools_fallback)
+        """
+        used_tools_fallback = False
+
+        if ("tools" in payload or "tool_choice" in payload) and self._is_tools_unsupported_error(
+            error_text
+        ):
+            self._capabilities.supports_tools = False
+            self._capabilities.supports_parallel_tool_calls = False
+            payload.pop("tools", None)
+            payload.pop("tool_choice", None)
+            payload.pop("parallel_tool_calls", None)
+            return True, True
+
+        if ("parallel_tool_calls" in payload) and self._is_unsupported_param_error(
+            error_text, "parallel_tool_calls"
+        ):
+            self._capabilities.supports_parallel_tool_calls = False
+            payload.pop("parallel_tool_calls", None)
+            return True, used_tools_fallback
+
+        if ("response_format" in payload) and self._is_unsupported_param_error(
+            error_text, "response_format"
+        ):
+            self._capabilities.supports_response_format = False
+            payload.pop("response_format", None)
+            return True, used_tools_fallback
+
+        if ("max_completion_tokens" in payload) and self._is_unsupported_param_error(
+            error_text, "max_completion_tokens"
+        ):
+            payload["max_tokens"] = payload.pop("max_completion_tokens")
+            return True, used_tools_fallback
+
+        if ("max_tokens" in payload) and self._is_unsupported_param_error(
+            error_text, "max_tokens"
+        ):
+            payload["max_completion_tokens"] = payload.pop("max_tokens")
+            return True, used_tools_fallback
+
+        if ("reasoning_effort" in payload) and self._is_unsupported_param_error(
+            error_text, "reasoning_effort"
+        ):
+            self._capabilities.supports_reasoning_effort = False
+            payload.pop("reasoning_effort", None)
+            return True, used_tools_fallback
+
+        if ("reasoning_format" in payload) and self._is_unsupported_param_error(
+            error_text, "reasoning_format"
+        ):
+            self._capabilities.supports_reasoning_format = False
+            payload.pop("reasoning_format", None)
+            return True, used_tools_fallback
+
+        if ("stream" in payload) and self._is_unsupported_param_error(error_text, "stream"):
+            self._capabilities.supports_stream = False
+            payload.pop("stream", None)
+            return True, used_tools_fallback
+
+        if ("grammar" in payload) and self._is_unsupported_param_error(error_text, "grammar"):
+            payload.pop("grammar", None)
+            return True, used_tools_fallback
+
+        if ("stop" in payload) and self._is_unsupported_param_error(error_text, "stop"):
+            payload.pop("stop", None)
+            return True, used_tools_fallback
+
+        return False, used_tools_fallback
 
     def _post_with_compat_fallback(
         self, endpoint: str, payload: Dict[str, Any]
@@ -322,8 +421,8 @@ class LLMInference:
         for _ in range(max(1, self._config.compat_retry_limit)):
             try:
                 return self._post(endpoint, payload), used_tools_fallback
-            except Exception as exc:
-                changed, used_tools = self._apply_compat_payload_fallback(payload, str(exc))
+            except Exception as e:
+                changed, used_tools = self._apply_compat_payload_fallback(payload, str(e))
                 used_tools_fallback = used_tools_fallback or used_tools
                 if changed:
                     continue
@@ -363,10 +462,11 @@ class LLMInference:
         try:
             self._post(self._chat_endpoint, probe_payload)
             self._capabilities.supports_tools = True
-        except Exception as exc:
-            if self._is_tools_unsupported_error(str(exc)):
+        except Exception as e:
+            if self._is_tools_unsupported_error(str(e)):
                 self._capabilities.supports_tools = False
             else:
+                # Keep optimistic default if failure is unrelated.
                 self._capabilities.supports_tools = True
         return bool(self._capabilities.supports_tools)
 
@@ -384,7 +484,11 @@ class LLMInference:
         on_token=None,
         on_reasoning=None,
     ) -> ChatCompletionResult:
-        """Generate from chat-completions endpoint."""
+        """
+        Generate from chat-completions endpoint.
+
+        Returns structured `ChatCompletionResult`.
+        """
         if not self._loaded:
             return ChatCompletionResult(error="Server not running")
 
@@ -394,9 +498,9 @@ class LLMInference:
         policy_messages, _ = apply_transcript_policy(messages, transcript_policy)
         effective_messages = policy_messages or messages
         can_use_tools = bool(tools) and self._probe_supports_tools(effective_messages)
-        provider_tools = (
-            normalize_openai_tools_for_provider(tools or [], self._provider_kind) if tools else []
-        )
+        provider_tools = normalize_openai_tools_for_provider(
+            tools or [], self._provider_kind
+        ) if tools else []
 
         payload: Dict[str, Any] = {
             "model": self._config.model_id,
@@ -409,7 +513,6 @@ class LLMInference:
             payload["reasoning_effort"] = self._config.reasoning_effort
         elif self._should_send_reasoning_format():
             payload["reasoning_format"] = self._config.reasoning_format
-
         if can_use_tools and provider_tools:
             payload["tools"] = provider_tools
             payload["tool_choice"] = tool_choice
@@ -427,15 +530,13 @@ class LLMInference:
             if self._capabilities.supports_stream is not False:
                 payload["stream"] = True
             return self._stream_chat_completion(
-                payload=payload,
-                on_token=on_token,
-                on_reasoning=on_reasoning,
+                payload=payload, on_token=on_token, on_reasoning=on_reasoning
             )
 
         try:
             resp, used_fallback = self._post_with_compat_fallback(self._chat_endpoint, payload)
-        except Exception as exc:
-            return ChatCompletionResult(error=str(exc))
+        except Exception as e:
+            return ChatCompletionResult(error=str(e))
 
         if "parallel_tool_calls" in payload:
             self._capabilities.supports_parallel_tool_calls = True
@@ -547,66 +648,106 @@ class LLMInference:
                     self._capabilities.supports_reasoning_format = True
                 result.used_tools_fallback = used_fallback
                 return result
-            except Exception as exc:
-                changed, used_tools = self._apply_compat_payload_fallback(payload, str(exc))
+            except Exception as e:
+                changed, used_tools = self._apply_compat_payload_fallback(payload, str(e))
                 used_fallback = used_fallback or used_tools
                 if changed:
                     continue
-                return ChatCompletionResult(error=str(exc))
+                return ChatCompletionResult(error=str(e))
         return ChatCompletionResult(error="Provider compatibility retry limit reached.")
 
     def _post(self, endpoint: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-        self._refresh_runtime_helpers()
-        return self._transport.post(endpoint, payload)
+        self._consume_rate_limit_slot()
+        url = f"{self._base_url}{endpoint}"
+        data = json.dumps(payload).encode("utf-8")
+        headers = {"Content-Type": "application/json"}
+        if self._api_key:
+            headers["Authorization"] = f"Bearer {self._api_key}"
+        req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+        try:
+            with urllib.request.urlopen(req, timeout=self._config.request_timeout_s) as resp:
+                body = resp.read().decode("utf-8", errors="replace")
+                try:
+                    return json.loads(body)
+                except json.JSONDecodeError as exc:
+                    raise RuntimeError(f"Invalid JSON response: {body[:300]}") from exc
+        except urllib.error.HTTPError as e:
+            body = e.read().decode("utf-8", errors="replace")
+            raise RuntimeError(f"HTTP {e.code}: {body[:self._config.http_error_body_chars]}")
+        except urllib.error.URLError as e:
+            raise RuntimeError(f"Network error: {e}")
 
     def _stream_post(
         self, endpoint: str, payload: Dict[str, Any], on_token=None, on_reasoning=None
     ) -> ChatCompletionResult:
-        self._refresh_runtime_helpers()
+        self._consume_rate_limit_slot()
+        url = f"{self._base_url}{endpoint}"
+        data = json.dumps(payload).encode("utf-8")
+        headers = {"Content-Type": "application/json"}
+        if self._api_key:
+            headers["Authorization"] = f"Bearer {self._api_key}"
+        req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+
         full_text = ""
         finish_reason = "stop"
         tc_parts: Dict[int, Dict[str, Any]] = {}
 
-        for chunk in self._transport.stream_events(
-            endpoint,
-            payload,
-            sse_data_prefix=self._config.sse_data_prefix,
-            sse_done_marker=self._config.sse_done_marker,
-        ):
-            choice = (chunk.get("choices") or [{}])[0]
-            if isinstance(choice, dict):
-                finish_reason = str(choice.get("finish_reason") or finish_reason)
-            delta = choice.get("delta", {}) if isinstance(choice, dict) else {}
-            if not isinstance(delta, dict):
-                delta = {}
-
-            reasoning = delta.get("reasoning_content", "")
-            if reasoning and on_reasoning:
-                on_reasoning(reasoning)
-
-            content = delta.get("content", "")
-            if content:
-                full_text += content
-                if on_token:
-                    on_token(content)
-
-            raw_tool_calls = delta.get("tool_calls", [])
-            if isinstance(raw_tool_calls, list):
-                for part in raw_tool_calls:
-                    if not isinstance(part, dict):
+        try:
+            with urllib.request.urlopen(req, timeout=self._config.request_timeout_s) as resp:
+                for line in resp:
+                    line = line.decode("utf-8", errors="replace").strip()
+                    if not line or not line.startswith(self._config.sse_data_prefix):
                         continue
-                    idx = part.get("index", 0)
-                    if not isinstance(idx, int):
-                        idx = 0
-                    entry = tc_parts.setdefault(idx, {"id": "", "name": "", "arguments_parts": []})
-                    if isinstance(part.get("id"), str):
-                        entry["id"] = part["id"]
-                    fn = part.get("function", {})
-                    if isinstance(fn, dict):
-                        if isinstance(fn.get("name"), str):
-                            entry["name"] = fn["name"]
-                        if isinstance(fn.get("arguments"), str):
-                            entry["arguments_parts"].append(fn["arguments"])
+
+                    data_str = line[len(self._config.sse_data_prefix) :]
+                    if data_str == self._config.sse_done_marker:
+                        break
+                    try:
+                        chunk = json.loads(data_str)
+                    except json.JSONDecodeError:
+                        continue
+
+                    choice = (chunk.get("choices") or [{}])[0]
+                    if isinstance(choice, dict):
+                        finish_reason = str(choice.get("finish_reason") or finish_reason)
+                    delta = choice.get("delta", {}) if isinstance(choice, dict) else {}
+                    if not isinstance(delta, dict):
+                        delta = {}
+
+                    reasoning = delta.get("reasoning_content", "")
+                    if reasoning and on_reasoning:
+                        on_reasoning(reasoning)
+
+                    content = delta.get("content", "")
+                    if content:
+                        full_text += content
+                        if on_token:
+                            on_token(content)
+
+                    raw_tool_calls = delta.get("tool_calls", [])
+                    if isinstance(raw_tool_calls, list):
+                        for part in raw_tool_calls:
+                            if not isinstance(part, dict):
+                                continue
+                            idx = part.get("index", 0)
+                            if not isinstance(idx, int):
+                                idx = 0
+                            entry = tc_parts.setdefault(
+                                idx, {"id": "", "name": "", "arguments_parts": []}
+                            )
+                            if isinstance(part.get("id"), str):
+                                entry["id"] = part["id"]
+                            fn = part.get("function", {})
+                            if isinstance(fn, dict):
+                                if isinstance(fn.get("name"), str):
+                                    entry["name"] = fn["name"]
+                                if isinstance(fn.get("arguments"), str):
+                                    entry["arguments_parts"].append(fn["arguments"])
+        except urllib.error.HTTPError as e:
+            body = e.read().decode("utf-8", errors="replace")
+            raise RuntimeError(f"HTTP {e.code}: {body[:self._config.http_error_body_chars]}")
+        except urllib.error.URLError as e:
+            raise RuntimeError(f"Network error: {e}")
 
         tool_calls: List[ToolCall] = []
         for idx in sorted(tc_parts.keys()):
@@ -632,10 +773,27 @@ class LLMInference:
             raw_response={},
         )
 
-    def _consume_rate_limit_slot(self) -> None:
-        """Backward-compatible wrapper used by tests."""
-        self._refresh_runtime_helpers()
-        self._transport.consume_rate_limit_slot()
-
     def __del__(self):
         self.unload()
+
+    def _consume_rate_limit_slot(self) -> None:
+        """
+        Guardrail to prevent runaway request storms.
+
+        Applies to both regular and streaming requests.
+        Set `max_requests_per_minute <= 0` to disable.
+        """
+        limit = int(self._config.max_requests_per_minute)
+        if limit <= 0:
+            return
+
+        now = time.monotonic()
+        cutoff = now - 60.0
+        self._request_timestamps = [t for t in self._request_timestamps if t >= cutoff]
+
+        if len(self._request_timestamps) >= limit:
+            raise RuntimeError(
+                f"Rate limit exceeded: more than {limit} LLM requests within 60 seconds."
+            )
+
+        self._request_timestamps.append(now)

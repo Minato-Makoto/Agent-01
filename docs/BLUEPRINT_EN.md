@@ -106,10 +106,7 @@ Final Assistant Text → UI Output
 | `cli_args.py` | 175 | Parser + env/config loading + `InferenceConfig` mapping |
 | `cli_runtime.py` | 268 | REPL loop, component wiring, backend connect flow |
 | `agent_core.py` | 439 | `Agent` class: orchestration loop, tool execution, skill activation |
-| `llm_inference.py` | 641 | `LLMInference` orchestrator over extracted inference helpers |
-| `inference/server_manager.py` | 130 | Local llama-server lifecycle (start/health/stop) |
-| `inference/http_transport.py` | 106 | Raw HTTP + SSE transport + request rate limiting |
-| `inference/compat.py` | 112 | Provider compatibility fallback ladder |
+| `llm_inference.py` | 799 | `LLMInference` class: local/remote transport, streaming, compat fallback |
 | `contracts.py` | 102 | Shared dataclasses: `ToolCall`, `AssistantMessage`, `ToolMessage`, `ChatCompletionResult`, `ProviderCapabilities` |
 | `prompting.py` | 122 | `PromptBuilder`: structured message builder for chat-completions API |
 | `tools.py` | 200 | `Tool`, `ToolResult`, `ToolRegistry`: tool definition + OpenAI-compatible schema export |

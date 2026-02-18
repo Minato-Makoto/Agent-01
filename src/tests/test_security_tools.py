@@ -26,6 +26,18 @@ def test_pip_install_is_blocked():
     assert code == "BLOCKED_PIP_SUBCOMMAND"
 
 
+def test_node_eval_is_blocked():
+    ok, code, _ = _validate_command('node -e "console.log(1)"')
+    assert ok is False
+    assert code == "BLOCKED_NODE_FLAG"
+
+
+def test_npx_arbitrary_command_is_blocked():
+    ok, code, _ = _validate_command("npx cowsay hello")
+    assert ok is False
+    assert code == "BLOCKED_NPX_COMMAND"
+
+
 def test_web_url_policy_blocks_basic_ssrf_targets():
     ok_localhost, reason_localhost = _validate_url("http://localhost:8080")
     ok_metadata, reason_metadata = _validate_url("http://169.254.169.254/latest/meta-data/")

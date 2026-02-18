@@ -3,11 +3,7 @@
 ## [Unreleased]
 
 ### Changed
-- Refactored inference stack into dedicated modules:
-  - `src/agentforge/inference/server_manager.py` (local llama-server lifecycle)
-  - `src/agentforge/inference/http_transport.py` (HTTP/SSE + rate limiting)
-  - `src/agentforge/inference/compat.py` (compatibility fallback ladder)
-  - `src/agentforge/llm_inference.py` now acts as orchestration facade.
+- Restored `src/agentforge/llm_inference.py` as a single-file transport module (no split inference package).
 - Split CLI responsibilities:
   - `src/agentforge/cli_args.py` for parser/env/config resolution
   - `src/agentforge/cli_runtime.py` for REPL/runtime wiring
@@ -31,7 +27,8 @@
 - Added optional CLI `--env-file` support for centralized environment loading.
 - Added project metadata/config in `pyproject.toml` and Windows CI workflow (`.github/workflows/ci.yml`).
 - Consolidated documentation into:
-  - `docs/BLUEPRINT.md`
+  - `docs/BLUEPRINT_EN.md`
+  - `docs/BLUEPRINT_VI.md`
   - `docs/TUTORIAL.md`
 - `adb-mcp` is now kept in-repo as optional integration (not required for base runtime startup).
 

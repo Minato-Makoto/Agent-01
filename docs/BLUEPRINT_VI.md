@@ -106,10 +106,7 @@ Final Assistant Text → UI Output
 | `cli_args.py` | 175 | Parser + nạp env/config + mapping `InferenceConfig` |
 | `cli_runtime.py` | 268 | Vòng lặp REPL, wiring components, kết nối backend |
 | `agent_core.py` | 439 | Class `Agent`: vòng lặp điều phối, thực thi tool, kích hoạt skill |
-| `llm_inference.py` | 641 | Class `LLMInference` dạng orchestrator trên các helper inference |
-| `inference/server_manager.py` | 130 | Quản lý vòng đời llama-server local (start/health/stop) |
-| `inference/http_transport.py` | 106 | Transport HTTP + SSE + giới hạn tốc độ request |
-| `inference/compat.py` | 112 | Bậc thang fallback tương thích provider |
+| `llm_inference.py` | 799 | Class `LLMInference`: transport local/remote, streaming, compat fallback |
 | `contracts.py` | 102 | Dataclasses chung: `ToolCall`, `AssistantMessage`, `ToolMessage`, `ChatCompletionResult`, `ProviderCapabilities` |
 | `prompting.py` | 122 | `PromptBuilder`: xây dựng structured messages cho chat-completions API |
 | `tools.py` | 200 | `Tool`, `ToolResult`, `ToolRegistry`: định nghĩa tool + xuất schema tương thích OpenAI |

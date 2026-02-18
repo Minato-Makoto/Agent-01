@@ -15,6 +15,7 @@ import time
 import asyncio
 import inspect
 import uuid
+import concurrent.futures
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Protocol, runtime_checkable
 
@@ -41,14 +42,22 @@ def _resolve_tool_return(value: Any) -> Any:
     """
     if not inspect.isawaitable(value):
         return value
+
+    async def _await_any(awaitable: Any) -> Any:
+        return await awaitable
+
+    def _run_in_worker(awaitable: Any) -> Any:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            fut = pool.submit(asyncio.run, _await_any(awaitable))
+            return fut.result()
+
     try:
         asyncio.get_running_loop()
     except RuntimeError:
-        return asyncio.run(value)
-    raise RuntimeError(
-        "Async tool returned awaitable while an event loop is already running. "
-        "Current runtime expects synchronous execution."
-    )
+        return asyncio.run(_await_any(value))
+    # Event loop is already running in this thread (e.g., FastAPI/Discord wrapper):
+    # run awaitable in a worker thread with its own loop instead of hard-failing.
+    return _run_in_worker(value)
 
 
 @dataclass

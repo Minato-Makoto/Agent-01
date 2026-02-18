@@ -59,3 +59,39 @@ def test_skill_is_unavailable_until_activation_then_unlocked(minimal_workspace):
     after = agent.tool_loop.execute_tool("calculate", {"expression": "1+1"})
     assert after.success is True
     assert after.output["result"] == 2
+
+
+def test_skill_full_flow_discover_activate_register_execute_deactivate(minimal_workspace):
+    skill_file = _write_skill_file(minimal_workspace)
+    loader = SkillLoader(str(minimal_workspace))
+    discovered = loader.discover()
+    assert "Math" in discovered
+
+    registry = ToolRegistry()
+    agent = Agent(
+        config=AgentConfig(workspace_dir=str(minimal_workspace), max_iterations=2),
+        llm=_DummyLLM(),
+        tools=registry,
+        skill_loader=loader,
+    )
+
+    # activate + register via read_file bootstrap flow
+    read_file_tool = registry.find("read_file")
+    assert read_file_tool is not None
+    assert read_file_tool.execute({"path": str(skill_file)}).success is True
+    assert registry.has("calculate") is True
+
+    executed = agent.tool_loop.execute_tool("calculate", {"expression": "2+3"})
+    assert executed.success is True
+    assert executed.output["result"] == 5
+
+    # deactivate + unregister
+    loader.deactivate("Math")
+    registry.unregister_skill("Math")
+    assert loader.get_skill("Math") is not None
+    assert loader.get_skill("Math").active is False
+    assert registry.has("calculate") is False
+
+    blocked = agent.tool_loop.execute_tool("calculate", {"expression": "1+1"})
+    assert blocked.success is False
+    assert "not found" in blocked.error

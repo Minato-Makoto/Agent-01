@@ -121,6 +121,8 @@ STDERR_LIMIT = 2000
 
 PYTHON_BLOCKED_FLAGS = {"-c", "-m", "-i", "-"}
 PIP_ALLOWED_SUBCOMMANDS = {"list", "show", "freeze", "help", "-v", "--version"}
+NODE_BLOCKED_FLAGS = {"-e", "--eval", "-p", "--print", "-i", "--interactive", "-"}
+NPX_ALLOWED_COMMANDS = {"playwright"}
 
 
 def _workspace_root() -> Path:
@@ -326,11 +328,88 @@ def _validate_pip_invocation(tokens: List[str]) -> Tuple[bool, str, str]:
     return True, "OK", ""
 
 
+def _resolve_script_path(raw_path: str) -> Path:
+    script_path = Path(raw_path).expanduser()
+    if not script_path.is_absolute():
+        script_path = (Path.cwd() / script_path).resolve()
+    else:
+        script_path = script_path.resolve()
+    return script_path
+
+
+def _validate_node_invocation(tokens: List[str]) -> Tuple[bool, str, str]:
+    if len(tokens) <= 1:
+        return False, "BLOCKED_NODE_INVOCATION", "Interactive node shell is not allowed"
+
+    first_arg = tokens[1].strip()
+    first_arg_lower = first_arg.lower()
+    if first_arg_lower in NODE_BLOCKED_FLAGS or first_arg_lower.startswith("-e"):
+        return (
+            False,
+            "BLOCKED_NODE_FLAG",
+            f"Node flag '{first_arg}' is blocked. Inline code execution is not allowed.",
+        )
+    if first_arg_lower in {"-v", "--version", "-h", "--help"}:
+        return True, "OK", ""
+    if first_arg.startswith("-"):
+        return (
+            False,
+            "BLOCKED_NODE_FLAG",
+            f"Node flag '{first_arg}' is blocked for shell_command safety.",
+        )
+
+    script_path = _resolve_script_path(first_arg)
+    if script_path.suffix.lower() not in {".js", ".mjs", ".cjs"}:
+        return (
+            False,
+            "BLOCKED_NODE_SCRIPT",
+            "Only .js/.mjs/.cjs script execution is allowed for node command.",
+        )
+    if not _is_within_workspace(script_path):
+        return (
+            False,
+            "BLOCKED_NODE_PATH",
+            f"Node script must be inside workspace: {_workspace_root()}",
+        )
+    return True, "OK", ""
+
+
+def _validate_npx_invocation(tokens: List[str]) -> Tuple[bool, str, str]:
+    if len(tokens) <= 1:
+        return False, "BLOCKED_NPX_INVOCATION", "npx requires an explicit allowed command"
+
+    # Allow trivial help/version probes.
+    if len(tokens) == 2 and tokens[1].strip().lower() in {"-v", "--version", "-h", "--help"}:
+        return True, "OK", ""
+
+    cmd = ""
+    for tok in tokens[1:]:
+        candidate = tok.strip()
+        if not candidate or candidate.startswith("-"):
+            continue
+        cmd = candidate.lower()
+        break
+
+    if not cmd:
+        return False, "BLOCKED_NPX_COMMAND", "npx command is missing"
+    if cmd not in NPX_ALLOWED_COMMANDS:
+        return (
+            False,
+            "BLOCKED_NPX_COMMAND",
+            f"npx command '{cmd}' is blocked. Allowed: {', '.join(sorted(NPX_ALLOWED_COMMANDS))}",
+        )
+    return True, "OK", ""
+
+
 def _validate_command_policy(command_name: str, tokens: List[str]) -> Tuple[bool, str, str]:
     if command_name in {"python", "py"}:
         return _validate_python_invocation(tokens)
     if command_name == "pip":
         return _validate_pip_invocation(tokens)
+    if command_name == "node":
+        return _validate_node_invocation(tokens)
+    if command_name == "npx":
+        return _validate_npx_invocation(tokens)
     return True, "OK", ""
 
 
