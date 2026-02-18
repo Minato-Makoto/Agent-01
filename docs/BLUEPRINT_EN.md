@@ -327,6 +327,7 @@ Thresholds are computed as `max_tokens × chars_per_token` (default 4).
 - **Pipeline parsing**: `_split_command_segments()` parses `|`, `||`, `&&`, `;` and validates each segment.
 - **Python hardening**: `python/py` inline execution (`-c`, `-m`, stdin script, interactive flags) is blocked.
 - **Pip hardening**: destructive subcommands (`install`, `uninstall`, etc.) are blocked; only safe read-style subcommands are allowed.
+- **Workspace sandbox by default**: `shell_command` defaults to workspace-only cwd (`SHELL_WORKSPACE_ONLY=1`), with explicit opt-out via `SHELL_WORKSPACE_ONLY=0`.
 - **Output limits**: stdout 5000 chars, stderr 2000 chars.
 
 ### 12.5 File writes (`file_ops.py`)
@@ -429,10 +430,22 @@ Bypass: calling `python -m agentforge.cli --flag value` directly overrides every
 | `BOOT_TIMEOUT` | `--boot-timeout` | `120` | Server boot timeout (s) |
 | `HEALTH_TIMEOUT` | `--health-timeout` | `2` | Health check timeout (s) |
 | `REQUEST_TIMEOUT` | `--request-timeout` | `300` | Request timeout (s) |
+| `SHUTDOWN_TIMEOUT` | `--shutdown-timeout` | `5` | Local process shutdown timeout (s) |
 | `COMPAT_RETRY_LIMIT` | `--compat-retry-limit` | `8` | Compatibility retry limit |
 | `MAX_REQUESTS_PER_MINUTE` | `--max-requests-per-minute` | `60` | LLM requests per minute hard cap |
+| `MAX_ITERATIONS` | `--max-iterations` | `10` | Agent loop limit per user turn |
+| `MAX_REPEATS` | `--max-repeats` | `3` | Duplicate tool-call repeat guard |
+| `AGENT_TIMEOUT` | `--agent-timeout` | `300` | Agent loop timeout (s) |
 | `WORKSPACE` | `--workspace` | `./workspace` | Runtime data dir |
 | `AGENTFORGE_BROWSER_HEADLESS` | env only | `0` | `0`=visible, `1`=headless |
+| `TOOL_TIMEOUT_BROWSER_NAV_MS` | env only | `30000` | `browser_navigate` timeout (ms) |
+| `TOOL_TIMEOUT_BROWSER_ACTION_MS` | env only | `5000` | click/type/select/get_content timeout (ms) |
+| `TOOL_TIMEOUT_BROWSER_WAIT_MS` | env only | `10000` | `browser_wait` timeout (ms) |
+| `TOOL_TIMEOUT_WEB_REQUEST_S` | env only | `30` | `http_request`/`web_scrape` timeout (s) |
+| `TOOL_TIMEOUT_WEB_SEARCH_S` | env only | `15` | `web_search` timeout (s) |
+| `TOOL_TIMEOUT_PHOTOSHOP_S` | env only | `30` | Photoshop tool timeout (s) |
+| `TOOL_TIMEOUT_PROCESS_LIST_S` | env only | `10` | `process_list` timeout (s) |
+| `SHELL_WORKSPACE_ONLY` | env only | `1` | `1` enforces workspace-only cwd, `0` disables cwd sandbox |
 
 ---
 
@@ -469,6 +482,7 @@ addopts = -q
 | `test_regression_callbacks_streaming.py` | Streaming callback regression |
 | `test_schema_provider_compat.py` | Schema normalization per provider |
 | `test_security_tools.py` | Shell/web security |
+| `test_tool_timeout_env_mapping.py` | Env timeout mapping for browser/web/photoshop/sys tools |
 | `test_session_append_guard.py` | Session append guards |
 | `test_session_migration.py` | Session schema migration |
 | `test_session_repair_helpers.py` | Session repair utilities |
@@ -588,7 +602,7 @@ jobs:
 
 ## 21) Notes for AI Models/Developers
 
-1. **Do not edit `run.bat` from AI** — this is user config; edit manually only.
+1. **When changing `run.bat`**, always run launcher smoke (`cmd /c run.bat` with `PROVIDER=openai_compatible` and `EXTRA_ARGS=--help`) before merge.
 2. **Each new tool** must have: a definition in `builtin_tools/`, a skill file `SKILL_*.md` in `workspace/skills/`, and a `register()` function.
 3. **Test before merging** — all changes should pass `python -m pytest -q`.
 4. **Do not hardcode secrets** — use env vars.

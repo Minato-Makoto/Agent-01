@@ -56,11 +56,23 @@ Ban co 2 cach:
 | `BOOT_TIMEOUT` | `--boot-timeout` | Timeout khoi dong backend local | `120`, `180` |
 | `HEALTH_TIMEOUT` | `--health-timeout` | Timeout health check | `2`, `5` |
 | `REQUEST_TIMEOUT` | `--request-timeout` | Timeout 1 request inference | `300`, `600` |
+| `SHUTDOWN_TIMEOUT` | `--shutdown-timeout` | Timeout dung local process an toan | `5`, `10` |
 | `COMPAT_RETRY_LIMIT` | `--compat-retry-limit` | So lan retry fallback compatibility | `8`, `12` |
-| `EXTRA_ARGS` + `--max-requests-per-minute` | `--max-requests-per-minute` | Tran request LLM moi phut (chong runaway loop) | `--max-requests-per-minute 60` |
+| `MAX_REQUESTS_PER_MINUTE` | `--max-requests-per-minute` | Tran request LLM moi phut (chong runaway loop) | `60`, `120` |
+| `MAX_ITERATIONS` | `--max-iterations` | Gioi han vong loop agent moi turn | `10`, `20` |
+| `MAX_REPEATS` | `--max-repeats` | Gioi han lap lai tool call giong nhau | `3`, `5` |
+| `AGENT_TIMEOUT` | `--agent-timeout` | Timeout toan bo loop agent (giay) | `300`, `600` |
 | `WORKSPACE` | `--workspace` | Thu muc du lieu runtime | `%~dp0workspace` |
 | `EXTRA_ARGS` | append raw args | Nhoi them args tuy bien | `--verbose` |
 | `AGENTFORGE_BROWSER_HEADLESS` | env runtime | `0` hien cua so browser, `1` chay an | `0` |
+| `TOOL_TIMEOUT_BROWSER_NAV_MS` | env runtime | Timeout navigate browser (ms) | `30000` |
+| `TOOL_TIMEOUT_BROWSER_ACTION_MS` | env runtime | Timeout click/type/select/get_content (ms) | `5000` |
+| `TOOL_TIMEOUT_BROWSER_WAIT_MS` | env runtime | Timeout browser_wait (ms) | `10000` |
+| `TOOL_TIMEOUT_WEB_REQUEST_S` | env runtime | Timeout `http_request`/`web_scrape` (s) | `30` |
+| `TOOL_TIMEOUT_WEB_SEARCH_S` | env runtime | Timeout `web_search` (s) | `15` |
+| `TOOL_TIMEOUT_PHOTOSHOP_S` | env runtime | Timeout tool Photoshop qua proxy (s) | `30` |
+| `TOOL_TIMEOUT_PROCESS_LIST_S` | env runtime | Timeout tool `process_list` (s) | `10` |
+| `SHELL_WORKSPACE_ONLY` | env runtime | `1`: mac dinh chi cho shell trong workspace | `1`, `0` |
 
 ## 5) Preset mau
 
@@ -81,6 +93,7 @@ run.bat
 
 ```bat
 set PROVIDER=local
+set MODEL_PATH=D:\models\qwen.gguf
 set CTX_SIZE=8192
 set GPU_LAYERS=20
 set THREADS=4
@@ -100,7 +113,14 @@ set REASONING_EFFORT=medium
 run.bat
 ```
 
-### 5.4 Browser tools hien cua so de user xem
+### 5.4 Safe mode shell (workspace-only)
+
+```bat
+set SHELL_WORKSPACE_ONLY=1
+run.bat
+```
+
+### 5.5 Browser tools hien cua so de user xem
 
 ```bat
 set AGENTFORGE_BROWSER_HEADLESS=0
@@ -109,11 +129,14 @@ run.bat
 
 ## 6) Troubleshooting
 
-1. `llama-server.exe not found`: kiem tra `SERVER_EXE`.
-2. `model file not found`: kiem tra `MODEL_PATH`.
-3. Remote mode loi auth: kiem tra `API_KEY_ENV` va bien key that su ton tai.
-4. Treo/lau: tang `BOOT_TIMEOUT` hoac `REQUEST_TIMEOUT`.
-5. Output lap: giam `TEMPERATURE`, tang nhe `REPEAT_PENALTY`.
+1. `MODEL_PATH is required when PROVIDER=local`: dat `MODEL_PATH` truoc khi chay.
+2. `llama-server.exe not found`: kiem tra `SERVER_EXE`.
+3. `model file not found`: kiem tra `MODEL_PATH`.
+4. `SECURITY[CWD_OUTSIDE_WORKSPACE]`: shell dang bi sandbox workspace-only (`SHELL_WORKSPACE_ONLY=1`).
+5. Neu can cho phep cwd ben ngoai workspace, dat tam: `set SHELL_WORKSPACE_ONLY=0`.
+6. Remote mode loi auth: kiem tra `API_KEY_ENV` va bien key that su ton tai.
+7. Treo/lau: tang `BOOT_TIMEOUT`/`REQUEST_TIMEOUT` hoac timeout tool phu hop.
+8. Output lap: giam `TEMPERATURE`, tang nhe `REPEAT_PENALTY`.
 
 ## 7) Lenh quality can ban
 

@@ -327,6 +327,7 @@ Ngưỡng được tính theo `max_tokens × chars_per_token` (mặc định 4).
 - **Phân tích pipeline**: `_split_command_segments()` phân tích `|`, `||`, `&&`, `;` và xác thực từng phần.
 - **Siết lệnh Python**: chặn thực thi inline qua `python/py` với `-c`, `-m`, stdin script, và cờ interactive.
 - **Siết lệnh pip**: chặn các subcommand thay đổi hệ thống (`install`, `uninstall`, ...); chỉ cho phép nhóm lệnh đọc thông tin an toàn.
+- **Sandbox workspace mặc định**: `shell_command` mặc định ép `cwd` trong workspace (`SHELL_WORKSPACE_ONLY=1`), có thể tắt chủ động bằng `SHELL_WORKSPACE_ONLY=0`.
 - **Giới hạn đầu ra**: stdout 5000 ký tự, stderr 2000 ký tự.
 
 ### 12.5 Ghi file (`file_ops.py`)
@@ -429,10 +430,22 @@ Bypass: gọi trực tiếp `python -m agentforge.cli --flag value` sẽ ghi đ�
 | `BOOT_TIMEOUT` | `--boot-timeout` | `120` | Timeout khởi động server (giây) |
 | `HEALTH_TIMEOUT` | `--health-timeout` | `2` | Timeout health check (giây) |
 | `REQUEST_TIMEOUT` | `--request-timeout` | `300` | Timeout request (giây) |
+| `SHUTDOWN_TIMEOUT` | `--shutdown-timeout` | `5` | Timeout dừng local process (giây) |
 | `COMPAT_RETRY_LIMIT` | `--compat-retry-limit` | `8` | Giới hạn retry tương thích |
 | `MAX_REQUESTS_PER_MINUTE` | `--max-requests-per-minute` | `60` | Trần số request LLM mỗi phút |
+| `MAX_ITERATIONS` | `--max-iterations` | `10` | Giới hạn vòng lặp agent mỗi lượt |
+| `MAX_REPEATS` | `--max-repeats` | `3` | Giới hạn lặp tool call cùng tham số |
+| `AGENT_TIMEOUT` | `--agent-timeout` | `300` | Timeout vòng lặp agent (giây) |
 | `WORKSPACE` | `--workspace` | `./workspace` | Thư mục dữ liệu runtime |
 | `AGENTFORGE_BROWSER_HEADLESS` | chỉ env | `0` | `0`=hiển thị, `1`=ẩn |
+| `TOOL_TIMEOUT_BROWSER_NAV_MS` | chỉ env | `30000` | Timeout `browser_navigate` (ms) |
+| `TOOL_TIMEOUT_BROWSER_ACTION_MS` | chỉ env | `5000` | Timeout click/type/select/get_content (ms) |
+| `TOOL_TIMEOUT_BROWSER_WAIT_MS` | chỉ env | `10000` | Timeout `browser_wait` (ms) |
+| `TOOL_TIMEOUT_WEB_REQUEST_S` | chỉ env | `30` | Timeout `http_request`/`web_scrape` (giây) |
+| `TOOL_TIMEOUT_WEB_SEARCH_S` | chỉ env | `15` | Timeout `web_search` (giây) |
+| `TOOL_TIMEOUT_PHOTOSHOP_S` | chỉ env | `30` | Timeout tool Photoshop (giây) |
+| `TOOL_TIMEOUT_PROCESS_LIST_S` | chỉ env | `10` | Timeout tool `process_list` (giây) |
+| `SHELL_WORKSPACE_ONLY` | chỉ env | `1` | `1` ép shell trong workspace; `0` tắt sandbox cwd |
 
 ---
 
@@ -469,6 +482,7 @@ addopts = -q
 | `test_regression_callbacks_streaming.py` | Hồi quy callback streaming |
 | `test_schema_provider_compat.py` | Chuẩn hoá schema theo provider |
 | `test_security_tools.py` | Bảo mật shell/web |
+| `test_tool_timeout_env_mapping.py` | Mapping timeout env cho browser/web/photoshop/sys |
 | `test_session_append_guard.py` | Bảo vệ append session |
 | `test_session_migration.py` | Migration schema session |
 | `test_session_repair_helpers.py` | Tiện ích sửa chữa session |
@@ -588,7 +602,7 @@ jobs:
 
 ## 21) Lưu ý cho AI model/developer
 
-1. **Không sửa trực tiếp `run.bat` từ AI** — file này là cấu hình user, chỉ sửa bằng tay.
+1. **Khi sửa `run.bat`** phải chạy smoke `cmd /c run.bat` với `PROVIDER=openai_compatible` + `EXTRA_ARGS=--help` để xác nhận launcher còn hoạt động.
 2. **Mỗi tool mới** phải có: định nghĩa trong `builtin_tools/`, file skill `SKILL_*.md` trong `workspace/skills/`, và hàm `register()`.
 3. **Test trước khi merge** — mọi thay đổi cần chạy `python -m pytest -q`.
 4. **Không mã hoá cứng secrets** — dùng biến env.

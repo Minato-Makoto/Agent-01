@@ -28,6 +28,17 @@ REM     set MODEL_ID=gpt-5-mini
 REM     set OPENAI_API_KEY=YOUR_KEY
 REM     run.bat
 REM
+REM   Local (performance profile):
+REM     set CTX_SIZE=8192
+REM     set GPU_LAYERS=20
+REM     set THREADS=8
+REM     set MAX_TOKENS=2048
+REM     run.bat
+REM
+REM   Safe shell mode (default):
+REM     set SHELL_WORKSPACE_ONLY=1
+REM     run.bat
+REM
 REM Parameter map:
 REM   PROVIDER -> --provider
 REM   SERVER_EXE -> --server-exe

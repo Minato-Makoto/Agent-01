@@ -31,6 +31,29 @@
   - `docs/BLUEPRINT_VI.md`
   - `docs/TUTORIAL.md`
 - `adb-mcp` is now kept in-repo as optional integration (not required for base runtime startup).
+- Enforced line-ending policy with `.gitattributes`:
+  - `*.bat` uses CRLF for `cmd.exe` compatibility
+  - `*.py`/`*.md` normalized to LF in repo index.
+- Hardened `run.bat`:
+  - removed machine-specific default model path
+  - local mode now fails fast with actionable `MODEL_PATH` guidance
+  - added explicit parameter map and runtime profiles directly in launcher comments.
+- Added centralized runtime env parser: `src/agentforge/runtime_config.py`.
+- Added runtime CLI overrides:
+  - `--shutdown-timeout`
+  - `--max-iterations`
+  - `--max-repeats`
+  - `--agent-timeout`
+- Removed hardcoded tool timeouts by wiring env-driven defaults:
+  - browser, web request/search, Photoshop, process-list.
+- `shell_command` now defaults to workspace-only cwd sandbox (`SHELL_WORKSPACE_ONLY=1`, opt-out with `0`).
+- Refactored (without splitting file) `llm_inference.py` HTTP request construction to reduce duplication and improve debug traceability.
+- Expanded regression gates:
+  - CRLF invariant + real `run.bat` smoke test
+  - timeout env mapping tests across key tools
+  - shell workspace sandbox policy tests
+  - agent loop CLI override test.
+- CI now executes launcher smoke (`run.bat` with remote help mode) on Windows.
 
 ### Removed
 - Deleted generated Python cache artifacts from `src/**/__pycache__` and `.pytest_cache`.
