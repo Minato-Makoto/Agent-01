@@ -65,6 +65,7 @@ class InferenceConfig:
     tools_probe_max_tokens: int = 1
     health_poll_interval_s: float = 1.0
     compat_retry_limit: int = 8
+    max_requests_per_minute: int = 60
     http_error_body_chars: int = 1200
     sse_data_prefix: str = "data: "
     sse_done_marker: str = "[DONE]"
@@ -98,6 +99,7 @@ class LLMInference:
         self._api_key = ""
         self._capabilities = ProviderCapabilities()
         self._provider_kind = "llama_cpp"
+        self._request_timestamps: List[float] = []
 
     def load_model(
         self, model_path: str, config: Optional[InferenceConfig] = None, server_exe: str = ""
@@ -655,6 +657,7 @@ class LLMInference:
         return ChatCompletionResult(error="Provider compatibility retry limit reached.")
 
     def _post(self, endpoint: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        self._consume_rate_limit_slot()
         url = f"{self._base_url}{endpoint}"
         data = json.dumps(payload).encode("utf-8")
         headers = {"Content-Type": "application/json"}
@@ -677,6 +680,7 @@ class LLMInference:
     def _stream_post(
         self, endpoint: str, payload: Dict[str, Any], on_token=None, on_reasoning=None
     ) -> ChatCompletionResult:
+        self._consume_rate_limit_slot()
         url = f"{self._base_url}{endpoint}"
         data = json.dumps(payload).encode("utf-8")
         headers = {"Content-Type": "application/json"}
@@ -771,3 +775,25 @@ class LLMInference:
 
     def __del__(self):
         self.unload()
+
+    def _consume_rate_limit_slot(self) -> None:
+        """
+        Guardrail to prevent runaway request storms.
+
+        Applies to both regular and streaming requests.
+        Set `max_requests_per_minute <= 0` to disable.
+        """
+        limit = int(self._config.max_requests_per_minute)
+        if limit <= 0:
+            return
+
+        now = time.monotonic()
+        cutoff = now - 60.0
+        self._request_timestamps = [t for t in self._request_timestamps if t >= cutoff]
+
+        if len(self._request_timestamps) >= limit:
+            raise RuntimeError(
+                f"Rate limit exceeded: more than {limit} LLM requests within 60 seconds."
+            )
+
+        self._request_timestamps.append(now)

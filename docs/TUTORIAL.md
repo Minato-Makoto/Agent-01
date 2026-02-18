@@ -57,6 +57,7 @@ Ban co 2 cach:
 | `HEALTH_TIMEOUT` | `--health-timeout` | Timeout health check | `2`, `5` |
 | `REQUEST_TIMEOUT` | `--request-timeout` | Timeout 1 request inference | `300`, `600` |
 | `COMPAT_RETRY_LIMIT` | `--compat-retry-limit` | So lan retry fallback compatibility | `8`, `12` |
+| `EXTRA_ARGS` + `--max-requests-per-minute` | `--max-requests-per-minute` | Tran request LLM moi phut (chong runaway loop) | `--max-requests-per-minute 60` |
 | `WORKSPACE` | `--workspace` | Thu muc du lieu runtime | `%~dp0workspace` |
 | `EXTRA_ARGS` | append raw args | Nhoi them args tuy bien | `--verbose` |
 | `AGENTFORGE_BROWSER_HEADLESS` | env runtime | `0` hien cua so browser, `1` chay an | `0` |

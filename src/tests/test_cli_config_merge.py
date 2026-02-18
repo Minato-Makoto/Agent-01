@@ -23,6 +23,7 @@ def test_cli_uses_inference_defaults_when_flags_not_provided():
         health_timeout=None,
         request_timeout=None,
         compat_retry_limit=None,
+        max_requests_per_minute=None,
         model_id="",
     )
     cfg = build_inference_config(args)
@@ -41,6 +42,7 @@ def test_cli_uses_inference_defaults_when_flags_not_provided():
     assert cfg.health_timeout_s == defaults.health_timeout_s
     assert cfg.request_timeout_s == defaults.request_timeout_s
     assert cfg.compat_retry_limit == defaults.compat_retry_limit
+    assert cfg.max_requests_per_minute == defaults.max_requests_per_minute
     assert cfg.model_id == defaults.model_id
 
 
@@ -63,6 +65,7 @@ def test_cli_overrides_inference_defaults_when_flags_are_set():
         health_timeout=4,
         request_timeout=450,
         compat_retry_limit=11,
+        max_requests_per_minute=25,
         model_id="qwen-test",
     )
     cfg = build_inference_config(args)
@@ -83,4 +86,5 @@ def test_cli_overrides_inference_defaults_when_flags_are_set():
     assert cfg.health_timeout_s == 4
     assert cfg.request_timeout_s == 450
     assert cfg.compat_retry_limit == 11
+    assert cfg.max_requests_per_minute == 25
     assert cfg.model_id == "qwen-test"

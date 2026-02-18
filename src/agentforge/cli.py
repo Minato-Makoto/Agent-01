@@ -169,6 +169,12 @@ def build_parser():
         default=None,
         help="Compatibility retry attempts (default from InferenceConfig).",
     )
+    run_parser.add_argument(
+        "--max-requests-per-minute",
+        type=int,
+        default=None,
+        help="Hard cap for LLM requests/minute to prevent runaway loops (default from InferenceConfig).",
+    )
 
     run_parser.add_argument("-v", "--verbose", action="store_true", help="Verbose logging")
     run_parser.add_argument("--workspace", default="", help="Path to workspace directory")
@@ -262,6 +268,7 @@ def build_inference_config(args) -> InferenceConfig:
         ("health_timeout", "health_timeout_s"),
         ("request_timeout", "request_timeout_s"),
         ("compat_retry_limit", "compat_retry_limit"),
+        ("max_requests_per_minute", "max_requests_per_minute"),
     ]
     for arg_name, cfg_name in int_or_float_overrides:
         value = _arg(args, arg_name, None)
@@ -447,6 +454,8 @@ def run_interactive(args) -> int:
         ui.error(f"Workspace not found: {workspace_dir}")
         ui.status("Run setup to create workspace directory.")
         return 1
+    # Security boundary for file/system tools.
+    os.environ["AGENTFORGE_WORKSPACE"] = workspace_dir
 
     session_mgr = SessionManager(os.path.join(workspace_dir, "sessions"))
     memory = MemoryStore(workspace_dir)

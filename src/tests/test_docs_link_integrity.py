@@ -33,7 +33,10 @@ def test_openclaw_docs_routes_do_not_use_known_bad_paths():
 
 def test_core_docs_use_current_openclaw_concepts_routes():
     root = Path(__file__).resolve().parents[2]
-    blueprint = (root / "docs" / "BLUEPRINT.md").read_text(encoding="utf-8")
+    blueprint_en = (root / "docs" / "BLUEPRINT_EN.md").read_text(encoding="utf-8")
+    blueprint_vi = (root / "docs" / "BLUEPRINT_VI.md").read_text(encoding="utf-8")
 
-    assert "https://docs.openclaw.ai/concepts/model-providers" in blueprint
-    assert "https://docs.openclaw.ai/concepts/model-failover" in blueprint
+    assert "https://docs.openclaw.ai/concepts/model-providers" in blueprint_en
+    assert "https://docs.openclaw.ai/concepts/model-failover" in blueprint_en
+    assert "https://docs.openclaw.ai/concepts/model-providers" in blueprint_vi
+    assert "https://docs.openclaw.ai/concepts/model-failover" in blueprint_vi

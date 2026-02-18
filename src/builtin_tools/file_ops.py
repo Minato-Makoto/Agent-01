@@ -18,11 +18,17 @@ def register(registry: ToolRegistry, skill_name: str = "File Operations") -> Non
     tools = [
         Tool(
             name="write_file",
-            description="Write content to a file. Creates the file if it doesn't exist, overwrites if it does.",
+            description=(
+                "Write content to a file inside workspace only. "
+                "Creates the file if it doesn't exist, overwrites if it does."
+            ),
             input_schema={
                 "type": "object",
                 "properties": {
-                    "path": {"type": "string", "description": "Absolute path to the file."},
+                    "path": {
+                        "type": "string",
+                        "description": "Path inside workspace (relative or absolute under workspace).",
+                    },
                     "content": {"type": "string", "description": "Content to write."}
                 },
                 "required": ["path", "content"]
@@ -72,6 +78,35 @@ def register(registry: ToolRegistry, skill_name: str = "File Operations") -> Non
     registry.register_skill(skill_name, tools)
 
 
+def _resolve_workspace_root() -> Path:
+    raw = str(os.environ.get("AGENTFORGE_WORKSPACE", "")).strip()
+    if raw:
+        return Path(raw).expanduser().resolve()
+    return (Path.cwd() / "workspace").resolve()
+
+
+def _resolve_workspace_safe_path(raw_path: str) -> Path:
+    workspace = _resolve_workspace_root()
+    candidate = Path(raw_path).expanduser()
+    if not candidate.is_absolute():
+        candidate = workspace / candidate
+    resolved = candidate.resolve()
+    try:
+        resolved.relative_to(workspace)
+    except ValueError as exc:
+        raise PermissionError(
+            f"SECURITY[WRITE_OUTSIDE_WORKSPACE]: Path must stay under workspace: {workspace}"
+        ) from exc
+    return resolved
+
+
+def _atomic_write_text(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(content, encoding="utf-8")
+    tmp.replace(path)
+
+
 def _read_file(args: Dict[str, Any]) -> ToolResult:
     path = args.get("path", "")
     if not path:
@@ -88,14 +123,15 @@ def _read_file(args: Dict[str, Any]) -> ToolResult:
 
 def _write_file(args: Dict[str, Any]) -> ToolResult:
     path = args.get("path", "")
-    content = args.get("content", "")
+    content = str(args.get("content", ""))
     if not path:
         return ToolResult(success=False, output=None, error="Missing 'path'")
     try:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(content)
-        return ToolResult(success=True, output=f"Written {len(content)} bytes to {path}")
+        safe_path = _resolve_workspace_safe_path(str(path))
+        _atomic_write_text(safe_path, content)
+        return ToolResult(success=True, output=f"Written {len(content)} bytes to {safe_path}")
+    except PermissionError as e:
+        return ToolResult(success=False, output=None, error=str(e))
     except Exception as e:
         return ToolResult(success=False, output=None, error=str(e))
 

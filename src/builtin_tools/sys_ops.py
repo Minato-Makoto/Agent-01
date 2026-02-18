@@ -12,6 +12,7 @@ import os
 import shlex
 import subprocess
 import sys
+from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 from agentforge.tools import Tool, ToolRegistry, ToolResult
@@ -68,6 +69,7 @@ ALLOWED_COMMANDS = {
     "move",
     "mv",
     "python",
+    "py",
     "pip",
     "npm",
     "node",
@@ -113,6 +115,25 @@ BLOCKED_COMMANDS = {
 
 STDOUT_LIMIT = 5000
 STDERR_LIMIT = 2000
+
+PYTHON_BLOCKED_FLAGS = {"-c", "-m", "-i", "-"}
+PIP_ALLOWED_SUBCOMMANDS = {"list", "show", "freeze", "help", "-v", "--version"}
+
+
+def _workspace_root() -> Path:
+    raw = os.environ.get("AGENTFORGE_WORKSPACE", "").strip()
+    if raw:
+        return Path(raw).expanduser().resolve()
+    return (Path.cwd() / "workspace").resolve()
+
+
+def _is_within_workspace(path: Path) -> bool:
+    workspace = _workspace_root()
+    try:
+        path.resolve().relative_to(workspace)
+        return True
+    except ValueError:
+        return False
 
 
 def _split_command_segments(command: str) -> List[str]:
@@ -235,6 +256,81 @@ def _extract_command_name(segment: str) -> str:
     return cmd
 
 
+def _tokenize_segment(segment: str) -> List[str]:
+    try:
+        tokens = shlex.split(segment, posix=(sys.platform != "win32"))
+    except ValueError:
+        tokens = segment.split()
+    return tokens
+
+
+def _validate_python_invocation(tokens: List[str]) -> Tuple[bool, str, str]:
+    if len(tokens) <= 1:
+        return False, "BLOCKED_PYTHON_INVOCATION", "Interactive python shell is not allowed"
+
+    first_arg = tokens[1].strip()
+    first_arg_lower = first_arg.lower()
+    if first_arg_lower in PYTHON_BLOCKED_FLAGS or first_arg_lower.startswith("-c"):
+        return (
+            False,
+            "BLOCKED_PYTHON_FLAG",
+            f"Python flag '{first_arg}' is blocked. Inline code execution is not allowed.",
+        )
+
+    if first_arg_lower in {"-v", "--version", "-h", "--help"}:
+        return True, "OK", ""
+
+    if first_arg.startswith("-"):
+        return (
+            False,
+            "BLOCKED_PYTHON_FLAG",
+            f"Python flag '{first_arg}' is blocked for shell_command safety.",
+        )
+
+    script_path = Path(first_arg).expanduser()
+    if not script_path.is_absolute():
+        script_path = (Path.cwd() / script_path).resolve()
+    else:
+        script_path = script_path.resolve()
+
+    if script_path.suffix.lower() != ".py":
+        return (
+            False,
+            "BLOCKED_PYTHON_SCRIPT",
+            "Only .py script execution is allowed for python command.",
+        )
+
+    if not _is_within_workspace(script_path):
+        return (
+            False,
+            "BLOCKED_PYTHON_PATH",
+            f"Python script must be inside workspace: {_workspace_root()}",
+        )
+
+    return True, "OK", ""
+
+
+def _validate_pip_invocation(tokens: List[str]) -> Tuple[bool, str, str]:
+    if len(tokens) <= 1:
+        return False, "BLOCKED_PIP_SUBCOMMAND", "pip requires an explicit safe subcommand"
+    sub = tokens[1].strip().lower()
+    if sub not in PIP_ALLOWED_SUBCOMMANDS:
+        return (
+            False,
+            "BLOCKED_PIP_SUBCOMMAND",
+            f"pip subcommand '{sub}' is blocked. Allowed: {', '.join(sorted(PIP_ALLOWED_SUBCOMMANDS))}",
+        )
+    return True, "OK", ""
+
+
+def _validate_command_policy(command_name: str, tokens: List[str]) -> Tuple[bool, str, str]:
+    if command_name in {"python", "py"}:
+        return _validate_python_invocation(tokens)
+    if command_name == "pip":
+        return _validate_pip_invocation(tokens)
+    return True, "OK", ""
+
+
 def _extract_commands(command_string: str) -> List[str]:
     commands: List[str] = []
     for segment in _split_command_segments(command_string):
@@ -250,11 +346,19 @@ def _validate_command(command_string: str) -> Tuple[bool, str, str]:
 
     Returns tuple: (allowed, code, reason).
     """
-    commands = _extract_commands(command_string)
-    if not commands:
+    segments = _split_command_segments(command_string)
+    if not segments:
         return False, "PARSE_ERROR", "Could not parse command"
 
-    for cmd in commands:
+    for segment in segments:
+        tokens = _tokenize_segment(segment)
+        if not tokens:
+            return False, "PARSE_ERROR", "Could not tokenize command segment"
+
+        cmd = os.path.basename(tokens[0]).lower()
+        if cmd.endswith(".exe"):
+            cmd = cmd[:-4]
+
         if cmd in BLOCKED_COMMANDS:
             return False, "BLOCKED_COMMAND", f"Command '{cmd}' is blocked for safety"
         if cmd not in ALLOWED_COMMANDS:
@@ -263,6 +367,9 @@ def _validate_command(command_string: str) -> Tuple[bool, str, str]:
                 "NOT_ALLOWED",
                 f"Command '{cmd}' is not in allowed list: {', '.join(sorted(ALLOWED_COMMANDS))}",
             )
+        allowed, code, reason = _validate_command_policy(cmd, tokens)
+        if not allowed:
+            return False, code, reason
 
     return True, "OK", ""
 

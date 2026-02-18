@@ -37,6 +37,7 @@ $env:PYTHONPATH='src'; python -m agentforge.cli --help
 
 ## Docs
 
-- [Blueprint](docs/BLUEPRINT.md)
+- [Blueprint (EN)](docs/BLUEPRINT_EN.md)
+- [Blueprint (VI)](docs/BLUEPRINT_VI.md)
 - [Tutorial](docs/TUTORIAL.md)
 - [Changelog](CHANGELOG.md)
