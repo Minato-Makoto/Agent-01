@@ -35,7 +35,7 @@ Agent-01/
 ├── src/
 │   ├── agentforge/             # Core runtime (20 files)
 │   ├── builtin_tools/          # Tool implementations (9 modules)
-│   └── tests/                  # Test suite (23 test files + conftest)
+│   └── tests/                  # Test suite (24 test files + conftest)
 ├── workspace/                  # Thư mục dữ liệu runtime
 │   ├── IDENTITY.md             # Danh tính agent (đọc vào system prompt)
 │   ├── SOUL.md                 # Tính cách, giá trị agent
@@ -85,7 +85,7 @@ Final Assistant Text → UI Output
 
 ### 3.2 Luồng dữ liệu chi tiết
 
-1. `cli.py` parse arguments, tạo toàn bộ components, gọi `run_interactive()`.
+1. `cli.py` là facade tương thích; parse/config nằm ở `cli_args.py`, wiring runtime nằm ở `cli_runtime.py`.
 2. `run_interactive()` chạy vòng lặp REPL: đọc input → `Agent.run()` → hiển thị kết quả.
 3. `Agent.run()`:
    - Gọi `_update_system_prompt()` (ContextBuilder lắp ráp từ workspace .md, skills XML, tools list, memory).
@@ -97,14 +97,19 @@ Final Assistant Text → UI Output
 
 ---
 
-## 4) Module map — `src/agentforge/` (20 files)
+## 4) Module map — `src/agentforge/`
 
 | File | Dòng | Vai trò |
 |------|------|---------|
 | `__init__.py` | 7 | Package metadata (`__version__ = "1.0.1"`) |
-| `cli.py` | 534 | CLI entry point, arg parser, vòng lặp REPL, kết nối components |
+| `cli.py` | 45 | Facade tương thích (`main`, `run_interactive`) |
+| `cli_args.py` | 175 | Parser + nạp env/config + mapping `InferenceConfig` |
+| `cli_runtime.py` | 268 | Vòng lặp REPL, wiring components, kết nối backend |
 | `agent_core.py` | 439 | Class `Agent`: vòng lặp điều phối, thực thi tool, kích hoạt skill |
-| `llm_inference.py` | 774 | Class `LLMInference`: transport local/remote, streaming, compat fallback |
+| `llm_inference.py` | 641 | Class `LLMInference` dạng orchestrator trên các helper inference |
+| `inference/server_manager.py` | 130 | Quản lý vòng đời llama-server local (start/health/stop) |
+| `inference/http_transport.py` | 106 | Transport HTTP + SSE + giới hạn tốc độ request |
+| `inference/compat.py` | 112 | Bậc thang fallback tương thích provider |
 | `contracts.py` | 102 | Dataclasses chung: `ToolCall`, `AssistantMessage`, `ToolMessage`, `ChatCompletionResult`, `ProviderCapabilities` |
 | `prompting.py` | 122 | `PromptBuilder`: xây dựng structured messages cho chat-completions API |
 | `tools.py` | 200 | `Tool`, `ToolResult`, `ToolRegistry`: định nghĩa tool + xuất schema tương thích OpenAI |
@@ -394,9 +399,9 @@ Biến ENV (user đặt)
   ↓
 run.bat defaults (if not defined → đặt mặc định)
   ↓
-run.bat truyền tất cả xuống CLI args cho cli.py
+run.bat truyền tất cả xuống CLI entrypoint
   ↓
-cli.py argparse phân giải giá trị cuối cùng
+cli_args.py phân giải giá trị cuối cùng
 ```
 
 Bypass: gọi trực tiếp `python -m agentforge.cli --flag value` sẽ ghi đè mọi thứ.
@@ -445,7 +450,7 @@ pythonpath = src
 addopts = -q
 ```
 
-### 15.2 Các file test (23 files)
+### 15.2 Các file test (24 files)
 
 | File | Phạm vi |
 |------|---------|
@@ -471,6 +476,7 @@ addopts = -q
 | `test_tool_call_parser_fallback.py` | Parser tool call |
 | `test_tool_loop_safety.py` | Bộ bảo vệ tool loop |
 | `test_tool_mutation_policy.py` | Phân loại mutation |
+| `test_tool_async_execution.py` | Thực thi async tool trong runtime sync |
 | `test_transcript_policy.py` | Làm sạch transcript |
 | `test_ui_safety.py` | An toàn UI |
 

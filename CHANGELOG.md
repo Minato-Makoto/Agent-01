@@ -3,6 +3,16 @@
 ## [Unreleased]
 
 ### Changed
+- Refactored inference stack into dedicated modules:
+  - `src/agentforge/inference/server_manager.py` (local llama-server lifecycle)
+  - `src/agentforge/inference/http_transport.py` (HTTP/SSE + rate limiting)
+  - `src/agentforge/inference/compat.py` (compatibility fallback ladder)
+  - `src/agentforge/llm_inference.py` now acts as orchestration facade.
+- Split CLI responsibilities:
+  - `src/agentforge/cli_args.py` for parser/env/config resolution
+  - `src/agentforge/cli_runtime.py` for REPL/runtime wiring
+  - `src/agentforge/cli.py` kept as compatibility facade.
+- `Tool.execute(...)` now supports awaitable return values in sync runtime (enables gradual adoption of async tool implementations).
 - Standardized ignore policy for runtime-generated artifacts (`workspace/sessions`, `workspace/screenshots`, `workspace/memory`, logs), local environment files, and local runtime binaries/models.
 - Reworked `run.bat` to a single-file Windows launcher:
   - removed hidden/banner toggles and extra control flags

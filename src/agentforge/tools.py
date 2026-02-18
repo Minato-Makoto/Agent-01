@@ -12,6 +12,8 @@ Supports:
 import json
 import logging
 import time
+import asyncio
+import inspect
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Protocol, runtime_checkable
 
@@ -28,6 +30,24 @@ def _safe_json(value: Any, *, pretty: bool = False) -> str:
         return json.dumps(value, **kwargs)
     except (TypeError, ValueError):
         return json.dumps({"raw": str(value)}, **kwargs)
+
+
+def _resolve_tool_return(value: Any) -> Any:
+    """
+    Normalize sync/async tool return value for the current synchronous runtime.
+
+    If a tool returns an awaitable, execute it in a fresh event loop.
+    """
+    if not inspect.isawaitable(value):
+        return value
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(value)
+    raise RuntimeError(
+        "Async tool returned awaitable while an event loop is already running. "
+        "Current runtime expects synchronous execution."
+    )
 
 
 @dataclass
@@ -90,7 +110,7 @@ class Tool:
         """Execute the tool and return a structured result."""
         start = time.time()
         try:
-            result = self.execute_fn(arguments)
+            result = _resolve_tool_return(self.execute_fn(arguments))
             elapsed = time.time() - start
             if isinstance(result, ToolResult):
                 result.execution_time = elapsed

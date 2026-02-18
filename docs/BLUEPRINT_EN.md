@@ -35,7 +35,7 @@ Agent-01/
 ├── src/
 │   ├── agentforge/             # Core runtime (20 files)
 │   ├── builtin_tools/          # Tool implementations (9 modules)
-│   └── tests/                  # Test suite (23 test files + conftest)
+│   └── tests/                  # Test suite (24 test files + conftest)
 ├── workspace/                  # Runtime data directory
 │   ├── IDENTITY.md             # Agent identity (injected into system prompt)
 │   ├── SOUL.md                 # Agent personality/values
@@ -85,7 +85,7 @@ Final Assistant Text → UI Output
 
 ### 3.2 Detailed Data Flow
 
-1. `cli.py` parses args, creates all components, calls `run_interactive()`.
+1. `cli.py` is a compatibility facade; parser/config lives in `cli_args.py` and runtime wiring lives in `cli_runtime.py`.
 2. `run_interactive()` runs the REPL loop: read input → `Agent.run()` → display result.
 3. `Agent.run()`:
    - Calls `_update_system_prompt()` (ContextBuilder assembles from workspace .md, skills XML, tools list, memory).
@@ -97,14 +97,19 @@ Final Assistant Text → UI Output
 
 ---
 
-## 4) Module Map — `src/agentforge/` (20 files)
+## 4) Module Map — `src/agentforge/`
 
 | File | Lines | Role |
 |------|-------|------|
 | `__init__.py` | 7 | Package metadata (`__version__ = "1.0.1"`) |
-| `cli.py` | 534 | CLI entry point, arg parser, REPL loop, component wiring |
+| `cli.py` | 45 | Compatibility facade entry point (`main`, `run_interactive`) |
+| `cli_args.py` | 175 | Parser + env/config loading + `InferenceConfig` mapping |
+| `cli_runtime.py` | 268 | REPL loop, component wiring, backend connect flow |
 | `agent_core.py` | 439 | `Agent` class: orchestration loop, tool execution, skill activation |
-| `llm_inference.py` | 774 | `LLMInference` class: local/remote transport, streaming, compat fallback |
+| `llm_inference.py` | 641 | `LLMInference` orchestrator over extracted inference helpers |
+| `inference/server_manager.py` | 130 | Local llama-server lifecycle (start/health/stop) |
+| `inference/http_transport.py` | 106 | Raw HTTP + SSE transport + request rate limiting |
+| `inference/compat.py` | 112 | Provider compatibility fallback ladder |
 | `contracts.py` | 102 | Shared dataclasses: `ToolCall`, `AssistantMessage`, `ToolMessage`, `ChatCompletionResult`, `ProviderCapabilities` |
 | `prompting.py` | 122 | `PromptBuilder`: structured message builder for chat-completions API |
 | `tools.py` | 200 | `Tool`, `ToolResult`, `ToolRegistry`: tool definition + OpenAI-compatible schema export |
@@ -394,9 +399,9 @@ ENV variables (set by user)
   ↓
 run.bat defaults (if not defined → set default)
   ↓
-run.bat passes both as CLI args to cli.py
+run.bat passes both as CLI args to CLI entrypoint
   ↓
-cli.py argparse resolves final values
+cli_args.py resolves final values
 ```
 
 Bypass: calling `python -m agentforge.cli --flag value` directly overrides everything.
@@ -445,7 +450,7 @@ pythonpath = src
 addopts = -q
 ```
 
-### 15.2 Test Files (23 files)
+### 15.2 Test Files (24 files)
 
 | File | Scope |
 |------|-------|
@@ -471,6 +476,7 @@ addopts = -q
 | `test_tool_call_parser_fallback.py` | Tool call parser |
 | `test_tool_loop_safety.py` | Tool loop guards |
 | `test_tool_mutation_policy.py` | Mutation classification |
+| `test_tool_async_execution.py` | Async tool execution in sync runtime |
 | `test_transcript_policy.py` | Transcript sanitization |
 | `test_ui_safety.py` | UI safety |
 
