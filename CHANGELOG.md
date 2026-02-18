@@ -13,6 +13,16 @@
   - `src/agentforge/cli_runtime.py` for REPL/runtime wiring
   - `src/agentforge/cli.py` kept as compatibility facade.
 - `Tool.execute(...)` now supports awaitable return values in sync runtime (enables gradual adoption of async tool implementations).
+- Standardized tool exception handling with traceable error envelopes (`ToolResult.from_exception(...)`) across core builtin tools.
+- Strengthened typing in session persistence path:
+  - `SessionMessage.to_dict()`
+  - `SessionMessage.to_transcript_entry()`
+  - `SessionMessage.from_dict(...)`
+- Expanded regression coverage for critical runtime paths:
+  - `context.py`
+  - `memory.py`
+  - `prompting.py`
+  - skill activation to real tool execution
 - Standardized ignore policy for runtime-generated artifacts (`workspace/sessions`, `workspace/screenshots`, `workspace/memory`, logs), local environment files, and local runtime binaries/models.
 - Reworked `run.bat` to a single-file Windows launcher:
   - removed hidden/banner toggles and extra control flags

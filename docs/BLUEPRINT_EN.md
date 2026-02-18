@@ -450,7 +450,7 @@ pythonpath = src
 addopts = -q
 ```
 
-### 15.2 Test Files (24 files)
+### 15.2 Test Files (30 files)
 
 | File | Scope |
 |------|-------|
@@ -460,10 +460,15 @@ addopts = -q
 | `test_cli_config_merge.py` | CLI arg merge logic |
 | `test_cli_env_file.py` | .env file loading |
 | `test_context_memory_format.py` | Memory format in system prompt |
+| `test_context_builder.py` | ContextBuilder bootstrap/runtime assembly + load error handling |
 | `test_contracts_and_registry.py` | ToolCall, ToolRegistry contracts |
 | `test_docs_link_integrity.py` | Doc link validity |
+| `test_file_ops_security.py` | Workspace sandbox enforcement for `write_file` |
 | `test_integration_mock_provider.py` | Full integration with mock LLM |
 | `test_llm_fallback.py` | LLM compatibility fallback |
+| `test_llm_rate_limit.py` | LLM request-per-minute guard |
+| `test_memory_store.py` | MemoryStore persistence + atomic write behavior |
+| `test_prompting_builder.py` | PromptBuilder structured message construction/truncation |
 | `test_regression_callbacks_streaming.py` | Streaming callback regression |
 | `test_schema_provider_compat.py` | Schema normalization per provider |
 | `test_security_tools.py` | Shell/web security |

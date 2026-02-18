@@ -13,6 +13,7 @@ Security (strict-default):
 import ipaddress
 import re
 import socket
+import logging
 from typing import Any, Dict
 from urllib.parse import urlparse
 
@@ -22,6 +23,7 @@ from agentforge.tools import Tool, ToolRegistry, ToolResult
 ALLOWED_SCHEMES = {"http", "https"}
 BLOCKED_HOSTS = {"localhost", "127.0.0.1", "::1", "0.0.0.0", "169.254.169.254"}
 CONTROL_CHARS_RE = re.compile(r"[\x00-\x08\x0B\x0C\x0E-\x1F]")
+logger = logging.getLogger(__name__)
 
 
 def register(registry: ToolRegistry, skill_name: str = "Web Operations") -> None:
@@ -166,7 +168,7 @@ def _http_request(args: Dict[str, Any]) -> ToolResult:
     except urllib.error.HTTPError as e:
         return ToolResult.error_result(f"HTTP {e.code}: {e.reason}")
     except Exception as e:
-        return ToolResult.error_result(str(e))
+        return ToolResult.from_exception(e, context="http_request failed", logger=logger)
 
 
 def _web_scrape(args: Dict[str, Any]) -> ToolResult:
@@ -206,4 +208,4 @@ def _web_scrape(args: Dict[str, Any]) -> ToolResult:
             text = re.sub(r"\s+", " ", text).strip()
             return ToolResult(success=True, output=_sanitize_external_text(text))
     except Exception as e:
-        return ToolResult.error_result(str(e))
+        return ToolResult.from_exception(e, context="web_scrape failed", logger=logger)

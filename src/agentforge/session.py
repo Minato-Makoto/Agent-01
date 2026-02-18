@@ -42,6 +42,48 @@ class SessionMessage:
         if self.timestamp == 0.0:
             self.timestamp = time.time()
 
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "role": self.role,
+            "content": self.content,
+            "timestamp": self.timestamp,
+            "tool_call_id": self.tool_call_id,
+            "tool_calls": self.tool_calls,
+            "tool_name": self.tool_name,
+            "synthetic": self.synthetic,
+        }
+
+    def to_transcript_entry(self) -> Dict[str, Any]:
+        """
+        Minimal normalized transcript shape used by repair/pairing helpers.
+        """
+        return {
+            "role": self.role,
+            "content": self.content,
+            "tool_call_id": self.tool_call_id,
+            "tool_calls": self.tool_calls,
+            "tool_name": self.tool_name,
+        }
+
+    @staticmethod
+    def from_dict(raw: Any) -> Optional["SessionMessage"]:
+        if not isinstance(raw, dict):
+            return None
+        try:
+            return SessionMessage(
+                role=str(raw.get("role", "")),
+                content=str(raw.get("content", "")),
+                timestamp=float(raw.get("timestamp", 0.0) or 0.0),
+                tool_call_id=str(raw.get("tool_call_id", "")),
+                tool_calls=raw.get("tool_calls")
+                if isinstance(raw.get("tool_calls"), list)
+                else None,
+                tool_name=str(raw.get("tool_name", "")),
+                synthetic=bool(raw.get("synthetic", False)),
+            )
+        except (TypeError, ValueError):
+            return None
+
 
 @dataclass
 class SessionData:
@@ -120,7 +162,7 @@ class SessionManager:
             try:
                 raw = json.loads(path.read_text(encoding="utf-8"))
                 data = migrate_session_payload(raw)
-                messages = [self._coerce_session_message(m) for m in data.get("messages", [])]
+                messages = [SessionMessage.from_dict(m) for m in data.get("messages", [])]
                 messages = [m for m in messages if m is not None]
                 self._session = SessionData(
                     id=str(data.get("id", session_id)),
@@ -248,13 +290,7 @@ class SessionManager:
         if not self._session:
             return {}
         raw_messages = [
-            {
-                "role": m.role,
-                "content": m.content,
-                "tool_call_id": m.tool_call_id,
-                "tool_calls": m.tool_calls,
-                "tool_name": m.tool_name,
-            }
+            m.to_transcript_entry()
             for m in self._session.messages
         ]
         return collect_pending_tool_calls(raw_messages)
@@ -309,37 +345,11 @@ class SessionManager:
                 "schema_version": self._session.schema_version,
                 "summary": self._session.summary,
                 "metadata": self._session.metadata,
-                "messages": [
-                    {
-                        "role": m.role,
-                        "content": m.content,
-                        "timestamp": m.timestamp,
-                        "tool_call_id": m.tool_call_id,
-                        "tool_calls": m.tool_calls,
-                        "tool_name": m.tool_name,
-                        "synthetic": m.synthetic,
-                    }
-                    for m in self._session.messages
-                ],
+                "messages": [m.to_dict() for m in self._session.messages],
             }
             tmp_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
             tmp_path.replace(path)
 
     @staticmethod
     def _coerce_session_message(raw: Any) -> Optional[SessionMessage]:
-        if not isinstance(raw, dict):
-            return None
-        try:
-            return SessionMessage(
-                role=str(raw.get("role", "")),
-                content=str(raw.get("content", "")),
-                timestamp=float(raw.get("timestamp", 0.0) or 0.0),
-                tool_call_id=str(raw.get("tool_call_id", "")),
-                tool_calls=raw.get("tool_calls")
-                if isinstance(raw.get("tool_calls"), list)
-                else None,
-                tool_name=str(raw.get("tool_name", "")),
-                synthetic=bool(raw.get("synthetic", False)),
-            )
-        except (TypeError, ValueError):
-            return None
+        return SessionMessage.from_dict(raw)

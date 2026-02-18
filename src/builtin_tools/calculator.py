@@ -2,7 +2,10 @@
 
 import ast
 import math
+import logging
 from agentforge.tools import Tool, ToolRegistry, ToolResult
+
+logger = logging.getLogger(__name__)
 
 
 SAFE_CONSTANTS = {
@@ -108,7 +111,7 @@ def _calculate(args: dict) -> ToolResult:
         result = _safe_eval(expression)
         return ToolResult(success=True, output={"result": result, "expression": expression})
     except Exception as e:
-        return ToolResult(success=False, output=None, error=f"Math error: {e}")
+        return ToolResult.from_exception(e, context="Math error", logger=logger)
 
 
 def register(registry: ToolRegistry, skill_name: str = "Math") -> None:

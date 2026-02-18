@@ -450,7 +450,7 @@ pythonpath = src
 addopts = -q
 ```
 
-### 15.2 Các file test (24 files)
+### 15.2 Các file test (30 files)
 
 | File | Phạm vi |
 |------|---------|
@@ -460,10 +460,15 @@ addopts = -q
 | `test_cli_config_merge.py` | Logic gộp cấu hình CLI |
 | `test_cli_env_file.py` | Tải file .env |
 | `test_context_memory_format.py` | Định dạng bộ nhớ trong system prompt |
+| `test_context_builder.py` | Lắp ráp ContextBuilder + xử lý lỗi đọc bootstrap |
 | `test_contracts_and_registry.py` | Hợp đồng ToolCall, ToolRegistry |
 | `test_docs_link_integrity.py` | Tính hợp lệ link tài liệu |
+| `test_file_ops_security.py` | Cưỡng chế sandbox workspace cho `write_file` |
 | `test_integration_mock_provider.py` | Tích hợp đầy đủ với mock LLM |
 | `test_llm_fallback.py` | Fallback tương thích LLM |
+| `test_llm_rate_limit.py` | Guard giới hạn request LLM/phút |
+| `test_memory_store.py` | Persistence MemoryStore + ghi file nguyên tử |
+| `test_prompting_builder.py` | Dựng/truncate structured messages trong PromptBuilder |
 | `test_regression_callbacks_streaming.py` | Hồi quy callback streaming |
 | `test_schema_provider_compat.py` | Chuẩn hoá schema theo provider |
 | `test_security_tools.py` | Bảo mật shell/web |

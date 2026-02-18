@@ -14,6 +14,7 @@ import logging
 import time
 import asyncio
 import inspect
+import uuid
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Protocol, runtime_checkable
 
@@ -95,6 +96,30 @@ class ToolResult:
         """Standard error result."""
         return ToolResult(success=False, output=None, error=message)
 
+    @staticmethod
+    def from_exception(
+        exc: BaseException,
+        *,
+        context: str = "",
+        logger: Optional[logging.Logger] = None,
+    ) -> "ToolResult":
+        """
+        Standardized error envelope for exceptions.
+
+        Keeps a short user-safe error while preserving traceback in logs
+        with a reference ID for debugging.
+        """
+        ref = uuid.uuid4().hex[:10]
+        msg = str(exc).strip() or exc.__class__.__name__
+        prefix = f"{context}: " if context else ""
+        if logger is not None:
+            logger.exception("%s [ref=%s]", context or "Tool exception", ref)
+        return ToolResult(
+            success=False,
+            output=None,
+            error=f"{prefix}{msg} [ref:{ref}]",
+        )
+
 
 @dataclass
 class Tool:
@@ -118,8 +143,13 @@ class Tool:
             return ToolResult(success=True, output=result, execution_time=elapsed)
         except Exception as e:
             elapsed = time.time() - start
-            logger.exception("Tool '%s' execution failed", self.name)
-            return ToolResult(success=False, output=None, error=str(e), execution_time=elapsed)
+            failure = ToolResult.from_exception(
+                e,
+                context=f"Tool '{self.name}' execution failed",
+                logger=logger,
+            )
+            failure.execution_time = elapsed
+            return failure
 
 
 @runtime_checkable

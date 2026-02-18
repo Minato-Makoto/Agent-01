@@ -7,10 +7,13 @@ Tools: read_file, write_file, list_directory, search_files, file_info
 import os
 import json
 import glob
+import logging
 from pathlib import Path
 from typing import Any, Dict, List
 
 from agentforge.tools import Tool, ToolRegistry, ToolResult
+
+logger = logging.getLogger(__name__)
 
 
 def register(registry: ToolRegistry, skill_name: str = "File Operations") -> None:
@@ -118,7 +121,7 @@ def _read_file(args: Dict[str, Any]) -> ToolResult:
             content = f.read()
         return ToolResult(success=True, output=content)
     except Exception as e:
-        return ToolResult(success=False, output=None, error=str(e))
+        return ToolResult.from_exception(e, context="read_file failed", logger=logger)
 
 
 def _write_file(args: Dict[str, Any]) -> ToolResult:
@@ -133,7 +136,7 @@ def _write_file(args: Dict[str, Any]) -> ToolResult:
     except PermissionError as e:
         return ToolResult(success=False, output=None, error=str(e))
     except Exception as e:
-        return ToolResult(success=False, output=None, error=str(e))
+        return ToolResult.from_exception(e, context="write_file failed", logger=logger)
 
 
 def _list_directory(args: Dict[str, Any]) -> ToolResult:
@@ -164,7 +167,7 @@ def _list_directory(args: Dict[str, Any]) -> ToolResult:
                 entries.append(entry)
         return ToolResult(success=True, output=entries)
     except Exception as e:
-        return ToolResult(success=False, output=None, error=str(e))
+        return ToolResult.from_exception(e, context="list_directory failed", logger=logger)
 
 
 def _search_files(args: Dict[str, Any]) -> ToolResult:
@@ -178,7 +181,7 @@ def _search_files(args: Dict[str, Any]) -> ToolResult:
         matches = glob.glob(search_pattern, recursive=True)[:max_results]
         return ToolResult(success=True, output=matches)
     except Exception as e:
-        return ToolResult(success=False, output=None, error=str(e))
+        return ToolResult.from_exception(e, context="search_files failed", logger=logger)
 
 
 def _file_info(args: Dict[str, Any]) -> ToolResult:
@@ -198,4 +201,4 @@ def _file_info(args: Dict[str, Any]) -> ToolResult:
         }
         return ToolResult(success=True, output=info)
     except Exception as e:
-        return ToolResult(success=False, output=None, error=str(e))
+        return ToolResult.from_exception(e, context="file_info failed", logger=logger)

@@ -56,3 +56,6 @@ def test_skill_is_unavailable_until_activation_then_unlocked(minimal_workspace):
     read_result = read_file_tool.execute({"path": str(skill_file)})
     assert read_result.success is True
     assert registry.has("calculate")
+    after = agent.tool_loop.execute_tool("calculate", {"expression": "1+1"})
+    assert after.success is True
+    assert after.output["result"] == 2

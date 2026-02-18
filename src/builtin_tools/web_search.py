@@ -9,10 +9,13 @@ import re
 import urllib.request
 import urllib.parse
 import urllib.error
+import logging
 from html import unescape
 from typing import Any, Dict, List
 
 from agentforge.tools import Tool, ToolRegistry, ToolResult
+
+logger = logging.getLogger(__name__)
 
 
 def register(registry: ToolRegistry, skill_name: str = "WebSearch") -> None:
@@ -77,7 +80,7 @@ def _web_search(args: Dict[str, Any]) -> ToolResult:
             for_user="\n".join(user_lines),
         )
     except Exception as e:
-        return ToolResult.error_result(f"Search failed: {e}")
+        return ToolResult.from_exception(e, context="Search failed", logger=logger)
 
 
 def _search_duckduckgo(query: str, count: int = 5) -> List[Dict[str, str]]:

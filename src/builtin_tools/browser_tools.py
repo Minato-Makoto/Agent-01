@@ -11,9 +11,12 @@ Uses a persistent browser context per session.
 import os
 import json
 import base64
+import logging
 from typing import Any, Dict, Optional
 
 from agentforge.tools import Tool, ToolRegistry, ToolResult
+
+logger = logging.getLogger(__name__)
 
 
 class BrowserManager:
@@ -119,7 +122,7 @@ def _navigate(args: Dict[str, Any]) -> ToolResult:
         page.goto(url, wait_until="domcontentloaded", timeout=30000)
         return ToolResult(success=True, output={"title": page.title(), "url": page.url})
     except Exception as e:
-        return ToolResult(success=False, output=None, error=str(e))
+        return ToolResult.from_exception(e, context="browser_navigate failed", logger=logger)
 
 
 def _click(args: Dict[str, Any]) -> ToolResult:
@@ -135,7 +138,7 @@ def _click(args: Dict[str, Any]) -> ToolResult:
             return ToolResult(success=False, output=None, error="Provide 'selector' or 'text'")
         return ToolResult(success=True, output="Clicked successfully")
     except Exception as e:
-        return ToolResult(success=False, output=None, error=str(e))
+        return ToolResult.from_exception(e, context="browser_click failed", logger=logger)
 
 
 def _type(args: Dict[str, Any]) -> ToolResult:
@@ -146,7 +149,7 @@ def _type(args: Dict[str, Any]) -> ToolResult:
         page.fill(selector, text, timeout=5000)
         return ToolResult(success=True, output=f"Typed '{text}' into {selector}")
     except Exception as e:
-        return ToolResult(success=False, output=None, error=str(e))
+        return ToolResult.from_exception(e, context="browser_type failed", logger=logger)
 
 
 def _screenshot(args: Dict[str, Any]) -> ToolResult:
@@ -168,7 +171,7 @@ def _screenshot(args: Dict[str, Any]) -> ToolResult:
             "url": page.url,
         })
     except Exception as e:
-        return ToolResult(success=False, output=None, error=str(e))
+        return ToolResult.from_exception(e, context="browser_screenshot failed", logger=logger)
 
 
 def _get_content(args: Dict[str, Any]) -> ToolResult:
@@ -188,7 +191,7 @@ def _get_content(args: Dict[str, Any]) -> ToolResult:
             # Limit content size
             return ToolResult(success=True, output=content[:10000])
     except Exception as e:
-        return ToolResult(success=False, output=None, error=str(e))
+        return ToolResult.from_exception(e, context="browser_get_content failed", logger=logger)
 
 
 def _evaluate(args: Dict[str, Any]) -> ToolResult:
@@ -200,7 +203,7 @@ def _evaluate(args: Dict[str, Any]) -> ToolResult:
         result = page.evaluate(js_code)
         return ToolResult(success=True, output=result)
     except Exception as e:
-        return ToolResult(success=False, output=None, error=str(e))
+        return ToolResult.from_exception(e, context="browser_evaluate failed", logger=logger)
 
 
 def _wait(args: Dict[str, Any]) -> ToolResult:
@@ -211,7 +214,7 @@ def _wait(args: Dict[str, Any]) -> ToolResult:
         page.wait_for_selector(selector, timeout=timeout)
         return ToolResult(success=True, output=f"Element '{selector}' found")
     except Exception as e:
-        return ToolResult(success=False, output=None, error=str(e))
+        return ToolResult.from_exception(e, context="browser_wait failed", logger=logger)
 
 
 def _scroll(args: Dict[str, Any]) -> ToolResult:
@@ -223,7 +226,7 @@ def _scroll(args: Dict[str, Any]) -> ToolResult:
         page.mouse.wheel(0, delta)
         return ToolResult(success=True, output=f"Scrolled {direction} by {amount}px")
     except Exception as e:
-        return ToolResult(success=False, output=None, error=str(e))
+        return ToolResult.from_exception(e, context="browser_scroll failed", logger=logger)
 
 
 def _select(args: Dict[str, Any]) -> ToolResult:
@@ -234,7 +237,7 @@ def _select(args: Dict[str, Any]) -> ToolResult:
         page.select_option(selector, value, timeout=5000)
         return ToolResult(success=True, output=f"Selected '{value}' in {selector}")
     except Exception as e:
-        return ToolResult(success=False, output=None, error=str(e))
+        return ToolResult.from_exception(e, context="browser_select failed", logger=logger)
 
 
 def _close(args: Dict[str, Any]) -> ToolResult:
@@ -242,4 +245,4 @@ def _close(args: Dict[str, Any]) -> ToolResult:
         BrowserManager.close()
         return ToolResult(success=True, output="Browser closed")
     except Exception as e:
-        return ToolResult(success=False, output=None, error=str(e))
+        return ToolResult.from_exception(e, context="browser_close failed", logger=logger)

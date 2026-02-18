@@ -10,9 +10,12 @@ Requires:
 """
 
 import json
+import logging
 from typing import Any, Dict, Optional
 
 from agentforge.tools import Tool, ToolRegistry, ToolResult
+
+logger = logging.getLogger(__name__)
 
 
 class PhotoshopClient:
@@ -81,11 +84,11 @@ def _make_ps_tool(command: str, description: str, schema: Dict) -> callable:
         try:
             return PhotoshopClient.send(command, args)
         except ImportError as e:
-            return ToolResult(success=False, output=None, error=str(e))
+            return ToolResult.from_exception(e, context="Photoshop dependency error", logger=logger)
         except ConnectionError as e:
-            return ToolResult(success=False, output=None, error=str(e))
+            return ToolResult.from_exception(e, context="Photoshop connection error", logger=logger)
         except Exception as e:
-            return ToolResult(success=False, output=None, error=str(e))
+            return ToolResult.from_exception(e, context="Photoshop command failed", logger=logger)
     return execute
 
 

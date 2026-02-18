@@ -12,10 +12,13 @@ import os
 import shlex
 import subprocess
 import sys
+import logging
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 from agentforge.tools import Tool, ToolRegistry, ToolResult
+
+logger = logging.getLogger(__name__)
 
 
 def register(registry: ToolRegistry, skill_name: str = "System") -> None:
@@ -426,7 +429,7 @@ def _shell_command(args: Dict[str, Any]) -> ToolResult:
     except subprocess.TimeoutExpired:
         return ToolResult.error_result(f"SECURITY[TIMEOUT]: Command timed out after {timeout}s")
     except Exception as e:
-        return ToolResult.error_result(f"RUNTIME[EXEC_ERROR]: {e}")
+        return ToolResult.from_exception(e, context="RUNTIME[EXEC_ERROR]", logger=logger)
 
 
 def _process_list(args: Dict[str, Any]) -> ToolResult:
@@ -475,4 +478,4 @@ def _process_list(args: Dict[str, Any]) -> ToolResult:
                     )
         return ToolResult(success=True, output=processes)
     except Exception as e:
-        return ToolResult.error_result(str(e))
+        return ToolResult.from_exception(e, context="process_list failed", logger=logger)
