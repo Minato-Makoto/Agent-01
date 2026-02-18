@@ -120,7 +120,8 @@ class SessionManager:
             try:
                 raw = json.loads(path.read_text(encoding="utf-8"))
                 data = migrate_session_payload(raw)
-                messages = [SessionMessage(**m) for m in data.get("messages", [])]
+                messages = [self._coerce_session_message(m) for m in data.get("messages", [])]
+                messages = [m for m in messages if m is not None]
                 self._session = SessionData(
                     id=str(data.get("id", session_id)),
                     created_at=float(data.get("created_at", 0.0)),
@@ -222,6 +223,7 @@ class SessionManager:
     def set_summary(self, summary: str) -> None:
         if self._session:
             self._session.summary = summary
+            self._session.updated_at = time.time()
             self._save()
 
     def get_messages(self, limit: int = 0) -> List[SessionMessage]:
@@ -239,6 +241,7 @@ class SessionManager:
     def clear_messages(self) -> None:
         if self._session:
             self._session.messages.clear()
+            self._session.updated_at = time.time()
             self._save()
 
     def _pending_tool_calls(self) -> Dict[str, str]:
@@ -321,3 +324,22 @@ class SessionManager:
             }
             tmp_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
             tmp_path.replace(path)
+
+    @staticmethod
+    def _coerce_session_message(raw: Any) -> Optional[SessionMessage]:
+        if not isinstance(raw, dict):
+            return None
+        try:
+            return SessionMessage(
+                role=str(raw.get("role", "")),
+                content=str(raw.get("content", "")),
+                timestamp=float(raw.get("timestamp", 0.0) or 0.0),
+                tool_call_id=str(raw.get("tool_call_id", "")),
+                tool_calls=raw.get("tool_calls")
+                if isinstance(raw.get("tool_calls"), list)
+                else None,
+                tool_name=str(raw.get("tool_name", "")),
+                synthetic=bool(raw.get("synthetic", False)),
+            )
+        except (TypeError, ValueError):
+            return None

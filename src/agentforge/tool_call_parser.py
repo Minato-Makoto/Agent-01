@@ -5,7 +5,7 @@ AgentForge — Dual-format tool call parser (JSON + XML).
 import json
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 
 @dataclass
@@ -30,15 +30,21 @@ class ParseResult:
 class ToolCallParser:
     """Dual-format tool call parser — tries JSON first, then XML."""
 
-    _id_counter = 0
+    def __init__(self):
+        self._id_counter = 0
+        self._parse_errors: List[str] = []
 
-    @classmethod
-    def _gen_id(cls) -> str:
-        cls._id_counter += 1
-        return f"call_{cls._id_counter}"
+    @property
+    def parse_errors(self) -> List[str]:
+        return list(self._parse_errors)
+
+    def _gen_id(self) -> str:
+        self._id_counter += 1
+        return f"call_{self._id_counter}"
 
     def parse(self, raw: str) -> ParseResult:
         """Parse raw LLM response — native XML format first, JSON fallback."""
+        self._parse_errors.clear()
         # Try native format first: <tool_call>{"name": "...", "arguments": {...}}</tool_call>
         result = self.parse_xml(raw)
         if result.has_tool_calls:
@@ -138,7 +144,8 @@ class ToolCallParser:
                         ))
                         last_end = match.end()
                 except json.JSONDecodeError:
-                    pass
+                    self._parse_errors.append("Invalid JSON payload inside <tool_call> block")
+                    continue
 
         remaining = raw[last_end:].strip()
         text_before = "".join(text_parts).strip()
@@ -181,7 +188,7 @@ class ToolCallParser:
                                     if isinstance(obj, dict):
                                         results.append((i, j + 1, obj))
                                 except json.JSONDecodeError:
-                                    pass
+                                    self._parse_errors.append("Invalid JSON object candidate")
                                 break
                     j += 1
             i += 1

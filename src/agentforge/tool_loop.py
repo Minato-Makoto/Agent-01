@@ -122,6 +122,12 @@ class ToolLoop:
             )
 
         no_progress = self._no_progress_streak(tool_name, args_hash)
+        if no_progress >= self._critical_threshold:
+            logger.warning(
+                "Loop guard: critical no-progress streak for %s (streak=%d)",
+                tool_name,
+                no_progress,
+            )
         if no_progress >= self._global_threshold:
             logger.error(
                 "Loop guard: global circuit breaker triggered for %s (streak=%d)",

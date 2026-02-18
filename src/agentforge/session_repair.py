@@ -23,7 +23,9 @@ def normalize_tool_calls(raw_tool_calls: Any) -> List[Dict[str, Any]]:
         args = function.get("arguments", "{}")
         if isinstance(args, dict):
             args = json.dumps(args, ensure_ascii=False)
-        elif not isinstance(args, str):
+        elif isinstance(args, str):
+            args = args.strip() or "{}"
+        else:
             args = "{}"
         normalized.append(
             {
