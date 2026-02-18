@@ -12,6 +12,20 @@ env/
 
 # Runtime/session artifacts
 workspace/sessions/*.json
+workspace/sessions/
+workspace/screenshots/
+workspace/memory/
+workspace/logs/
+*.log
+
+# Local runtime binaries/models
+llama-b*-win-cuda-*/
+*.gguf
+
+# Local env files
+.env
+.env.*
+!.env.example
 
 # Reference repos (local development only)
 reference/

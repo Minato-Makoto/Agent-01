@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+- Standardized ignore policy for runtime-generated artifacts (`workspace/sessions`, `workspace/screenshots`, `workspace/memory`, logs), local environment files, and local runtime binaries/models.
+
+### Removed
+- Deleted generated Python cache artifacts from `src/**/__pycache__` and `.pytest_cache`.
+  - Reason: generated runtime files are non-source artifacts and caused noisy audits.
+  - Impact: no runtime behavior change; caches are regenerated automatically.
+
 ## [1.0.1] - 2026-02-17
 
 ### Added
