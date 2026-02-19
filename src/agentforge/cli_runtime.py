@@ -68,6 +68,14 @@ def _connect_backend(llm: LLMInference, args: Any, config: InferenceConfig, ui: 
             f"effort={config.reasoning_effort or '(none)'} "
             "(sent as-is; backend may ignore unsupported fields)."
         )
+        if (
+            str(config.reasoning_effort or "").strip()
+            and str(config.reasoning_format or "").strip().lower() in {"", "auto"}
+        ):
+            ui.status(
+                "Note: many local backends ignore reasoning_effort; use --reasoning-format none "
+                "if you need to suppress visible thinking output."
+            )
         if not llm.load_model(model, config, server_exe=server_exe):
             ui.error("Failed to load model.")
             return False
