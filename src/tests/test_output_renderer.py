@@ -69,8 +69,8 @@ def test_lane_markdown_quote_codeblock_and_hr_rendering():
     text = console.export_text()
     assert "│ quoted line" in text
     assert "---" in text
-    assert ("╭" in text) or ("┌" in text)
-    assert ("╰" in text) or ("└" in text)
+    assert "╭" not in text and "┌" not in text
+    assert "╰" not in text and "└" not in text
 
 
 def test_code_block_wraps_long_lines_and_keeps_background_style():
@@ -86,3 +86,4 @@ def test_code_block_wraps_long_lines_and_keeps_background_style():
 
     assert plain.count("x") == 120
     assert "[48;" in ansi
+    assert "╭" not in plain and "┌" not in plain

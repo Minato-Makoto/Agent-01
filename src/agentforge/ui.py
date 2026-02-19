@@ -226,7 +226,6 @@ class ChatUI:
 
     def goodbye(self) -> None:
         self._ensure_stream_closed()
-        self._emit("")
         self._emit_branch("└─ ", "session terminated.", message_style=self.palette.hint)
 
     def _ensure_stream_closed(self) -> None:

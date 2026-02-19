@@ -162,6 +162,55 @@ def test_chat_completion_openai_provider_prefers_reasoning_effort(mock_chat_serv
     assert llm.capabilities.supports_reasoning_effort is True
 
 
+def test_chat_completion_llama_cpp_maps_low_effort_to_reasoning_format_none(mock_chat_server):
+    llm = _connect_remote(
+        mock_chat_server.url,
+        config=InferenceConfig(max_tokens=128, reasoning_format="auto", reasoning_effort="low"),
+    )
+    llm._provider_kind = "llama_cpp"
+
+    mock_chat_server.enqueue_json(
+        {
+            "choices": [
+                {
+                    "message": {"role": "assistant", "content": "ok"},
+                    "finish_reason": "stop",
+                }
+            ]
+        }
+    )
+
+    result = llm.chat_completion(messages=[{"role": "user", "content": "hello"}])
+    assert result.error == ""
+    assert result.content == "ok"
+    assert mock_chat_server.requests[0]["payload"]["reasoning_format"] == "none"
+    assert "reasoning_effort" not in mock_chat_server.requests[0]["payload"]
+
+
+def test_chat_completion_llama_cpp_keeps_explicit_reasoning_format(mock_chat_server):
+    llm = _connect_remote(
+        mock_chat_server.url,
+        config=InferenceConfig(max_tokens=128, reasoning_format="parsed", reasoning_effort="low"),
+    )
+    llm._provider_kind = "llama_cpp"
+
+    mock_chat_server.enqueue_json(
+        {
+            "choices": [
+                {
+                    "message": {"role": "assistant", "content": "ok"},
+                    "finish_reason": "stop",
+                }
+            ]
+        }
+    )
+
+    result = llm.chat_completion(messages=[{"role": "user", "content": "hello"}])
+    assert result.error == ""
+    assert result.content == "ok"
+    assert mock_chat_server.requests[0]["payload"]["reasoning_format"] == "parsed"
+
+
 def test_chat_completion_openai_o_series_uses_max_completion_tokens(mock_chat_server):
     llm = _connect_remote(mock_chat_server.url, config=InferenceConfig(max_tokens=256))
     llm._provider_kind = "openai"

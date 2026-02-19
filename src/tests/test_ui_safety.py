@@ -60,3 +60,22 @@ def test_chatui_rich_console_does_not_enable_soft_wrap(monkeypatch):
     assert ui._use_rich is True
     assert isinstance(ui.console, _FakeConsole)
     assert "soft_wrap" not in ui.console.kwargs
+
+
+def test_goodbye_does_not_emit_leading_blank_line(monkeypatch):
+    ui = ChatUI(verbose=False)
+    emitted = []
+
+    monkeypatch.setattr(ui, "_emit", lambda *args, **kwargs: emitted.append(("emit", args, kwargs)))
+    monkeypatch.setattr(
+        ui,
+        "_emit_branch",
+        lambda prefix, message, **kwargs: emitted.append(("branch", prefix, message, kwargs)),
+    )
+
+    ui.goodbye()
+    assert emitted
+    first = emitted[0]
+    assert first[0] == "branch"
+    assert first[1] == "└─ "
+    assert first[2] == "session terminated."

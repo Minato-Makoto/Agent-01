@@ -305,7 +305,7 @@ class LLMInference:
     def _should_send_reasoning_format(self) -> bool:
         if self._capabilities.supports_reasoning_format is False:
             return False
-        if not self._config.reasoning_format:
+        if not self._effective_reasoning_format():
             return False
         # OpenAI-first providers use `reasoning_effort`, not `reasoning_format`.
         return self._provider_kind not in {"openai", "openrouter", "anthropic", "gemini"}
@@ -316,6 +316,32 @@ class LLMInference:
         if not self._config.reasoning_effort:
             return False
         return self._provider_kind in {"openai", "openrouter", "openai_compatible"}
+
+    def _effective_reasoning_format(self) -> str:
+        """
+        Resolve reasoning_format actually sent to non-OpenAI providers.
+
+        Root cause addressed:
+        - local llama.cpp-style servers ignore `reasoning_effort`
+        - users often set `reasoning_effort=low` and expect shorter/no thinking output
+
+        Resolution:
+        - keep explicit non-auto `reasoning_format` as-is
+        - map `reasoning_effort` to local format only when format is still `auto`
+          - low -> none
+          - high -> parsed
+          - medium/other -> auto
+        """
+        fmt = str(self._config.reasoning_format or "").strip().lower()
+        effort = str(self._config.reasoning_effort or "").strip().lower()
+
+        if fmt and fmt != "auto":
+            return fmt
+        if effort == "low":
+            return "none"
+        if effort == "high":
+            return "parsed"
+        return fmt
 
     def _resolved_model_id(self) -> str:
         model = (self._config.model_id or "").strip().lower()
@@ -514,7 +540,7 @@ class LLMInference:
         if self._should_send_reasoning_effort():
             payload["reasoning_effort"] = self._config.reasoning_effort
         elif self._should_send_reasoning_format():
-            payload["reasoning_format"] = self._config.reasoning_format
+            payload["reasoning_format"] = self._effective_reasoning_format()
         if can_use_tools and provider_tools:
             payload["tools"] = provider_tools
             payload["tool_choice"] = tool_choice

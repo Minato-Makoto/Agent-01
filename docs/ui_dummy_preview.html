@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Agent-01 UI Dummy Preview</title>
+  <style>
+    :root {
+      --bg: #0f1115;
+      --panel: #151922;
+      --text: #d0d0d0;
+      --muted: #8a8f99;
+      --lane: #38c172;
+      --thinking: #d6b045;
+      --error: #e05d5d;
+      --code-bg: #262626;
+      --code-fg: #c8c8c8;
+      --input-bg: #11141c;
+      --btn-bg: #1f2531;
+      --btn-bd: #2d3648;
+      --accent: #38c172;
+    }
+
+    [data-theme="light"] {
+      --bg: #eef2f7;
+      --panel: #ffffff;
+      --text: #2f2f2f;
+      --muted: #6c727f;
+      --lane: #1f7f3e;
+      --thinking: #9a6700;
+      --error: #c52b2b;
+      --code-bg: #e8e8e8;
+      --code-fg: #2f2f2f;
+      --input-bg: #f7f9fc;
+      --btn-bg: #f1f4f9;
+      --btn-bd: #cfd7e6;
+      --accent: #1f7f3e;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(1200px 500px at 10% -10%, rgba(56,193,114,0.12), transparent 60%), var(--bg);
+      color: var(--text);
+      font-family: "Consolas", "Cascadia Mono", "Fira Code", monospace;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+    }
+
+    .wrap { width: min(1100px, 96vw); }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .controls input, .controls button {
+      border: 1px solid var(--btn-bd);
+      background: var(--input-bg);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font: inherit;
+    }
+    .controls input { flex: 1 1 420px; }
+    .controls button {
+      background: var(--btn-bg);
+      cursor: pointer;
+      transition: transform .12s ease, border-color .12s ease;
+    }
+    .controls button:hover { transform: translateY(-1px); border-color: var(--accent); }
+
+    .terminal {
+      background: linear-gradient(180deg, color-mix(in srgb, var(--panel) 94%, black), var(--panel));
+      border: 1px solid color-mix(in srgb, var(--panel) 70%, var(--accent));
+      border-radius: 14px;
+      padding: 16px;
+      min-height: 70vh;
+      overflow: auto;
+    }
+
+    .banner { color: var(--lane); margin: 0; white-space: pre; }
+    .version { color: var(--muted); margin: 0 0 10px 0; text-align: right; }
+    .line {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      line-height: 1.45;
+    }
+    .line + .line { margin-top: 2px; }
+    .prompt, .branch { color: var(--lane); font-weight: 700; width: 26px; flex: 0 0 26px; }
+    .branch.thinking { color: var(--thinking); }
+    .status-text.thinking { color: var(--muted); }
+    .status-text.done { color: var(--lane); }
+    .status-text.error { color: var(--error); }
+    .dim { color: var(--muted); }
+    .agent-label { color: var(--lane); font-weight: 700; }
+    .tool-label { color: var(--thinking); }
+    .tool-result { color: var(--muted); }
+    .error { color: var(--error); }
+
+    .md { margin-top: 2px; min-width: 0; width: 100%; }
+    .md h1, .md h2, .md h3 { margin: 8px 0 4px; font-weight: 700; }
+    .md h1 { font-size: 1.2rem; }
+    .md h2 { font-size: 1.07rem; }
+    .md h3 { font-size: 1rem; }
+    .md p { margin: 4px 0; }
+    .md .quote {
+      display: grid;
+      grid-template-columns: 16px 1fr;
+      gap: 8px;
+      color: var(--muted);
+      margin: 4px 0;
+    }
+    .md .quote .qbar { color: var(--lane); }
+    .md .hr { color: var(--muted); margin: 4px 0; }
+    .md pre {
+      margin: 6px 0;
+      padding: 8px 10px;
+      background: var(--code-bg);
+      color: var(--code-fg);
+      border-radius: 8px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      border: none;
+    }
+    .md code.inline {
+      background: color-mix(in srgb, var(--code-bg) 80%, transparent);
+      padding: 0 4px;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body data-theme="dark">
+  <div class="wrap">
+    <div class="controls">
+      <input id="promptInput" value="Refactor parser and show progress." />
+      <button id="runBtn">Run Demo</button>
+      <button id="exitBtn">Exit Line</button>
+      <button id="resetBtn">Reset</button>
+      <button id="themeBtn">Theme: Dark</button>
+    </div>
+    <div class="terminal" id="terminal"></div>
+  </div>
+
+  <script>
+    const state = {
+      theme: "dark",
+      turns: [],
+      showTerminated: false,
+      timer: null
+    };
+
+    const banner = `    ___                    __  ______
+   /   | ____ ____  ____  / /_/ ____/___  _________ ____
+  / /| |/ __ \`/ _ \\/ __ \\/ __/ /_  / __ \\/ ___/ __ \`/ _ \\
+ / ___ / /_/ /  __/ / / / /_/ __/ / /_/ / /  / /_/ /  __/
+/_/  |_|\\__, /\\___/_/ /_/\\__/_/    \\____/_/   \\__, /\\___/
+      /____/                                /____/`;
+
+    function esc(s) {
+      return String(s)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;");
+    }
+
+    function inlineMarkdown(text) {
+      return esc(text).replace(/`([^`]+)`/g, '<code class="inline">$1</code>');
+    }
+
+    function markdownLite(src) {
+      const lines = src.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+      let out = [];
+      let inCode = false;
+      let codeLines = [];
+
+      for (const line of lines) {
+        if (line.startsWith("```")) {
+          if (!inCode) {
+            inCode = true;
+            codeLines = [];
+          } else {
+            out.push(`<pre>${esc(codeLines.join("\n"))}</pre>`);
+            inCode = false;
+            codeLines = [];
+          }
+          continue;
+        }
+        if (inCode) {
+          codeLines.push(line);
+          continue;
+        }
+        if (/^###\s+/.test(line)) { out.push(`<h3>${inlineMarkdown(line.replace(/^###\s+/, ""))}</h3>`); continue; }
+        if (/^##\s+/.test(line))  { out.push(`<h2>${inlineMarkdown(line.replace(/^##\s+/, ""))}</h2>`); continue; }
+        if (/^#\s+/.test(line))   { out.push(`<h1>${inlineMarkdown(line.replace(/^#\s+/, ""))}</h1>`); continue; }
+        if (/^>\s?/.test(line)) {
+          out.push(`<div class="quote"><span class="qbar">│</span><span>${inlineMarkdown(line.replace(/^>\s?/, ""))}</span></div>`);
+          continue;
+        }
+        if (line.trim() === "---") { out.push('<div class="hr">---</div>'); continue; }
+        if (!line.trim()) { out.push("<p></p>"); continue; }
+        out.push(`<p>${inlineMarkdown(line)}</p>`);
+      }
+      if (inCode) out.push(`<pre>${esc(codeLines.join("\n"))}</pre>`);
+      return out.join("");
+    }
+
+    function render() {
+      const t = document.getElementById("terminal");
+      const html = [];
+      html.push(`<pre class="banner">${esc(banner)}</pre>`);
+      html.push(`<p class="version">v1.0.1</p>`);
+      html.push(`<div class="line"><span class="branch">│ </span><span class="dim">model: qwen3vl-local</span></div>`);
+      html.push(`<div class="line"><span class="branch">│ </span><span class="dim">commands: exit | reset | clear | skills | session</span></div>`);
+
+      for (const turn of state.turns) {
+        html.push(`<div class="line"><span class="prompt">&gt; </span><span>${esc(turn.input)}</span></div>`);
+
+        const thinking = turn.status === "thinking" || turn.status === "processing";
+        const statusClass = turn.status === "error" ? "error" : turn.status === "done" ? "done" : "thinking";
+        const statusText = turn.status === "error" ? `error: ${esc(turn.error || "unknown")}` : (turn.status === "done" ? "completed." : "thinking...");
+        html.push(`<div class="line"><span class="branch ${thinking ? "thinking" : ""}">├─ </span><span class="status-text ${statusClass}">${statusText}</span></div>`);
+
+        if (turn.reasoning) {
+          html.push(`<div class="line"><span class="branch ${thinking ? "thinking" : ""}">│ </span><span class="dim">${esc(turn.reasoning)}</span></div>`);
+        }
+
+        html.push(`<div class="line"><span class="branch">├─ </span><span class="agent-label">Agent-01</span></div>`);
+        html.push(`<div class="line"><span class="branch">│ </span><div class="md">${markdownLite(turn.output)}</div></div>`);
+
+        if (turn.toolCall) {
+          html.push(`<div class="line"><span class="branch">├─ </span><span class="tool-label">tool: ${esc(turn.toolCall.name)}</span></div>`);
+          html.push(`<div class="line"><span class="branch">│ </span><span class="tool-result">${esc(turn.toolCall.args)}</span></div>`);
+          html.push(`<div class="line"><span class="branch">└─ </span><span class="tool-result">result: ${esc(turn.toolCall.name)} ok</span></div>`);
+        }
+      }
+
+      if (state.showTerminated) {
+        html.push(`<div class="line"><span class="branch">└─ </span><span class="dim">session terminated.</span></div>`);
+      }
+
+      t.innerHTML = html.join("");
+      t.scrollTop = t.scrollHeight;
+    }
+
+    function runDemo() {
+      if (state.timer) clearInterval(state.timer);
+      const input = document.getElementById("promptInput").value.trim() || "Test streaming output";
+      const turn = {
+        input,
+        status: "thinking",
+        reasoning: "",
+        output: "",
+        error: "",
+        toolCall: null
+      };
+      state.turns.push(turn);
+      state.showTerminated = false;
+
+      const reasoningSource = "Inspecting parser flow, verifying schema, checking edge cases... ";
+      const outputSource = `## Plan
+We'll patch the parser and keep callbacks stable.
+
+> Streaming markdown is rendered inline.
+
+---
+
+\`\`\`python
+def parse(payload: dict) -> dict:
+    return {"ok": True, "size": len(payload)}
+\`\`\`
+
+Result is ready.`;
+
+      let i = 0;
+      let j = 0;
+      state.timer = setInterval(() => {
+        if (i < reasoningSource.length) {
+          turn.reasoning += reasoningSource[i++];
+          turn.status = "thinking";
+          render();
+          return;
+        }
+        if (j < outputSource.length) {
+          turn.output += outputSource[j++];
+          turn.status = "thinking";
+          render();
+          return;
+        }
+        turn.status = "done";
+        turn.toolCall = { name: "read_file", args: "{\"path\":\"workspace/AGENT.md\"}" };
+        clearInterval(state.timer);
+        state.timer = null;
+        render();
+      }, 16);
+    }
+
+    function resetDemo() {
+      if (state.timer) clearInterval(state.timer);
+      state.timer = null;
+      state.turns = [];
+      state.showTerminated = false;
+      render();
+    }
+
+    function toggleTheme() {
+      state.theme = state.theme === "dark" ? "light" : "dark";
+      document.body.setAttribute("data-theme", state.theme);
+      document.getElementById("themeBtn").textContent = `Theme: ${state.theme[0].toUpperCase()}${state.theme.slice(1)}`;
+    }
+
+    function showExitLine() {
+      state.showTerminated = true;
+      render();
+    }
+
+    document.getElementById("runBtn").addEventListener("click", runDemo);
+    document.getElementById("resetBtn").addEventListener("click", resetDemo);
+    document.getElementById("themeBtn").addEventListener("click", toggleTheme);
+    document.getElementById("exitBtn").addEventListener("click", showExitLine);
+
+    render();
+  </script>
+</body>
+</html>

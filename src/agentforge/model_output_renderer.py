@@ -17,11 +17,10 @@ import shutil
 from dataclasses import dataclass
 from typing import Mapping, Optional
 
-from rich import box
 from rich.console import Console, Group, RenderResult, RenderableType
 from rich.live import Live
 from rich.markdown import BlockQuote, CodeBlock, Heading, HorizontalRule, Markdown
-from rich.panel import Panel
+from rich.padding import Padding
 from rich.segment import Segment
 from rich.text import Text
 from rich.theme import Theme
@@ -129,9 +128,9 @@ def build_palette(mode: str) -> UIPalette:
             markdown_heading_h3="bold",
             markdown_quote_bar="grey58",
             markdown_quote_text="#57606a",
-            markdown_code_border="grey58",
-            markdown_code_background="on #eceff3",
-            markdown_code_text="dim #24292f",
+            markdown_code_border="",
+            markdown_code_background="on #e8e8e8",
+            markdown_code_text="dim #2f2f2f",
         )
     return UIPalette(
         mode=THEME_MODE_DARK,
@@ -158,9 +157,9 @@ def build_palette(mode: str) -> UIPalette:
         markdown_heading_h3="bold",
         markdown_quote_bar="grey58",
         markdown_quote_text="grey78",
-        markdown_code_border="grey50",
-        markdown_code_background="on #2b3036",
-        markdown_code_text="dim #f0f6fc",
+        markdown_code_border="",
+        markdown_code_background="on #262626",
+        markdown_code_text="dim #c8c8c8",
     )
 
 
@@ -236,7 +235,7 @@ class LaneHeading(Heading):
 
 
 class LaneCodeBlock(CodeBlock):
-    """Code block with rounded, dim panel."""
+    """Code block with monochrome dim gray background (no box frame)."""
 
     @classmethod
     def create(cls, markdown: Markdown, token) -> "LaneCodeBlock":
@@ -251,20 +250,14 @@ class LaneCodeBlock(CodeBlock):
 
     def __rich_console__(self, console: Console, options) -> RenderResult:
         code = str(self.text).rstrip()
+        code_style = f"{self.palette.markdown_code_text} {self.palette.markdown_code_background}".strip()
         code_text = Text(
             code,
-            style=self.palette.markdown_code_text,
+            style=code_style,
             no_wrap=False,
             overflow="fold",
         )
-        panel = Panel(
-            code_text,
-            box=box.ROUNDED,
-            border_style=self.palette.markdown_code_border,
-            style=self.palette.markdown_code_background,
-            padding=(0, 1),
-        )
-        yield panel
+        yield Padding(code_text, (0, 1), style=self.palette.markdown_code_background)
 
 
 class LaneBlockQuote(BlockQuote):
