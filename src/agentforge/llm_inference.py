@@ -343,6 +343,22 @@ class LLMInference:
             return "parsed"
         return fmt
 
+    def _should_enforce_reasoning_none(self) -> bool:
+        """Enforce no-reasoning contract for local/non-OpenAI providers."""
+        if self._provider_kind in {"openai", "openrouter", "openai_compatible"}:
+            return False
+        return self._effective_reasoning_format() == "none"
+
+    @staticmethod
+    def _reasoning_policy_message() -> Dict[str, str]:
+        return {
+            "role": "system",
+            "content": (
+                "Reasoning policy: Do not output chain-of-thought or hidden thinking."
+                " Return only final answer content."
+            ),
+        }
+
     def _resolved_model_id(self) -> str:
         model = (self._config.model_id or "").strip().lower()
         if "/" in model:
@@ -525,6 +541,9 @@ class LLMInference:
         )
         policy_messages, _ = apply_transcript_policy(messages, transcript_policy)
         effective_messages = policy_messages or messages
+        enforce_reasoning_none = self._should_enforce_reasoning_none()
+        if enforce_reasoning_none:
+            effective_messages = [self._reasoning_policy_message(), *effective_messages]
         can_use_tools = bool(tools) and self._probe_supports_tools(effective_messages)
         provider_tools = normalize_openai_tools_for_provider(
             tools or [], self._provider_kind
@@ -561,6 +580,7 @@ class LLMInference:
                 payload=payload,
                 on_token=on_token,
                 on_reasoning=on_reasoning,
+                enforce_reasoning_none=enforce_reasoning_none,
             )
 
         try:
@@ -578,6 +598,14 @@ class LLMInference:
             self._capabilities.supports_reasoning_format = True
 
         result = self._parse_chat_completion_response(resp)
+        if enforce_reasoning_none and re.search(
+            r"<think>.*?</think>", result.content or "", flags=re.IGNORECASE | re.DOTALL
+        ):
+            return ChatCompletionResult(
+                error=(
+                    "Backend ignored reasoning_format=none (received <think>...</think> content)."
+                )
+            )
         result.used_tools_fallback = used_fallback
         return result
 
@@ -649,6 +677,7 @@ class LLMInference:
         payload: Dict[str, Any],
         on_token=None,
         on_reasoning=None,
+        enforce_reasoning_none: bool = False,
     ) -> ChatCompletionResult:
         used_fallback = False
         for _ in range(max(1, self._config.compat_retry_limit)):
@@ -669,6 +698,7 @@ class LLMInference:
                     payload=payload,
                     on_token=on_token,
                     on_reasoning=on_reasoning,
+                    enforce_reasoning_none=enforce_reasoning_none,
                 )
                 self._capabilities.supports_stream = True
                 if "parallel_tool_calls" in payload:
@@ -722,6 +752,7 @@ class LLMInference:
         payload: Dict[str, Any],
         on_token=None,
         on_reasoning=None,
+        enforce_reasoning_none: bool = False,
     ) -> ChatCompletionResult:
         self._consume_rate_limit_slot()
         req = self._build_json_post_request(endpoint, payload)
@@ -729,6 +760,7 @@ class LLMInference:
         full_text = ""
         finish_reason = "stop"
         tc_parts: Dict[int, Dict[str, Any]] = {}
+        reasoning_policy_violation = ""
 
         try:
             with urllib.request.urlopen(req, timeout=self._config.request_timeout_s) as resp:
@@ -753,10 +785,24 @@ class LLMInference:
                         delta = {}
 
                     reasoning = delta.get("reasoning_content", "")
+                    if reasoning and enforce_reasoning_none:
+                        reasoning_policy_violation = (
+                            "Backend ignored reasoning_format=none "
+                            "(received reasoning_content stream)."
+                        )
+                        continue
                     if reasoning and on_reasoning:
                         on_reasoning(reasoning)
 
                     content = delta.get("content", "")
+                    if content and enforce_reasoning_none and ("<think>" in content.lower()):
+                        reasoning_policy_violation = (
+                            "Backend ignored reasoning_format=none "
+                            "(received <think> content stream)."
+                        )
+                        continue
+                    if reasoning_policy_violation:
+                        continue
                     if content:
                         full_text += content
                         if on_token:
@@ -802,6 +848,9 @@ class LLMInference:
             except json.JSONDecodeError:
                 parsed_args = {"raw": raw_args}
             tool_calls.append(ToolCall(id=tc_id, name=name, arguments=parsed_args))
+
+        if reasoning_policy_violation:
+            return ChatCompletionResult(error=reasoning_policy_violation)
 
         return ChatCompletionResult(
             content=full_text,

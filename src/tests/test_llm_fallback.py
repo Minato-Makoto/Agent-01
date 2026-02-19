@@ -359,7 +359,7 @@ def test_streaming_fallback_when_stream_is_rejected(mock_chat_server):
     assert "stream" not in mock_chat_server.requests[1]["payload"]
 
 
-def test_llama_cpp_low_effort_keeps_reasoning_stream_visible(mock_chat_server):
+def test_llama_cpp_low_effort_errors_when_backend_emits_reasoning(mock_chat_server):
     llm = _connect_remote(
         mock_chat_server.url,
         config=InferenceConfig(max_tokens=64, reasoning_format="auto", reasoning_effort="low"),
@@ -387,10 +387,10 @@ def test_llama_cpp_low_effort_keeps_reasoning_stream_visible(mock_chat_server):
         on_reasoning=reasoning.append,
     )
 
-    assert result.error == ""
-    assert result.content == "Visible answer"
-    assert "".join(tokens) == "Visible answer"
-    assert "".join(reasoning) == "very long hidden thinking"
+    assert "ignored reasoning_format=none" in result.error
+    assert result.content == ""
+    assert tokens == []
+    assert reasoning == []
     assert mock_chat_server.requests[0]["payload"]["reasoning_format"] == "none"
 
 
