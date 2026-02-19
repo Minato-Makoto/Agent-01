@@ -64,6 +64,7 @@ Ban co 2 cach:
 | `AGENT_TIMEOUT` | `--agent-timeout` | Timeout toan bo loop agent (giay) | `300`, `600` |
 | `WORKSPACE` | `--workspace` | Thu muc du lieu runtime | `%~dp0workspace` |
 | `EXTRA_ARGS` | append raw args | Nhoi them args tuy bien | `--verbose` |
+| `AGENTFORGE_UI_THEME` | env runtime | Chon palette UI terminal (`auto`/`dark`/`light`) | `auto` |
 | `AGENTFORGE_BROWSER_HEADLESS` | env runtime | `0` hien cua so browser, `1` chay an | `0` |
 | `TOOL_TIMEOUT_BROWSER_NAV_MS` | env runtime | Timeout navigate browser (ms) | `30000` |
 | `TOOL_TIMEOUT_BROWSER_ACTION_MS` | env runtime | Timeout click/type/select/get_content (ms) | `5000` |

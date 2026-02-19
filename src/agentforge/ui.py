@@ -1,37 +1,36 @@
 """
-AgentForge terminal chat UI — hacker/ASCII 2026 edition.
+AgentForge terminal chat UI.
 
-Streaming:
-- Direct character-by-character writes to stdout (natural terminal wrapping)
-- ANSI dim+italic for reasoning/thinking text
-- Phase: idle → started → reasoning|assistant → idle
-- Headers printed on first token (prevents duplicate headers)
+Design:
+- Keep ASCII banner identity
+- Tree-lane output (`│`, `├─`, `└─`) for status/progress
+- Realtime markdown rendering for model output via ModelOutputRenderer
 """
 
 from __future__ import annotations
 
 import json
 import logging
-import shutil
 import sys
 from typing import Any, Dict, List, Optional
 
 from .__init__ import __version__
+from .model_output_renderer import (
+    ModelOutputRenderer,
+    build_markdown_theme,
+    build_palette,
+    detect_theme_mode,
+)
 
 logger = logging.getLogger(__name__)
 
 try:
     from rich.console import Console
-    from rich.live import Live
-    from rich.markdown import Markdown
-    from rich.spinner import Spinner
 
     HAS_RICH = True
 except ImportError:
     HAS_RICH = False
 
-
-# ── Banner ──────────────────────────────────────────────────────
 
 _BANNER_LINES = r"""
     ___                    __  ______
@@ -42,48 +41,8 @@ _BANNER_LINES = r"""
       /____/                                /____/
 """
 
-# ── Constants ───────────────────────────────────────────────────
-
-TERMINAL_MIN_WIDTH = 60
-TERMINAL_MAX_WIDTH = 120
-TERMINAL_FALLBACK_WIDTH = 100
 TOOL_RESULT_LINE_LIMIT = 15
 
-PREFIX_STATUS = "[*]"
-PREFIX_ERROR = "[!]"
-PREFIX_LOG = "[-]"
-PREFIX_ASSISTANT = "[>]"
-PREFIX_REASONING = "[~]"
-PREFIX_TOOL = "[>>]"
-PREFIX_RESULT = "[<<]"
-
-# ANSI escape codes for reasoning styling
-_ANSI_DIM_ITALIC = "\033[2;3m"
-_ANSI_RESET = "\033[0m"
-
-# ── Theme (dict-based) ─────────────────────────────────────────
-
-THEME_RICH: Dict[str, str] = {
-    "rule": "dim",
-    "banner": "bold bright_cyan",
-    "version": "dim cyan",
-    "status": "green",
-    "hint": "dim",
-    "error": "bold red",
-    "log": "dim",
-    "assistant_header": "bold bright_cyan",
-    "reasoning_header": "dim yellow",
-    "tool_title": "bold yellow",
-    "tool_body": "dim yellow",
-    "result_title": "bold green",
-    "result_body": "dim green",
-    "goodbye": "dim green",
-}
-
-THEME_PLAIN: Dict[str, str] = {k: "" for k in THEME_RICH}
-
-
-# ── Helpers ─────────────────────────────────────────────────────
 
 def _short(value: Any, limit: int = 80) -> str:
     text = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
@@ -97,10 +56,8 @@ def _truncate_lines(lines: List[str], limit: int) -> List[str]:
     return lines[:limit] + ["... (truncated)"]
 
 
-# ── ChatUI ──────────────────────────────────────────────────────
-
 class ChatUI:
-    """Terminal chat UI — hacker/ASCII 2026 aesthetic."""
+    """Terminal chat UI with tree-lane streaming output."""
 
     def __init__(self, verbose: bool = False):
         self.verbose = verbose
@@ -110,29 +67,25 @@ class ChatUI:
             and getattr(sys.stdin, "isatty", lambda: False)()
         )
         self.console = Console(soft_wrap=True) if self._use_rich else None
-        self.theme = THEME_RICH if self._use_rich else THEME_PLAIN
 
-        # Stream state
-        # idle → started → (reasoning | assistant) → idle
+        theme_mode = detect_theme_mode()
+        self.palette = build_palette(theme_mode)
+        if self.console is not None:
+            self.console.push_theme(build_markdown_theme(self.palette))
+
+        self._renderer = ModelOutputRenderer(
+            console=self.console,
+            use_rich=self._use_rich,
+            palette=self.palette,
+        )
+
+        # Stream lifecycle retained for callback compatibility/tests.
         self._phase = "idle"
-        self._at_line_start = False
-        self._dim_active = False  # ANSI dim currently applied
+        self._dim_active = False
         self._assistant_buffer = ""
+        self._last_user_input = ""
 
-        # Spinner
-        self._spinner_live: Optional[Any] = None
-
-        # Encoding
         self._encoding = self._detect_encoding()
-        self._unicode_ok = self._can_encode("─")
-
-        # Raw output target (bypasses Rich for streaming)
-        if self._use_rich and self.console is not None:
-            self._raw_target = getattr(self.console, "file", None) or sys.stdout
-        else:
-            self._raw_target = sys.stdout
-
-    # ── Welcome ─────────────────────────────────────────────
 
     def welcome(
         self,
@@ -145,180 +98,112 @@ class ChatUI:
         workspace: str = "",
         provider: str = "",
     ) -> None:
-        self._rule()
+        del tools
         banner_lines = _BANNER_LINES.strip("\n").splitlines()
         for line in banner_lines:
-            self._emit(line, style=self.theme["banner"])
-        version_text = f"v{__version__}"
-        banner_width = max((len(line.rstrip()) for line in banner_lines), default=len(version_text))
-        self._emit(version_text.rjust(banner_width), style=self.theme["version"])
-        self._rule()
-
-        self._prefixed(PREFIX_STATUS, f"model   : {model_name}", self.theme["status"])
+            self._emit(line, style=self.palette.banner)
+        self._emit(f"v{__version__}", style=self.palette.hint)
+        self._emit(f"│ model: {model_name}", style=self.palette.text)
         if session_id:
-            self._prefixed(PREFIX_STATUS, f"session : {session_id}", self.theme["hint"])
+            self._emit(f"│ session: {session_id}", style=self.palette.hint)
         if self.verbose:
-            tool_count = len(tools) if tools else 0
             if provider:
-                self._prefixed(PREFIX_STATUS, f"runtime : {provider}", self.theme["status"])
-            self._prefixed(
-                PREFIX_STATUS,
-                f"tools   : {tool_count} active | {skill_count} skills ({total_tool_count} total)",
-                self.theme["status"],
+                self._emit(f"│ runtime: {provider}", style=self.palette.text)
+            self._emit(
+                f"│ tools: {skill_count} skills ({total_tool_count} total tools)",
+                style=self.palette.hint,
             )
             if workspace:
-                self._prefixed(PREFIX_STATUS, f"workspace: {workspace}", self.theme["hint"])
-        self._prefixed(
-            PREFIX_STATUS,
-            "commands: exit | reset | clear | skills | session",
-            self.theme["hint"],
-        )
-        self._rule()
+                self._emit(f"│ workspace: {workspace}", style=self.palette.hint)
+        self._emit("│ commands: exit | reset | clear | skills | session", style=self.palette.hint)
         self._emit("")
-
-    # ── Status / Error / Log ────────────────────────────────
 
     def status(self, msg: str) -> None:
         self._ensure_stream_closed()
-        self._prefixed(PREFIX_STATUS, msg, self.theme["hint"] or self.theme["status"])
+        self._emit(f"│ {msg}", style=self.palette.hint)
 
     def error(self, msg: str) -> None:
-        self._ensure_stream_closed()
-        self._prefixed(f"{PREFIX_ERROR} ERROR:", msg, self.theme["error"])
+        if self._renderer.active:
+            self._renderer.finish_error(msg)
+        else:
+            self._emit(f"└─ error: {msg}", style=self.palette.status_error)
+        self._phase = "idle"
+        self._dim_active = False
+        self._assistant_buffer = ""
 
     def log(self, msg: str) -> None:
         if not self.verbose:
             return
         self._ensure_stream_closed()
-        self._prefixed(PREFIX_LOG, msg, self.theme["log"])
-
-    # ── Input ───────────────────────────────────────────────
+        self._emit(f"│ debug: {msg}", style=self.palette.hint)
 
     def get_input(self) -> Optional[str]:
-        prompt = "❯ " if self._unicode_ok else "> "
+        prompt = "> "
         try:
             if self._use_rich and self.console is not None:
-                line = self.console.input(f"[bold green]{prompt}[/bold green]")
+                line = self.console.input(f"[bold]{prompt}[/bold]")
             else:
                 line = input(prompt)
-            return line.strip()
+            value = line.strip()
+            self._last_user_input = value
+            return value
         except (EOFError, KeyboardInterrupt):
             return None
 
-    # ── Thinking spinner ────────────────────────────────────
-
     def thinking_start(self) -> None:
-        if not (self._use_rich and self.console is not None):
-            return
-        if self._spinner_live is not None:
-            return
-        try:
-            spinner = Spinner("dots", text="processing...", style="dim green")
-            self._spinner_live = Live(
-                spinner,
-                console=self.console,
-                refresh_per_second=10,
-                transient=True,
-            )
-            self._spinner_live.start()
-        except Exception as exc:
-            logger.debug("Spinner start failed: %s", exc)
-            self._spinner_live = None
+        if not self._renderer.active:
+            self._renderer.begin_turn(self._last_user_input)
+        self._renderer.set_processing()
+        if self._phase == "idle":
+            self._phase = "started"
 
     def thinking_stop(self) -> None:
-        if self._spinner_live is None:
-            return
-        try:
-            self._spinner_live.stop()
-        except Exception as exc:
-            logger.debug("Spinner stop failed: %s", exc)
-        self._spinner_live = None
-
-    # ── Streaming ───────────────────────────────────────────
-    # Direct writes to stdout. Terminal handles wrapping.
-    # ANSI dim+italic for reasoning, reset for assistant.
+        return
 
     def stream_start(self) -> None:
-        """Signal streaming is about to begin. Headers deferred to first token."""
-        self.thinking_stop()
-        if self._phase not in ("idle", "started"):
-            self._ensure_stream_closed()
+        if not self._renderer.active:
+            self._renderer.begin_turn(self._last_user_input)
         self._phase = "started"
         self._assistant_buffer = ""
 
     def stream_token(self, token: str) -> None:
-        """Stream assistant content token."""
         if not token:
             return
-        self.thinking_stop()
-
-        if self._phase in ("idle", "started"):
-            self._emit("")
-            self._prefixed(PREFIX_ASSISTANT, "Agent-01:", self.theme["assistant_header"])
+        if self._phase == "idle":
+            self.stream_start()
+        if self._phase in ("idle", "started", "reasoning"):
             self._phase = "assistant"
-            self._at_line_start = True
-
-        elif self._phase == "reasoning":
-            # TRANSITION: reasoning → assistant
-            self._end_dim()
-            self._raw_write("\n\n")
-            self._prefixed(PREFIX_ASSISTANT, "Agent-01:", self.theme["assistant_header"])
-            self._phase = "assistant"
-            self._at_line_start = True
-
-        if self._use_rich and self.console is not None:
-            self._assistant_buffer += token
-        else:
-            self._raw_write(token)
+            self._dim_active = False
+        self._assistant_buffer += token
+        self._renderer.append_output(token)
 
     def stream_reasoning(self, token: str) -> None:
-        """Stream reasoning/thinking token (dim italic)."""
         if not token:
             return
-        self.thinking_stop()
-
-        if self._phase in ("idle", "started", "assistant"):
-            if self._phase == "assistant":
-                self._end_dim()
-                self._raw_write("\n\n")
-            elif self._phase == "started":
-                self._emit("")
-            self._prefixed(PREFIX_REASONING, "thinking:", self.theme["reasoning_header"])
-            self._phase = "reasoning"
-            self._at_line_start = True
-            self._start_dim()
-
-        self._raw_write(token)
+        if self._phase == "idle":
+            self.stream_start()
+        self._phase = "reasoning"
+        self._dim_active = True
+        self._renderer.append_reasoning(token)
 
     def stream_end(self) -> None:
-        """End current stream phase."""
-        self.thinking_stop()
-        if self._phase == "assistant" and self._use_rich and self.console is not None:
-            content = self._assistant_buffer.strip()
-            if content:
-                self.console.print(Markdown(content), soft_wrap=True)
-            self._assistant_buffer = ""
-            self._phase = "idle"
-            self._at_line_start = False
-            return
+        if self._renderer.active:
+            self._renderer.finish_success()
         self._assistant_buffer = ""
-        self._ensure_stream_closed()
-
-    # ── Tool display ────────────────────────────────────────
+        self._phase = "idle"
+        self._dim_active = False
 
     def show_tool_call(self, name: str, arguments: Dict[str, Any]) -> None:
-        self.thinking_stop()
         self._ensure_stream_closed()
-        self._emit("")
+        self._emit("│", style=self.palette.lane)
         if not arguments:
-            self._prefixed(PREFIX_TOOL, f"TOOL: {name}()", self.theme["tool_title"])
-        else:
-            args_str = _short(arguments, 72)
-            self._prefixed(PREFIX_TOOL, f"TOOL: {name}", self.theme["tool_title"])
-            self._emit(f"        {args_str}", style=self.theme["tool_body"])
+            self._emit(f"├─ tool: {name}()", style=self.palette.tool_title)
+            return
+        args_str = _short(arguments, 72)
+        self._emit(f"├─ tool: {name}", style=self.palette.tool_title)
+        self._emit(f"│  {args_str}", style=self.palette.tool_body)
 
     def show_tool_result(self, name: str, result: Any) -> None:
-        self.thinking_stop()
         self._ensure_stream_closed()
 
         if isinstance(result, dict):
@@ -328,49 +213,21 @@ class ChatUI:
         rendered = rendered.strip() or "(empty)"
         lines = _truncate_lines(rendered.splitlines(), TOOL_RESULT_LINE_LIMIT)
 
-        self._prefixed(PREFIX_RESULT, f"RESULT: {name}", self.theme["result_title"])
+        self._emit(f"└─ result: {name}", style=self.palette.result_title)
         for line in lines:
-            self._emit(f"        {line}", style=self.theme["result_body"])
-
-    # ── Goodbye ─────────────────────────────────────────────
+            self._emit(f"│  {line}", style=self.palette.result_body)
 
     def goodbye(self) -> None:
         self._ensure_stream_closed()
-        self.thinking_stop()
         self._emit("")
-        self._rule()
-        self._prefixed(PREFIX_STATUS, "session terminated.", self.theme["goodbye"])
-        self._rule()
-
-    # ── Internal: raw streaming (direct to stdout) ──────────
-
-    def _raw_write(self, text: str) -> None:
-        """Write text directly to terminal. Terminal handles wrapping."""
-        self._raw_target.write(text)
-        self._raw_target.flush()
-
-    def _start_dim(self) -> None:
-        """Apply ANSI dim+italic for reasoning text."""
-        if not self._dim_active:
-            self._raw_write(_ANSI_DIM_ITALIC)
-            self._dim_active = True
-
-    def _end_dim(self) -> None:
-        """Reset ANSI styling after reasoning text."""
-        if self._dim_active:
-            self._raw_write(_ANSI_RESET)
-            self._dim_active = False
+        self._emit("└─ session terminated.", style=self.palette.hint)
 
     def _ensure_stream_closed(self) -> None:
-        if self._phase == "idle":
-            return
-        self._end_dim()
-        if self._phase not in ("idle", "started"):
-            self._raw_write("\n")
+        if self._renderer.active:
+            self._renderer.close()
         self._phase = "idle"
-        self._at_line_start = False
-
-    # ── Internal: encoding / sanitization ───────────────────
+        self._dim_active = False
+        self._assistant_buffer = ""
 
     def _detect_encoding(self) -> str:
         if self._use_rich and self.console is not None:
@@ -380,13 +237,6 @@ class ChatUI:
         encoding = (getattr(target, "encoding", None) or "utf-8").strip()
         return encoding or "utf-8"
 
-    def _can_encode(self, text: str) -> bool:
-        try:
-            text.encode(self._encoding)
-            return True
-        except (LookupError, UnicodeEncodeError):
-            return False
-
     def _sanitize(self, text: str) -> str:
         try:
             text.encode(self._encoding)
@@ -395,12 +245,6 @@ class ChatUI:
             return text.encode(self._encoding, errors="replace").decode(
                 self._encoding, errors="replace"
             )
-
-    # ── Internal: terminal output (Rich or plain) ──────────
-
-    def _width(self) -> int:
-        w = shutil.get_terminal_size((TERMINAL_FALLBACK_WIDTH, 20)).columns
-        return max(TERMINAL_MIN_WIDTH, min(TERMINAL_MAX_WIDTH, w))
 
     def _emit(self, text: str, style: str = "", end: str = "\n") -> None:
         safe = self._sanitize(text)
@@ -416,9 +260,3 @@ class ChatUI:
             return
         print(safe, end=end, flush=True)
 
-    def _prefixed(self, prefix: str, message: str, style: str = "") -> None:
-        self._emit(f"  {prefix} {message}", style=style)
-
-    def _rule(self, char: Optional[str] = None) -> None:
-        bar = char or ("─" if self._unicode_ok else "-")
-        self._emit(bar * self._width(), style=self.theme["rule"])

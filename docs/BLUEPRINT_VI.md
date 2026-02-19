@@ -33,9 +33,9 @@ Agent-01/
 │   ├── BLUEPRINT_VI.md         # (file này) Tài liệu kiến trúc đầy đủ (Tiếng Việt)
 │   └── TUTORIAL.md             # Hướng dẫn chạy & tham số
 ├── src/
-│   ├── agentforge/             # Core runtime (20 files)
+│   ├── agentforge/             # Core runtime (21 files)
 │   ├── builtin_tools/          # Tool implementations (9 modules)
-│   └── tests/                  # Test suite (24 test files + conftest)
+│   └── tests/                  # Test suite (25 test files + conftest)
 ├── workspace/                  # Thư mục dữ liệu runtime
 │   ├── IDENTITY.md             # Danh tính agent (đọc vào system prompt)
 │   ├── SOUL.md                 # Tính cách, giá trị agent
@@ -120,7 +120,8 @@ Final Assistant Text → UI Output
 | `skills.py` | 205 | `SkillLoader`: khám phá skill 3 tầng (workspace > user_config > builtin), kích hoạt/huỷ kích hoạt |
 | `context.py` | 139 | `ContextBuilder`: lắp ráp system prompt động từ workspace .md + trạng thái runtime |
 | `summarizer.py` | 173 | `Summarizer`: nén context 3 tầng (soft-trim → graceful → emergency) |
-| `ui.py` | 410 | `ChatUI`: giao diện terminal, render Markdown cho output assistant (Rich mode), hiển thị thinking/reasoning, tool blocks |
+| `model_output_renderer.py` | 423 | Renderer realtime tree-lane, style markdown, tự nhận diện light/dark |
+| `ui.py` | 220 | `ChatUI`: lớp giao diện terminal bọc renderer, cầu nối callback stream, hiển thị tool/status |
 
 ---
 
@@ -360,10 +361,11 @@ Ngưỡng được tính theo `max_tokens × chars_per_token` (mặc định 4).
 
 ### 13.1 Giao diện terminal (`ui.py`)
 
-- **Thẩm mỹ Hacker/ASCII 2026**: đầu ra có prefix brackets `[*]`, `[!]`, `[>]`, v.v.
-- **ANSI streaming**: ghi trực tiếp từng ký tự ra stdout.
-- **Thinking/reasoning**: ANSI escape mờ+nghiêng cho text suy luận.
-- **Rich tuỳ chọn**: fallback sang plain text nếu thư viện Rich không khả dụng.
+- **Hiển thị tree-lane tối giản**: luồng `│`, `├─`, `└─` nối input user, trạng thái xử lý, và output model.
+- **Markdown stream thời gian thực**: output assistant được render markdown trực tiếp trong lúc token đang stream, không đợi cuối stream.
+- **Thinking/reasoning stream**: token reasoning hiển thị trong lane khi đang xử lý.
+- **Palette thích ứng**: tự nhận light/dark và override bằng `AGENTFORGE_UI_THEME=auto|dark|light`.
+- **Rich tuỳ chọn**: có Rich thì render lane đầy đủ; không có Rich vẫn fallback cùng semantics lane.
 - **Máy trạng thái pha**: `idle → started → reasoning|assistant → idle`.
 
 ### 13.2 Hệ thống callback
@@ -433,6 +435,7 @@ Bypass: gọi trực tiếp `python -m agentforge.cli --flag value` sẽ ghi đ�
 | `MAX_REPEATS` | `--max-repeats` | `3` | Giới hạn lặp tool call cùng tham số |
 | `AGENT_TIMEOUT` | `--agent-timeout` | `300` | Timeout vòng lặp agent (giây) |
 | `WORKSPACE` | `--workspace` | `./workspace` | Thư mục dữ liệu runtime |
+| `AGENTFORGE_UI_THEME` | chỉ env | `auto` | Chế độ màu UI: `auto` / `dark` / `light` |
 | `AGENTFORGE_BROWSER_HEADLESS` | chỉ env | `0` | `0`=hiển thị, `1`=ẩn |
 | `TOOL_TIMEOUT_BROWSER_NAV_MS` | chỉ env | `30000` | Timeout `browser_navigate` (ms) |
 | `TOOL_TIMEOUT_BROWSER_ACTION_MS` | chỉ env | `5000` | Timeout click/type/select/get_content (ms) |

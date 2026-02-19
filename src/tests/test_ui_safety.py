@@ -16,3 +16,13 @@ def test_ui_stream_lifecycle_resets_internal_state():
     ui.stream_end()
     assert ui._phase == "idle"
     assert ui._dim_active is False
+
+
+def test_ui_error_closes_active_lane():
+    ui = ChatUI(verbose=False)
+    ui._last_user_input = "hello"
+    ui.thinking_start()
+    ui.stream_reasoning("x")
+    ui.error("boom")
+    assert ui._phase == "idle"
+    assert ui._renderer.active is False

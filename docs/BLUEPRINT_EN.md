@@ -33,9 +33,9 @@ Agent-01/
 │   ├── BLUEPRINT_VI.md         # Vietnamese version
 │   └── TUTORIAL.md             # How to run & parameter reference
 ├── src/
-│   ├── agentforge/             # Core runtime (20 files)
+│   ├── agentforge/             # Core runtime (21 files)
 │   ├── builtin_tools/          # Tool implementations (9 modules)
-│   └── tests/                  # Test suite (24 test files + conftest)
+│   └── tests/                  # Test suite (25 test files + conftest)
 ├── workspace/                  # Runtime data directory
 │   ├── IDENTITY.md             # Agent identity (injected into system prompt)
 │   ├── SOUL.md                 # Agent personality/values
@@ -120,7 +120,8 @@ Final Assistant Text → UI Output
 | `skills.py` | 205 | `SkillLoader`: 3-tier skill discovery (workspace > user_config > builtin), activation/deactivation |
 | `context.py` | 139 | `ContextBuilder`: dynamic system prompt assembly from workspace .md + runtime state |
 | `summarizer.py` | 173 | `Summarizer`: 3-tier context compression (soft-trim → graceful → emergency) |
-| `ui.py` | 410 | `ChatUI`: terminal UI, Markdown-rendered assistant output (Rich mode), thinking/reasoning display, tool blocks |
+| `model_output_renderer.py` | 423 | Tree-lane realtime output renderer, markdown styling, adaptive theme detection |
+| `ui.py` | 220 | `ChatUI`: terminal shell wrapper around renderer, stream callback bridge, tool/status display |
 
 ---
 
@@ -360,10 +361,11 @@ Thresholds are computed as `max_tokens × chars_per_token` (default 4).
 
 ### 13.1 Terminal UI (`ui.py`)
 
-- **Hacker/ASCII 2026 aesthetic**: output prefixed with brackets `[*]`, `[!]`, `[>]`, etc.
-- **ANSI streaming**: direct character-by-character writes to stdout.
-- **Thinking/reasoning**: dim+italic ANSI escapes for reasoning text.
-- **Rich optional**: falls back to plain text if the Rich library is unavailable.
+- **Tree-lane presentation**: minimal flow with `│`, `├─`, `└─` linking user input, processing state, and model output.
+- **Realtime markdown stream**: assistant output is re-rendered live as markdown during token streaming (not deferred to end-of-stream).
+- **Thinking/reasoning stream**: reasoning tokens are displayed in the lane while processing is active.
+- **Adaptive palette**: auto light/dark detection with env override `AGENTFORGE_UI_THEME=auto|dark|light`.
+- **Rich optional**: rich lane rendering when available; plain fallback keeps the same lane semantics.
 - **Phase machine**: `idle → started → reasoning|assistant → idle`.
 
 ### 13.2 Callback System
@@ -433,6 +435,7 @@ Bypass: calling `python -m agentforge.cli --flag value` directly overrides every
 | `MAX_REPEATS` | `--max-repeats` | `3` | Duplicate tool-call repeat guard |
 | `AGENT_TIMEOUT` | `--agent-timeout` | `300` | Agent loop timeout (s) |
 | `WORKSPACE` | `--workspace` | `./workspace` | Runtime data dir |
+| `AGENTFORGE_UI_THEME` | env only | `auto` | UI palette mode: `auto` / `dark` / `light` |
 | `AGENTFORGE_BROWSER_HEADLESS` | env only | `0` | `0`=visible, `1`=headless |
 | `TOOL_TIMEOUT_BROWSER_NAV_MS` | env only | `30000` | `browser_navigate` timeout (ms) |
 | `TOOL_TIMEOUT_BROWSER_ACTION_MS` | env only | `5000` | click/type/select/get_content timeout (ms) |

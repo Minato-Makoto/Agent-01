@@ -3,7 +3,8 @@
 ## [Unreleased]
 
 ### Changed
-- Enabled Markdown rendering for assistant output in Rich terminal UI (`src/agentforge/ui.py`).
+- Redesigned terminal UI to a tree-lane flow (`│`, `├─`, `└─`) with realtime markdown streaming and state color transitions.
+- Added dedicated output renderer module (`src/agentforge/model_output_renderer.py`) and adaptive palette detection (`AGENTFORGE_UI_THEME=auto|dark|light`).
 - Removed long-term memory injection from system prompt assembly.
 - Restored `src/agentforge/llm_inference.py` as a single-file transport module (no split inference package).
 - Split CLI responsibilities:
