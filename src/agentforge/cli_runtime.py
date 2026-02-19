@@ -65,7 +65,7 @@ def _connect_backend(llm: LLMInference, args: Any, config: InferenceConfig, ui: 
         ui.status(
             "Reasoning effort: "
             f"{config.reasoning_effort or '(none)'} "
-            "(levels: low|medium|high|extra_high; sent as-is when backend supports it)."
+            "(levels: low|medium|high|extra_high; always sent to model endpoint)."
         )
         if not llm.load_model(model, config, server_exe=server_exe):
             ui.error("Failed to load model.")
@@ -87,7 +87,7 @@ def _connect_backend(llm: LLMInference, args: Any, config: InferenceConfig, ui: 
     ui.status(
         "Reasoning effort: "
         f"{config.reasoning_effort or '(none)'} "
-        "(levels: low|medium|high|extra_high; sent as-is when backend supports it)."
+        "(levels: low|medium|high|extra_high; always sent to model endpoint)."
     )
     ui.status(
         "Reasoning stream length is backend/model behavior; effort level is only a request hint."
