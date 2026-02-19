@@ -308,3 +308,48 @@ def test_runtime_applies_agent_loop_overrides(monkeypatch, minimal_workspace):
     assert captured["config"].max_iterations == 17
     assert captured["config"].max_repeats == 5
     assert captured["config"].timeout == 42.5
+
+
+def test_runtime_closes_browser_manager_on_exit(monkeypatch, minimal_workspace):
+    monkeypatch.setattr(cli, "ChatUI", lambda verbose=False: _DummyUI(["exit"], verbose))
+
+    def fake_load_model(self, model_path, config=None, server_exe=""):
+        self._loaded = True
+        self.capabilities.supports_tools = True
+        return True
+
+    def fake_unload(self):
+        self._loaded = False
+
+    closed = {"called": False}
+
+    def fake_close():
+        closed["called"] = True
+
+    from builtin_tools import browser_tools
+
+    monkeypatch.setattr(browser_tools.BrowserManager, "close", staticmethod(fake_close))
+    monkeypatch.setattr(cli.LLMInference, "load_model", fake_load_model)
+    monkeypatch.setattr(cli.LLMInference, "unload", fake_unload)
+
+    args = argparse.Namespace(
+        provider="local",
+        model="dummy.gguf",
+        server_exe="llama-server.exe",
+        base_url="",
+        model_id="local",
+        api_key_env="OPENAI_API_KEY",
+        ctx_size=1024,
+        gpu_layers=-1,
+        threads=0,
+        temp=0.1,
+        max_tokens=128,
+        port=8080,
+        verbose=False,
+        workspace=str(minimal_workspace),
+        session="",
+    )
+
+    rc = cli.run_interactive(args)
+    assert rc == 0
+    assert closed["called"] is True

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import sys
 from typing import Any, Callable, Dict, Optional
@@ -18,6 +19,8 @@ from .session import SessionManager
 from .skills import SkillLoader
 from .summarizer import Summarizer
 from .tools import ToolRegistry
+
+logger = logging.getLogger(__name__)
 
 
 def _coerce_positive_int(value: Any, default: int) -> int:
@@ -177,6 +180,21 @@ def _render_agent_result(ui: Any, result: str, stream_state: Dict[str, bool]) ->
         ui.stream_end()
 
 
+def _cleanup_runtime_resources() -> None:
+    """
+    Best-effort shutdown of long-lived tool subprocesses.
+
+    Prevents Playwright Node driver EPIPE errors on process exit by explicitly
+    stopping the browser/session bridge before Python tears down stdio.
+    """
+    try:
+        from builtin_tools.browser_tools import BrowserManager
+
+        BrowserManager.close()
+    except Exception:
+        logger.debug("Best-effort runtime cleanup failed.", exc_info=True)
+
+
 def run_interactive(
     args: Any,
     *,
@@ -287,6 +305,7 @@ def run_interactive(
             result = agent.run(line, callbacks=callbacks)
             _render_agent_result(ui, result, stream_state)
     finally:
+        _cleanup_runtime_resources()
         ui.goodbye()
         llm.unload()
     return 0
