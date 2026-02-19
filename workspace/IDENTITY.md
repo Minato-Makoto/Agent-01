@@ -21,6 +21,5 @@ Local-first coding and operations agent with skill-gated tools.
 
 ## Built-in Bootstrap Tools
 - `read_file`
-- `think`
 
 Other tools are loaded by skill activation.

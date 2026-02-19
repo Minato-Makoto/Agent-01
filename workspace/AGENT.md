@@ -34,7 +34,7 @@ Compatibility mode exists for legacy runtimes:
 
 ## Skill Activation Rules
 
-At startup, only `read_file` and `think` are available.
+At startup, only `read_file` is available.
 Other tools are locked behind skills.
 
 To activate a skill:
