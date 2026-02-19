@@ -75,6 +75,11 @@ Ban co 2 cach:
 | `TOOL_TIMEOUT_PROCESS_LIST_S` | env runtime | Timeout tool `process_list` (s) | `10` |
 | `SHELL_WORKSPACE_ONLY` | env runtime | `1`: mac dinh chi cho shell trong workspace | `1`, `0` |
 
+Luu y reasoning:
+- Runtime gui `REASONING_FORMAT` va `REASONING_EFFORT` dung nhu config (khong map noi bo kieu `low -> none`).
+- Neu backend local khong ho tro `reasoning_effort`, gia tri nay co the bi bo qua.
+- Khi `REASONING_FORMAT=auto` + model "Thinking", model van co the stream thinking dai; muon giam manh thi dat `REASONING_FORMAT=none`.
+
 ## 5) Preset mau
 
 ### 5.1 Local coding on dinh

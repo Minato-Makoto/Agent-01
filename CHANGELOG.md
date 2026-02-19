@@ -55,6 +55,10 @@
   - browser, web request/search, Photoshop, process-list.
 - `shell_command` now defaults to workspace-only cwd sandbox (`SHELL_WORKSPACE_ONLY=1`, opt-out with `0`).
 - Refactored (without splitting file) `llm_inference.py` HTTP request construction to reduce duplication and improve debug traceability.
+- Reasoning-control transport now uses direct pass-through semantics:
+  - removed local `reasoning_effort -> reasoning_format` remapping behavior
+  - removed reasoning stream suppression/error-enforcement paths tied to derived local format
+  - runtime status output no longer reports derived `effective_format`.
 - Expanded regression gates:
   - CRLF invariant + real `run.bat` smoke test
   - timeout env mapping tests across key tools

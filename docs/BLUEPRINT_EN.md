@@ -216,6 +216,8 @@ Payload sent to `/v1/chat/completions`:
 - Optional reasoning control:
   - `reasoning_effort` (OpenAI-style: `low`, `medium`, `high`)
   - `reasoning_format` (local/third-party: `parsed`, `auto`, `none`)
+  - AgentForge forwards both fields from config as-is (no local remapping like `low -> none`);
+    if a provider rejects a field, compatibility fallback removes only that unsupported field and retries.
 
 ### 7.3 Fallback Ladder (controlled degradation)
 

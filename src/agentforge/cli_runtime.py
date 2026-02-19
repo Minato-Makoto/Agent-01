@@ -60,24 +60,13 @@ def _connect_backend(llm: LLMInference, args: Any, config: InferenceConfig, ui: 
             ui.error("Missing --server-exe for local mode.")
             return False
 
-        effective_local_reasoning = config.reasoning_format or "(none)"
-        if str(config.reasoning_format or "").strip().lower() == "auto":
-            effort = str(config.reasoning_effort or "").strip().lower()
-            if effort == "low":
-                effective_local_reasoning = "none"
-            elif effort == "high":
-                effective_local_reasoning = "parsed"
-            elif effort:
-                effective_local_reasoning = "auto"
-
         ui.status(f"Loading model: {os.path.basename(model)}")
         ui.status(f"Server: {server_exe} ({config.host}:{config.port})")
         ui.status(
             "Reasoning controls: "
             f"format={config.reasoning_format or '(none)'} | "
-            f"effort={config.reasoning_effort or '(none)'} | "
-            f"effective_format={effective_local_reasoning} "
-            "(local backends apply reasoning_format)."
+            f"effort={config.reasoning_effort or '(none)'} "
+            "(sent as-is; backend may ignore unsupported fields)."
         )
         if not llm.load_model(model, config, server_exe=server_exe):
             ui.error("Failed to load model.")

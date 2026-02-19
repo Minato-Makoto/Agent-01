@@ -216,6 +216,8 @@ Payload gửi tới `/v1/chat/completions`:
 - Điều khiển reasoning tuỳ chọn:
   - `reasoning_effort` (kiểu OpenAI: `low`, `medium`, `high`)
   - `reasoning_format` (local/bên thứ ba: `parsed`, `auto`, `none`)
+  - AgentForge chuyển tiếp nguyên trạng hai field theo config (không còn map cục bộ kiểu `low -> none`);
+    nếu provider từ chối field nào thì fallback chỉ loại đúng field không hỗ trợ và retry.
 
 ### 7.3 Bậc thang fallback (giảm cấp có kiểm soát)
 

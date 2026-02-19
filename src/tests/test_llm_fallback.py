@@ -115,7 +115,7 @@ def test_chat_completion_fallback_when_reasoning_format_is_rejected(mock_chat_se
     assert "reasoning_format" not in mock_chat_server.requests[1]["payload"]
 
 
-def test_chat_completion_openai_provider_does_not_send_reasoning_format(mock_chat_server):
+def test_chat_completion_openai_provider_sends_reasoning_format_when_configured(mock_chat_server):
     llm = _connect_remote(mock_chat_server.url)
     llm._provider_kind = "openai"
 
@@ -133,7 +133,7 @@ def test_chat_completion_openai_provider_does_not_send_reasoning_format(mock_cha
     result = llm.chat_completion(messages=[{"role": "user", "content": "hello"}])
     assert result.error == ""
     assert result.content == "ok"
-    assert "reasoning_format" not in mock_chat_server.requests[0]["payload"]
+    assert mock_chat_server.requests[0]["payload"]["reasoning_format"] == "auto"
 
 
 def test_chat_completion_openai_provider_prefers_reasoning_effort(mock_chat_server):
@@ -158,11 +158,11 @@ def test_chat_completion_openai_provider_prefers_reasoning_effort(mock_chat_serv
     assert result.error == ""
     assert result.content == "ok"
     assert mock_chat_server.requests[0]["payload"]["reasoning_effort"] == "medium"
-    assert "reasoning_format" not in mock_chat_server.requests[0]["payload"]
+    assert mock_chat_server.requests[0]["payload"]["reasoning_format"] == "auto"
     assert llm.capabilities.supports_reasoning_effort is True
 
 
-def test_chat_completion_llama_cpp_maps_low_effort_to_reasoning_format_none(mock_chat_server):
+def test_chat_completion_llama_cpp_passes_reasoning_controls_without_mapping(mock_chat_server):
     llm = _connect_remote(
         mock_chat_server.url,
         config=InferenceConfig(max_tokens=128, reasoning_format="auto", reasoning_effort="low"),
@@ -183,8 +183,8 @@ def test_chat_completion_llama_cpp_maps_low_effort_to_reasoning_format_none(mock
     result = llm.chat_completion(messages=[{"role": "user", "content": "hello"}])
     assert result.error == ""
     assert result.content == "ok"
-    assert mock_chat_server.requests[0]["payload"]["reasoning_format"] == "none"
-    assert "reasoning_effort" not in mock_chat_server.requests[0]["payload"]
+    assert mock_chat_server.requests[0]["payload"]["reasoning_format"] == "auto"
+    assert mock_chat_server.requests[0]["payload"]["reasoning_effort"] == "low"
 
 
 def test_chat_completion_llama_cpp_keeps_explicit_reasoning_format(mock_chat_server):
@@ -359,7 +359,7 @@ def test_streaming_fallback_when_stream_is_rejected(mock_chat_server):
     assert "stream" not in mock_chat_server.requests[1]["payload"]
 
 
-def test_llama_cpp_low_effort_errors_when_backend_emits_reasoning(mock_chat_server):
+def test_llama_cpp_low_effort_surfaces_backend_reasoning_stream(mock_chat_server):
     llm = _connect_remote(
         mock_chat_server.url,
         config=InferenceConfig(max_tokens=64, reasoning_format="auto", reasoning_effort="low"),
@@ -387,11 +387,12 @@ def test_llama_cpp_low_effort_errors_when_backend_emits_reasoning(mock_chat_serv
         on_reasoning=reasoning.append,
     )
 
-    assert "ignored reasoning_format=none" in result.error
-    assert result.content == ""
-    assert tokens == []
-    assert reasoning == []
-    assert mock_chat_server.requests[0]["payload"]["reasoning_format"] == "none"
+    assert result.error == ""
+    assert result.content == "Visible answer"
+    assert tokens == ["Visible", " answer"]
+    assert reasoning == ["very long hidden thinking"]
+    assert mock_chat_server.requests[0]["payload"]["reasoning_format"] == "auto"
+    assert mock_chat_server.requests[0]["payload"]["reasoning_effort"] == "low"
 
 
 def test_chat_completion_applies_transcript_policy_before_send(mock_chat_server):
