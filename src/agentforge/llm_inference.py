@@ -56,9 +56,6 @@ class InferenceConfig:
     local_completion_endpoint: str = "/completion"
     remote_chat_endpoint: str = "/v1/chat/completions"
     remote_completion_endpoint: str = "/v1/completions"
-    # Deprecated: retained for backward compatibility with old config/env layouts.
-    # Runtime no longer sends `reasoning_format` to the model.
-    reasoning_format: str = ""
     # Unified reasoning level sent as-is (normalized).
     # Supported levels: low, medium, high, extra_high.
     reasoning_effort: str = ""

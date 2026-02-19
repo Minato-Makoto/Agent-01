@@ -67,10 +67,6 @@ def _connect_backend(llm: LLMInference, args: Any, config: InferenceConfig, ui: 
             f"{config.reasoning_effort or '(none)'} "
             "(levels: low|medium|high|extra_high; sent as-is when backend supports it)."
         )
-        if str(config.reasoning_format or "").strip():
-            ui.status(
-                "Note: --reasoning-format is deprecated and ignored by runtime."
-            )
         if not llm.load_model(model, config, server_exe=server_exe):
             ui.error("Failed to load model.")
             return False
@@ -93,10 +89,6 @@ def _connect_backend(llm: LLMInference, args: Any, config: InferenceConfig, ui: 
         f"{config.reasoning_effort or '(none)'} "
         "(levels: low|medium|high|extra_high; sent as-is when backend supports it)."
     )
-    if str(config.reasoning_format or "").strip():
-        ui.status(
-            "Note: --reasoning-format is deprecated and ignored by runtime."
-        )
     ui.status(
         "Reasoning stream length is backend/model behavior; effort level is only a request hint."
     )

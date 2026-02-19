@@ -56,13 +56,13 @@
 - `shell_command` now defaults to workspace-only cwd sandbox (`SHELL_WORKSPACE_ONLY=1`, opt-out with `0`).
 - Refactored (without splitting file) `llm_inference.py` HTTP request construction to reduce duplication and improve debug traceability.
 - Reasoning-control transport now uses direct pass-through semantics:
-  - removed local `reasoning_effort -> reasoning_format` remapping behavior
+  - removed local remapping of reasoning controls
   - removed reasoning stream suppression/error-enforcement paths tied to derived local format
   - runtime status output no longer reports derived `effective_format`.
 - Unified reasoning control on `reasoning_effort` only:
-  - runtime no longer sends `reasoning_format` to model payloads
+  - runtime now sends a single reasoning effort field to model payloads
   - normalized supported effort levels: `low`, `medium`, `high`, `extra_high`
-  - `--reasoning-format` kept as deprecated compatibility flag (ignored by runtime).
+  - removed legacy reasoning mode flag from runtime interfaces.
 - Expanded regression gates:
   - CRLF invariant + real `run.bat` smoke test
   - timeout env mapping tests across key tools
@@ -106,11 +106,11 @@
 - Terminal UI redesigned to ASCII-first presentation while preserving streaming callbacks.
 - Provider-aware reasoning parameter routing:
   - OpenAI/OpenAI-compatible path prefers `reasoning_effort`.
-  - Non-OpenAI provider path keeps `reasoning_format`.
+  - legacy provider-specific reasoning mode path was retained at that time.
 - Core docs and workspace guidance rewritten for consistency and operational clarity.
 
 ### Fixed
-- Avoid sending `reasoning_format` to providers that do not support it.
+- Avoid sending unsupported legacy reasoning mode fields to incompatible providers.
 - Documentation mismatches in runtime behavior and model guidance files.
 
 ## [1.0.0] - 2026-02-17

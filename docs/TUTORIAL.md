@@ -75,7 +75,7 @@ Ban co 2 cach:
 | `SHELL_WORKSPACE_ONLY` | env runtime | `1`: mac dinh chi cho shell trong workspace | `1`, `0` |
 
 Luu y reasoning:
-- Runtime chi gui `REASONING_EFFORT` (khong con dung `REASONING_FORMAT`).
+- Runtime chi gui `REASONING_EFFORT`.
 - Gia tri duoc chuan hoa ve 4 muc: `low`, `medium`, `high`, `extra_high`.
 - `reasoning_effort` la hint; backend co the bo qua neu khong ho tro.
 

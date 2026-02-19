@@ -80,7 +80,6 @@ class ProviderCapabilities:
     supports_tools: Optional[bool] = None
     supports_parallel_tool_calls: Optional[bool] = None
     supports_response_format: Optional[bool] = None
-    supports_reasoning_format: Optional[bool] = None
     supports_reasoning_effort: Optional[bool] = None
     supports_stream: Optional[bool] = None
 

@@ -14,7 +14,6 @@ def test_cli_uses_inference_defaults_when_flags_not_provided():
         top_k=None,
         repeat_penalty=None,
         seed=None,
-        reasoning_format="",
         reasoning_effort="",
         max_tokens=None,
         port=None,
@@ -35,7 +34,6 @@ def test_cli_uses_inference_defaults_when_flags_not_provided():
     assert cfg.top_k == defaults.top_k
     assert cfg.repeat_penalty == defaults.repeat_penalty
     assert cfg.seed == defaults.seed
-    assert cfg.reasoning_format == defaults.reasoning_format
     assert cfg.reasoning_effort == defaults.reasoning_effort
     assert cfg.max_tokens == defaults.max_tokens
     assert cfg.port == defaults.port
@@ -58,7 +56,6 @@ def test_cli_overrides_inference_defaults_when_flags_are_set():
         top_k=20,
         repeat_penalty=1.05,
         seed=123,
-        reasoning_format="none",
         reasoning_effort="medium",
         max_tokens=9000,
         port=9001,
@@ -80,7 +77,6 @@ def test_cli_overrides_inference_defaults_when_flags_are_set():
     assert cfg.top_k == 20
     assert cfg.repeat_penalty == 1.05
     assert cfg.seed == 123
-    assert cfg.reasoning_format == ""
     assert cfg.reasoning_effort == "medium"
     assert cfg.max_tokens == 9000
     assert cfg.port == 9001
@@ -104,7 +100,6 @@ def test_cli_normalizes_extra_high_reasoning_effort():
         top_k=None,
         repeat_penalty=None,
         seed=None,
-        reasoning_format="auto",
         reasoning_effort="extra high",
         max_tokens=None,
         port=None,
@@ -119,4 +114,3 @@ def test_cli_normalizes_extra_high_reasoning_effort():
     )
     cfg = build_inference_config(args)
     assert cfg.reasoning_effort == "extra_high"
-    assert cfg.reasoning_format == ""

@@ -140,7 +140,6 @@ def test_chat_completion_openai_provider_sends_reasoning_effort_only(mock_chat_s
     assert result.error == ""
     assert result.content == "ok"
     assert mock_chat_server.requests[0]["payload"]["reasoning_effort"] == "medium"
-    assert "reasoning_format" not in mock_chat_server.requests[0]["payload"]
 
 
 def test_chat_completion_openai_provider_prefers_reasoning_effort(mock_chat_server):
@@ -165,7 +164,6 @@ def test_chat_completion_openai_provider_prefers_reasoning_effort(mock_chat_serv
     assert result.error == ""
     assert result.content == "ok"
     assert mock_chat_server.requests[0]["payload"]["reasoning_effort"] == "medium"
-    assert "reasoning_format" not in mock_chat_server.requests[0]["payload"]
     assert llm.capabilities.supports_reasoning_effort is True
 
 
@@ -191,32 +189,6 @@ def test_chat_completion_llama_cpp_passes_reasoning_controls_without_mapping(moc
     assert result.error == ""
     assert result.content == "ok"
     assert mock_chat_server.requests[0]["payload"]["reasoning_effort"] == "low"
-    assert "reasoning_format" not in mock_chat_server.requests[0]["payload"]
-
-
-def test_chat_completion_ignores_legacy_reasoning_format(mock_chat_server):
-    llm = _connect_remote(
-        mock_chat_server.url,
-        config=InferenceConfig(max_tokens=128, reasoning_format="parsed", reasoning_effort="high"),
-    )
-    llm._provider_kind = "llama_cpp"
-
-    mock_chat_server.enqueue_json(
-        {
-            "choices": [
-                {
-                    "message": {"role": "assistant", "content": "ok"},
-                    "finish_reason": "stop",
-                }
-            ]
-        }
-    )
-
-    result = llm.chat_completion(messages=[{"role": "user", "content": "hello"}])
-    assert result.error == ""
-    assert result.content == "ok"
-    assert mock_chat_server.requests[0]["payload"]["reasoning_effort"] == "high"
-    assert "reasoning_format" not in mock_chat_server.requests[0]["payload"]
 
 
 def test_chat_completion_normalizes_reasoning_effort_extra_high(mock_chat_server):
@@ -241,7 +213,6 @@ def test_chat_completion_normalizes_reasoning_effort_extra_high(mock_chat_server
     assert result.error == ""
     assert result.content == "ok"
     assert mock_chat_server.requests[0]["payload"]["reasoning_effort"] == "extra_high"
-    assert "reasoning_format" not in mock_chat_server.requests[0]["payload"]
 
 
 def test_chat_completion_openai_o_series_uses_max_completion_tokens(mock_chat_server):
@@ -425,7 +396,6 @@ def test_llama_cpp_low_effort_surfaces_backend_reasoning_stream(mock_chat_server
     assert tokens == ["Visible", " answer"]
     assert reasoning == ["very long hidden thinking"]
     assert mock_chat_server.requests[0]["payload"]["reasoning_effort"] == "low"
-    assert "reasoning_format" not in mock_chat_server.requests[0]["payload"]
 
 
 def test_chat_completion_applies_transcript_policy_before_send(mock_chat_server):

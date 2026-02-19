@@ -67,11 +67,6 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--top-k", type=int, default=None)
     run_parser.add_argument("--repeat-penalty", type=float, default=None)
     run_parser.add_argument("--seed", type=int, default=None)
-    run_parser.add_argument(
-        "--reasoning-format",
-        default="",
-        help="Deprecated compatibility flag; no longer sent to runtime payload.",
-    )
     run_parser.add_argument("--reasoning-effort", default="")
     run_parser.add_argument("--max-tokens", type=int, default=None)
     run_parser.add_argument("--port", type=int, default=None)

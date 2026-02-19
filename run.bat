@@ -113,7 +113,6 @@ if not defined TOP_P set "TOP_P=0.9"
 if not defined TOP_K set "TOP_K=40"
 if not defined REPEAT_PENALTY set "REPEAT_PENALTY=1.1"
 if not defined SEED set "SEED=-1"
-if not defined REASONING_FORMAT set "REASONING_FORMAT=auto"
 if not defined REASONING_EFFORT set "REASONING_EFFORT=low"
 if not defined MAX_TOKENS set "MAX_TOKENS=8192"
 
@@ -225,7 +224,6 @@ python -m agentforge.cli run "%MODEL_PATH%" --provider local --server-exe "%SERV
   --top-k %TOP_K% ^
   --repeat-penalty %REPEAT_PENALTY% ^
   --seed %SEED% ^
-  --reasoning-format "%REASONING_FORMAT%" ^
   --reasoning-effort "%REASONING_EFFORT%" ^
   --max-tokens %MAX_TOKENS% ^
   --port %PORT% ^
@@ -254,7 +252,6 @@ python -m agentforge.cli run --provider openai_compatible --base-url "%BASE_URL%
   --top-k %TOP_K% ^
   --repeat-penalty %REPEAT_PENALTY% ^
   --seed %SEED% ^
-  --reasoning-format "%REASONING_FORMAT%" ^
   --reasoning-effort "%REASONING_EFFORT%" ^
   --max-tokens %MAX_TOKENS% ^
   --port %PORT% ^
