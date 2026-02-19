@@ -1,3 +1,6 @@
+import sys
+
+import agentforge.ui as ui_module
 from agentforge.ui import ChatUI
 
 
@@ -37,3 +40,23 @@ def test_ui_does_not_echo_user_input_in_output_lane():
 
     assert "secret prompt" not in ui._renderer.reasoning_text
     assert "secret prompt" not in ui._renderer.output_text
+
+
+def test_chatui_rich_console_does_not_enable_soft_wrap(monkeypatch):
+    class _FakeConsole:
+        def __init__(self, *args, **kwargs):
+            self.kwargs = kwargs
+            self.file = sys.stdout
+
+        def push_theme(self, theme):
+            del theme
+
+    monkeypatch.setattr(ui_module, "HAS_RICH", True)
+    monkeypatch.setattr(ui_module, "Console", _FakeConsole)
+    monkeypatch.setattr(sys.stdout, "isatty", lambda: True, raising=False)
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: True, raising=False)
+
+    ui = ChatUI(verbose=False)
+    assert ui._use_rich is True
+    assert isinstance(ui.console, _FakeConsole)
+    assert "soft_wrap" not in ui.console.kwargs

@@ -504,7 +504,6 @@ class ModelOutputRenderer:
             refresh_per_second=20,
             transient=False,
             auto_refresh=False,
-            vertical_overflow="visible",
         )
         self._live.start()
 
@@ -566,7 +565,7 @@ class ModelOutputRenderer:
         ]
 
         if self._reasoning_buffer:
-            reasoning_text = Text(self._reasoning_buffer, no_wrap=False, overflow="fold")
+            reasoning_text = Text(self._reasoning_buffer, overflow="fold")
             blocks.append(
                 LaneRenderable(
                     reasoning_text,
@@ -599,16 +598,7 @@ class ModelOutputRenderer:
         return token.replace("\r\n", "\n").replace("\r", "\n")
 
     def _terminal_width(self) -> int:
-        columns = shutil.get_terminal_size(fallback=(80, 20)).columns
-        env_columns = str(os.environ.get("COLUMNS", "")).strip()
-        if env_columns.isdigit():
-            try:
-                parsed = int(env_columns)
-                if parsed > 20:
-                    columns = parsed
-            except ValueError:
-                pass
-        return max(40, columns)
+        return max(40, shutil.get_terminal_size(fallback=(120, 20)).columns)
 
     def _plain_write_with_lane(
         self,
