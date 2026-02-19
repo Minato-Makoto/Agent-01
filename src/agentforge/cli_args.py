@@ -8,6 +8,16 @@ from urllib.parse import urlparse
 from .llm_inference import InferenceConfig
 
 
+def _normalize_reasoning_effort(value: str) -> str:
+    raw = str(value or "").strip().lower()
+    if not raw:
+        return ""
+    normalized = raw.replace("-", "_").replace(" ", "_")
+    if normalized == "extrahigh":
+        normalized = "extra_high"
+    return normalized
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="agentforge",
@@ -57,7 +67,11 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--top-k", type=int, default=None)
     run_parser.add_argument("--repeat-penalty", type=float, default=None)
     run_parser.add_argument("--seed", type=int, default=None)
-    run_parser.add_argument("--reasoning-format", default="")
+    run_parser.add_argument(
+        "--reasoning-format",
+        default="",
+        help="Deprecated compatibility flag; no longer sent to runtime payload.",
+    )
     run_parser.add_argument("--reasoning-effort", default="")
     run_parser.add_argument("--max-tokens", type=int, default=None)
     run_parser.add_argument("--port", type=int, default=None)
@@ -164,13 +178,9 @@ def build_inference_config(args: Any) -> InferenceConfig:
     if host:
         config.host = host
 
-    reasoning_format = str(get_arg(args, "reasoning_format", "") or "").strip()
-    if reasoning_format:
-        config.reasoning_format = reasoning_format
-
     reasoning_effort = str(get_arg(args, "reasoning_effort", "") or "").strip()
     if reasoning_effort:
-        config.reasoning_effort = reasoning_effort
+        config.reasoning_effort = _normalize_reasoning_effort(reasoning_effort)
 
     model_id = str(get_arg(args, "model_id", "") or "").strip()
     if model_id:

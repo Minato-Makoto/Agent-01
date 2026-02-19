@@ -59,6 +59,10 @@
   - removed local `reasoning_effort -> reasoning_format` remapping behavior
   - removed reasoning stream suppression/error-enforcement paths tied to derived local format
   - runtime status output no longer reports derived `effective_format`.
+- Unified reasoning control on `reasoning_effort` only:
+  - runtime no longer sends `reasoning_format` to model payloads
+  - normalized supported effort levels: `low`, `medium`, `high`, `extra_high`
+  - `--reasoning-format` kept as deprecated compatibility flag (ignored by runtime).
 - Expanded regression gates:
   - CRLF invariant + real `run.bat` smoke test
   - timeout env mapping tests across key tools

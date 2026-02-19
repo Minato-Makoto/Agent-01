@@ -63,18 +63,13 @@ def _connect_backend(llm: LLMInference, args: Any, config: InferenceConfig, ui: 
         ui.status(f"Loading model: {os.path.basename(model)}")
         ui.status(f"Server: {server_exe} ({config.host}:{config.port})")
         ui.status(
-            "Reasoning controls: "
-            f"format={config.reasoning_format or '(none)'} | "
-            f"effort={config.reasoning_effort or '(none)'} "
-            "(sent as-is; backend may ignore unsupported fields)."
+            "Reasoning effort: "
+            f"{config.reasoning_effort or '(none)'} "
+            "(levels: low|medium|high|extra_high; sent as-is when backend supports it)."
         )
-        if (
-            str(config.reasoning_effort or "").strip()
-            and str(config.reasoning_format or "").strip().lower() in {"", "auto"}
-        ):
+        if str(config.reasoning_format or "").strip():
             ui.status(
-                "Note: many local backends ignore reasoning_effort; use --reasoning-format none "
-                "if you need to suppress visible thinking output."
+                "Note: --reasoning-format is deprecated and ignored by runtime."
             )
         if not llm.load_model(model, config, server_exe=server_exe):
             ui.error("Failed to load model.")
@@ -94,10 +89,16 @@ def _connect_backend(llm: LLMInference, args: Any, config: InferenceConfig, ui: 
     ui.status(f"Base URL: {base_url}")
     ui.status(f"Model ID: {config.model_id}")
     ui.status(
-        "Reasoning controls: "
-        f"format={config.reasoning_format or '(none)'} | "
-        f"effort={config.reasoning_effort or '(none)'} "
-        "(OpenAI-compatible endpoints generally prefer reasoning_effort)."
+        "Reasoning effort: "
+        f"{config.reasoning_effort or '(none)'} "
+        "(levels: low|medium|high|extra_high; sent as-is when backend supports it)."
+    )
+    if str(config.reasoning_format or "").strip():
+        ui.status(
+            "Note: --reasoning-format is deprecated and ignored by runtime."
+        )
+    ui.status(
+        "Reasoning stream length is backend/model behavior; effort level is only a request hint."
     )
     ui.status(
         "Transport: Chat Completions-compatible endpoint "

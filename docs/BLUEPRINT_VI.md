@@ -214,10 +214,9 @@ Payload gửi tới `/v1/chat/completions`:
   - `max_tokens` cho model/provider khác
 - Tuỳ chọn: `tools`, `tool_choice`, `parallel_tool_calls`, `response_format`
 - Điều khiển reasoning tuỳ chọn:
-  - `reasoning_effort` (kiểu OpenAI: `low`, `medium`, `high`)
-  - `reasoning_format` (local/bên thứ ba: `parsed`, `auto`, `none`)
-  - AgentForge chuyển tiếp nguyên trạng hai field theo config (không còn map cục bộ kiểu `low -> none`);
-    nếu provider từ chối field nào thì fallback chỉ loại đúng field không hỗ trợ và retry.
+  - `reasoning_effort` (`low`, `medium`, `high`, `extra_high`)
+  - AgentForge gửi `reasoning_effort` đúng theo config (chuẩn hoá dạng underscore).
+    Nếu provider từ chối field này thì fallback loại đúng field đó và retry.
 
 ### 7.3 Bậc thang fallback (giảm cấp có kiểm soát)
 
@@ -228,10 +227,9 @@ Khi provider từ chối field, `LLMInference._apply_compat_payload_fallback()` 
 3. `response_format`
 4. Fallback giới hạn token (`max_completion_tokens` ↔ `max_tokens`)
 5. `reasoning_effort`
-6. `reasoning_format`
-7. `stream`
-8. `grammar`
-9. `stop`
+6. `stream`
+7. `grammar`
+8. `stop`
 
 Số lần retry tối đa: `COMPAT_RETRY_LIMIT` (mặc định 8).
 
@@ -419,8 +417,7 @@ Bypass: gọi trực tiếp `python -m agentforge.cli --flag value` sẽ ghi đ�
 | `TOP_K` | `--top-k` | `40` | Top-K sampling |
 | `REPEAT_PENALTY` | `--repeat-penalty` | `1.1` | Phạt lặp token |
 | `SEED` | `--seed` | `-1` | Seed ngẫu nhiên |
-| `REASONING_FORMAT` | `--reasoning-format` | `auto` | Định dạng reasoning local |
-| `REASONING_EFFORT` | `--reasoning-effort` | `low` | Mức reasoning OpenAI |
+| `REASONING_EFFORT` | `--reasoning-effort` | `low` | Mức reasoning thống nhất: `low` / `medium` / `high` / `extra_high` |
 | `MAX_TOKENS` | `--max-tokens` | `8192` | Token đầu ra tối đa |
 | `HOST` | `--host` | `127.0.0.1` | Địa chỉ bind backend |
 | `PORT` | `--port` | `8080` | Cổng backend |

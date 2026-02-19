@@ -91,10 +91,13 @@ def test_probe_sets_supports_tools_false_for_unsupported_provider(mock_chat_serv
     assert "tools" not in mock_chat_server.requests[1]["payload"]
 
 
-def test_chat_completion_fallback_when_reasoning_format_is_rejected(mock_chat_server):
-    llm = _connect_remote(mock_chat_server.url)
+def test_chat_completion_fallback_when_reasoning_effort_is_rejected(mock_chat_server):
+    llm = _connect_remote(
+        mock_chat_server.url,
+        config=InferenceConfig(max_tokens=128, reasoning_effort="medium"),
+    )
 
-    mock_chat_server.enqueue_error("Unsupported param: reasoning_format", status=400)
+    mock_chat_server.enqueue_error("Unsupported param: reasoning_effort", status=400)
     mock_chat_server.enqueue_json(
         {
             "choices": [
@@ -109,37 +112,16 @@ def test_chat_completion_fallback_when_reasoning_format_is_rejected(mock_chat_se
     result = llm.chat_completion(messages=[{"role": "user", "content": "hello"}])
     assert result.error == ""
     assert result.content == "reasoning fallback ok"
-    assert llm.capabilities.supports_reasoning_format is False
+    assert llm.capabilities.supports_reasoning_effort is False
     assert len(mock_chat_server.requests) == 2
-    assert "reasoning_format" in mock_chat_server.requests[0]["payload"]
-    assert "reasoning_format" not in mock_chat_server.requests[1]["payload"]
+    assert "reasoning_effort" in mock_chat_server.requests[0]["payload"]
+    assert "reasoning_effort" not in mock_chat_server.requests[1]["payload"]
 
 
-def test_chat_completion_openai_provider_sends_reasoning_format_when_configured(mock_chat_server):
-    llm = _connect_remote(mock_chat_server.url)
-    llm._provider_kind = "openai"
-
-    mock_chat_server.enqueue_json(
-        {
-            "choices": [
-                {
-                    "message": {"role": "assistant", "content": "ok"},
-                    "finish_reason": "stop",
-                }
-            ]
-        }
-    )
-
-    result = llm.chat_completion(messages=[{"role": "user", "content": "hello"}])
-    assert result.error == ""
-    assert result.content == "ok"
-    assert mock_chat_server.requests[0]["payload"]["reasoning_format"] == "auto"
-
-
-def test_chat_completion_openai_provider_prefers_reasoning_effort(mock_chat_server):
+def test_chat_completion_openai_provider_sends_reasoning_effort_only(mock_chat_server):
     llm = _connect_remote(
         mock_chat_server.url,
-        config=InferenceConfig(max_tokens=128, reasoning_format="auto", reasoning_effort="medium"),
+        config=InferenceConfig(max_tokens=128, reasoning_effort="medium"),
     )
     llm._provider_kind = "openai"
 
@@ -158,14 +140,39 @@ def test_chat_completion_openai_provider_prefers_reasoning_effort(mock_chat_serv
     assert result.error == ""
     assert result.content == "ok"
     assert mock_chat_server.requests[0]["payload"]["reasoning_effort"] == "medium"
-    assert mock_chat_server.requests[0]["payload"]["reasoning_format"] == "auto"
+    assert "reasoning_format" not in mock_chat_server.requests[0]["payload"]
+
+
+def test_chat_completion_openai_provider_prefers_reasoning_effort(mock_chat_server):
+    llm = _connect_remote(
+        mock_chat_server.url,
+        config=InferenceConfig(max_tokens=128, reasoning_effort="medium"),
+    )
+    llm._provider_kind = "openai"
+
+    mock_chat_server.enqueue_json(
+        {
+            "choices": [
+                {
+                    "message": {"role": "assistant", "content": "ok"},
+                    "finish_reason": "stop",
+                }
+            ]
+        }
+    )
+
+    result = llm.chat_completion(messages=[{"role": "user", "content": "hello"}])
+    assert result.error == ""
+    assert result.content == "ok"
+    assert mock_chat_server.requests[0]["payload"]["reasoning_effort"] == "medium"
+    assert "reasoning_format" not in mock_chat_server.requests[0]["payload"]
     assert llm.capabilities.supports_reasoning_effort is True
 
 
 def test_chat_completion_llama_cpp_passes_reasoning_controls_without_mapping(mock_chat_server):
     llm = _connect_remote(
         mock_chat_server.url,
-        config=InferenceConfig(max_tokens=128, reasoning_format="auto", reasoning_effort="low"),
+        config=InferenceConfig(max_tokens=128, reasoning_effort="low"),
     )
     llm._provider_kind = "llama_cpp"
 
@@ -183,14 +190,14 @@ def test_chat_completion_llama_cpp_passes_reasoning_controls_without_mapping(moc
     result = llm.chat_completion(messages=[{"role": "user", "content": "hello"}])
     assert result.error == ""
     assert result.content == "ok"
-    assert mock_chat_server.requests[0]["payload"]["reasoning_format"] == "auto"
     assert mock_chat_server.requests[0]["payload"]["reasoning_effort"] == "low"
+    assert "reasoning_format" not in mock_chat_server.requests[0]["payload"]
 
 
-def test_chat_completion_llama_cpp_keeps_explicit_reasoning_format(mock_chat_server):
+def test_chat_completion_ignores_legacy_reasoning_format(mock_chat_server):
     llm = _connect_remote(
         mock_chat_server.url,
-        config=InferenceConfig(max_tokens=128, reasoning_format="parsed", reasoning_effort="low"),
+        config=InferenceConfig(max_tokens=128, reasoning_format="parsed", reasoning_effort="high"),
     )
     llm._provider_kind = "llama_cpp"
 
@@ -208,7 +215,33 @@ def test_chat_completion_llama_cpp_keeps_explicit_reasoning_format(mock_chat_ser
     result = llm.chat_completion(messages=[{"role": "user", "content": "hello"}])
     assert result.error == ""
     assert result.content == "ok"
-    assert mock_chat_server.requests[0]["payload"]["reasoning_format"] == "parsed"
+    assert mock_chat_server.requests[0]["payload"]["reasoning_effort"] == "high"
+    assert "reasoning_format" not in mock_chat_server.requests[0]["payload"]
+
+
+def test_chat_completion_normalizes_reasoning_effort_extra_high(mock_chat_server):
+    llm = _connect_remote(
+        mock_chat_server.url,
+        config=InferenceConfig(max_tokens=128, reasoning_effort="extra high"),
+    )
+    llm._provider_kind = "llama_cpp"
+
+    mock_chat_server.enqueue_json(
+        {
+            "choices": [
+                {
+                    "message": {"role": "assistant", "content": "ok"},
+                    "finish_reason": "stop",
+                }
+            ]
+        }
+    )
+
+    result = llm.chat_completion(messages=[{"role": "user", "content": "hello"}])
+    assert result.error == ""
+    assert result.content == "ok"
+    assert mock_chat_server.requests[0]["payload"]["reasoning_effort"] == "extra_high"
+    assert "reasoning_format" not in mock_chat_server.requests[0]["payload"]
 
 
 def test_chat_completion_openai_o_series_uses_max_completion_tokens(mock_chat_server):
@@ -362,7 +395,7 @@ def test_streaming_fallback_when_stream_is_rejected(mock_chat_server):
 def test_llama_cpp_low_effort_surfaces_backend_reasoning_stream(mock_chat_server):
     llm = _connect_remote(
         mock_chat_server.url,
-        config=InferenceConfig(max_tokens=64, reasoning_format="auto", reasoning_effort="low"),
+        config=InferenceConfig(max_tokens=64, reasoning_effort="low"),
     )
     llm._provider_kind = "llama_cpp"
 
@@ -391,8 +424,8 @@ def test_llama_cpp_low_effort_surfaces_backend_reasoning_stream(mock_chat_server
     assert result.content == "Visible answer"
     assert tokens == ["Visible", " answer"]
     assert reasoning == ["very long hidden thinking"]
-    assert mock_chat_server.requests[0]["payload"]["reasoning_format"] == "auto"
     assert mock_chat_server.requests[0]["payload"]["reasoning_effort"] == "low"
+    assert "reasoning_format" not in mock_chat_server.requests[0]["payload"]
 
 
 def test_chat_completion_applies_transcript_policy_before_send(mock_chat_server):

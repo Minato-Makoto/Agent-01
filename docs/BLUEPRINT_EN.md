@@ -214,10 +214,9 @@ Payload sent to `/v1/chat/completions`:
   - `max_tokens` for other models/providers
 - Optional: `tools`, `tool_choice`, `parallel_tool_calls`, `response_format`
 - Optional reasoning control:
-  - `reasoning_effort` (OpenAI-style: `low`, `medium`, `high`)
-  - `reasoning_format` (local/third-party: `parsed`, `auto`, `none`)
-  - AgentForge forwards both fields from config as-is (no local remapping like `low -> none`);
-    if a provider rejects a field, compatibility fallback removes only that unsupported field and retries.
+  - `reasoning_effort` (`low`, `medium`, `high`, `extra_high`)
+  - AgentForge sends `reasoning_effort` as-is (normalized to underscore form).
+    If a provider rejects it, compatibility fallback removes that field and retries.
 
 ### 7.3 Fallback Ladder (controlled degradation)
 
@@ -228,10 +227,9 @@ When a provider rejects a field, `LLMInference._apply_compat_payload_fallback()`
 3. `response_format`
 4. Token cap fallback (`max_completion_tokens` ↔ `max_tokens`)
 5. `reasoning_effort`
-6. `reasoning_format`
-7. `stream`
-8. `grammar`
-9. `stop`
+6. `stream`
+7. `grammar`
+8. `stop`
 
 Max retries: `COMPAT_RETRY_LIMIT` (default 8).
 
@@ -419,8 +417,7 @@ Bypass: calling `python -m agentforge.cli --flag value` directly overrides every
 | `TOP_K` | `--top-k` | `40` | Top-K sampling |
 | `REPEAT_PENALTY` | `--repeat-penalty` | `1.1` | Repetition penalty |
 | `SEED` | `--seed` | `-1` | Random seed |
-| `REASONING_FORMAT` | `--reasoning-format` | `auto` | Local reasoning format |
-| `REASONING_EFFORT` | `--reasoning-effort` | `low` | OpenAI reasoning effort |
+| `REASONING_EFFORT` | `--reasoning-effort` | `low` | Unified reasoning effort: `low` / `medium` / `high` / `extra_high` |
 | `MAX_TOKENS` | `--max-tokens` | `8192` | Max output tokens |
 | `HOST` | `--host` | `127.0.0.1` | Backend bind address |
 | `PORT` | `--port` | `8080` | Backend port |

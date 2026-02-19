@@ -48,8 +48,7 @@ Ban co 2 cach:
 | `TOP_K` | `--top-k` | Gioi han so token candidate | `40`, `80` |
 | `REPEAT_PENALTY` | `--repeat-penalty` | Phat lap token | `1.1`, `1.2` |
 | `SEED` | `--seed` | Seed random (`-1` = random) | `-1`, `42` |
-| `REASONING_FORMAT` | `--reasoning-format` | Reasoning field cho local/third-party | `auto`, `none` |
-| `REASONING_EFFORT` | `--reasoning-effort` | Muc reasoning cho OpenAI-style | `low`, `medium` |
+| `REASONING_EFFORT` | `--reasoning-effort` | Muc reasoning thong nhat | `low`, `medium`, `high`, `extra_high` |
 | `MAX_TOKENS` | `--max-tokens` | Tran token output logic | `2048`, `8192` |
 | `HOST` | `--host` | Dia chi bind backend local | `127.0.0.1` |
 | `PORT` | `--port` | Cong backend local | `8080`, `9000` |
@@ -76,9 +75,9 @@ Ban co 2 cach:
 | `SHELL_WORKSPACE_ONLY` | env runtime | `1`: mac dinh chi cho shell trong workspace | `1`, `0` |
 
 Luu y reasoning:
-- Runtime gui `REASONING_FORMAT` va `REASONING_EFFORT` dung nhu config (khong map noi bo kieu `low -> none`).
-- Neu backend local khong ho tro `reasoning_effort`, gia tri nay co the bi bo qua.
-- Khi `REASONING_FORMAT=auto` + model "Thinking", model van co the stream thinking dai; muon giam manh thi dat `REASONING_FORMAT=none`.
+- Runtime chi gui `REASONING_EFFORT` (khong con dung `REASONING_FORMAT`).
+- Gia tri duoc chuan hoa ve 4 muc: `low`, `medium`, `high`, `extra_high`.
+- `reasoning_effort` la hint; backend co the bo qua neu khong ho tro.
 
 ## 5) Preset mau
 

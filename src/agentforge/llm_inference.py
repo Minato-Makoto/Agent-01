@@ -56,9 +56,11 @@ class InferenceConfig:
     local_completion_endpoint: str = "/completion"
     remote_chat_endpoint: str = "/v1/chat/completions"
     remote_completion_endpoint: str = "/v1/completions"
-    # Non-standard provider extension used by llama.cpp-style servers.
-    reasoning_format: str = "auto"
-    # OpenAI Chat Completions parameter for reasoning models.
+    # Deprecated: retained for backward compatibility with old config/env layouts.
+    # Runtime no longer sends `reasoning_format` to the model.
+    reasoning_format: str = ""
+    # Unified reasoning level sent as-is (normalized).
+    # Supported levels: low, medium, high, extra_high.
     reasoning_effort: str = ""
     tools_probe_user_prompt: str = "ping"
     tools_probe_tool_name: str = "probe_noop"
@@ -302,17 +304,22 @@ class LLMInference:
             "tool_choice",
         )
 
-    def _should_send_reasoning_format(self) -> bool:
-        if self._capabilities.supports_reasoning_format is False:
-            return False
-        if not self._config.reasoning_format:
-            return False
-        return True
+    def _normalized_reasoning_effort(self) -> str:
+        raw = str(self._config.reasoning_effort or "").strip().lower()
+        if not raw:
+            return ""
+        normalized = raw.replace("-", "_").replace(" ", "_")
+        if normalized == "extrahigh":
+            normalized = "extra_high"
+        if normalized in {"low", "medium", "high", "extra_high"}:
+            return normalized
+        logger.warning("Ignoring unsupported reasoning_effort value: %s", self._config.reasoning_effort)
+        return ""
 
     def _should_send_reasoning_effort(self) -> bool:
         if self._capabilities.supports_reasoning_effort is False:
             return False
-        if not self._config.reasoning_effort:
+        if not self._normalized_reasoning_effort():
             return False
         return True
 
@@ -390,13 +397,6 @@ class LLMInference:
         ):
             self._capabilities.supports_reasoning_effort = False
             payload.pop("reasoning_effort", None)
-            return True, used_tools_fallback
-
-        if ("reasoning_format" in payload) and self._is_unsupported_param_error(
-            error_text, "reasoning_format"
-        ):
-            self._capabilities.supports_reasoning_format = False
-            payload.pop("reasoning_format", None)
             return True, used_tools_fallback
 
         if ("stream" in payload) and self._is_unsupported_param_error(error_text, "stream"):
@@ -511,9 +511,7 @@ class LLMInference:
         }
         self._apply_chat_token_limit(payload, max_tokens)
         if self._should_send_reasoning_effort():
-            payload["reasoning_effort"] = self._config.reasoning_effort
-        if self._should_send_reasoning_format():
-            payload["reasoning_format"] = self._config.reasoning_format
+            payload["reasoning_effort"] = self._normalized_reasoning_effort()
         if can_use_tools and provider_tools:
             payload["tools"] = provider_tools
             payload["tool_choice"] = tool_choice
@@ -547,8 +545,6 @@ class LLMInference:
             self._capabilities.supports_response_format = True
         if "reasoning_effort" in payload:
             self._capabilities.supports_reasoning_effort = True
-        if "reasoning_format" in payload:
-            self._capabilities.supports_reasoning_format = True
 
         result = self._parse_chat_completion_response(resp)
         result.used_tools_fallback = used_fallback
@@ -650,8 +646,6 @@ class LLMInference:
                     self._capabilities.supports_response_format = True
                 if "reasoning_effort" in payload:
                     self._capabilities.supports_reasoning_effort = True
-                if "reasoning_format" in payload:
-                    self._capabilities.supports_reasoning_format = True
                 result.used_tools_fallback = used_fallback
                 return result
             except Exception as e:

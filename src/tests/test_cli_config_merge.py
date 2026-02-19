@@ -80,7 +80,7 @@ def test_cli_overrides_inference_defaults_when_flags_are_set():
     assert cfg.top_k == 20
     assert cfg.repeat_penalty == 1.05
     assert cfg.seed == 123
-    assert cfg.reasoning_format == "none"
+    assert cfg.reasoning_format == ""
     assert cfg.reasoning_effort == "medium"
     assert cfg.max_tokens == 9000
     assert cfg.port == 9001
@@ -92,3 +92,31 @@ def test_cli_overrides_inference_defaults_when_flags_are_set():
     assert cfg.compat_retry_limit == 11
     assert cfg.max_requests_per_minute == 25
     assert cfg.model_id == "qwen-test"
+
+
+def test_cli_normalizes_extra_high_reasoning_effort():
+    args = argparse.Namespace(
+        ctx_size=None,
+        gpu_layers=None,
+        threads=None,
+        temp=None,
+        top_p=None,
+        top_k=None,
+        repeat_penalty=None,
+        seed=None,
+        reasoning_format="auto",
+        reasoning_effort="extra high",
+        max_tokens=None,
+        port=None,
+        host="",
+        boot_timeout=None,
+        health_timeout=None,
+        request_timeout=None,
+        shutdown_timeout=None,
+        compat_retry_limit=None,
+        max_requests_per_minute=None,
+        model_id="",
+    )
+    cfg = build_inference_config(args)
+    assert cfg.reasoning_effort == "extra_high"
+    assert cfg.reasoning_format == ""
