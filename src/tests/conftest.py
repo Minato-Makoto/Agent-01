@@ -136,6 +136,4 @@ def minimal_workspace(tmp_path: Path) -> Path:
     for name in ("IDENTITY.md", "SOUL.md", "AGENT.md", "USER.md"):
         (tmp_path / name).write_text(f"# {name}\n", encoding="utf-8")
     (tmp_path / "skills").mkdir(exist_ok=True)
-    (tmp_path / "memory").mkdir(exist_ok=True)
-    (tmp_path / "memory" / "MEMORY.md").write_text("", encoding="utf-8")
     return tmp_path

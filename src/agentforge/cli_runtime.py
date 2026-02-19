@@ -14,7 +14,6 @@ from .cli_args import (
 )
 from .context import ContextBuilder
 from .llm_inference import InferenceConfig, LLMInference
-from .memory import MemoryStore
 from .session import SessionManager
 from .skills import SkillLoader
 from .summarizer import Summarizer
@@ -125,7 +124,6 @@ def _handle_command(
     agent: Agent,
     ui: Any,
     skill_loader: SkillLoader,
-    memory: MemoryStore,
     session_mgr: SessionManager,
     session_id: str,
 ) -> Optional[bool]:
@@ -143,11 +141,6 @@ def _handle_command(
 
     if cmd == "skills":
         ui.status(skill_loader.build_status_panel())
-        return True
-
-    if cmd == "memory":
-        mem_ctx = memory.get_memory_context()
-        ui.status(mem_ctx if mem_ctx else "No memory stored yet.")
         return True
 
     if cmd == "session":
@@ -203,7 +196,6 @@ def run_interactive(
     os.environ["AGENTFORGE_WORKSPACE"] = workspace_dir
 
     session_mgr = SessionManager(os.path.join(workspace_dir, "sessions"))
-    memory = MemoryStore(workspace_dir)
     skill_loader = SkillLoader(workspace_dir)
     context_builder = ContextBuilder(workspace_dir)
     summarizer = Summarizer(max_tokens=config.n_ctx)
@@ -239,7 +231,6 @@ def run_interactive(
         tools=tools,
         session_mgr=session_mgr,
         summarizer=summarizer,
-        memory=memory,
         skill_loader=skill_loader,
         context_builder=context_builder,
     )
@@ -271,7 +262,6 @@ def run_interactive(
                 agent=agent,
                 ui=ui,
                 skill_loader=skill_loader,
-                memory=memory,
                 session_mgr=session_mgr,
                 session_id=session.id,
             )

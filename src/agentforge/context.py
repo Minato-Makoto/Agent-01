@@ -9,7 +9,6 @@ Dynamic sections assembled here:
 2. Available Tools (from ToolRegistry)
 3. Skills XML (from SkillLoader)
 4. Bootstrap files (read from workspace .md)
-5. Memory context (from MemoryStore)
 """
 
 import platform
@@ -32,7 +31,6 @@ class ContextBuilder:
     - Tool list (from ToolRegistry)
     - Skills XML (from SkillLoader)
     - Loading .md files
-    - Memory injection
     """
 
     BOOTSTRAP_FILES = [
@@ -54,14 +52,12 @@ class ContextBuilder:
     def build_system_prompt(
         self,
         skills_xml: str = "",
-        memory_context: str = "",
         tool_summaries: Optional[list] = None,
     ) -> str:
         """Assemble the full system prompt.
 
         Args:
             skills_xml: XML block from SkillLoader.build_skills_xml()
-            memory_context: Memory context from MemoryStore
             tool_summaries: List of (name, description) tuples from ToolRegistry
         """
         sections = []
@@ -81,10 +77,6 @@ class ContextBuilder:
         if bootstrap:
             sections.append(bootstrap)
 
-        # 5. Memory (dynamic — from MemoryStore)
-        if memory_context:
-            sections.append("# Memory\n\n" + memory_context)
-
         return "\n\n---\n\n".join(s for s in sections if s.strip())
 
     def _build_runtime_header(self) -> str:
@@ -98,7 +90,6 @@ class ContextBuilder:
 - Time: {now}
 - System: {runtime}
 - Workspace: {workspace_path}
-- Memory: {workspace_path}/memory/MEMORY.md
 - Skills: {workspace_path}/skills/"""
 
     def _build_tools_list(self, tool_summaries: list) -> str:

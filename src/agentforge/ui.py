@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 try:
     from rich.console import Console
     from rich.live import Live
+    from rich.markdown import Markdown
     from rich.spinner import Spinner
 
     HAS_RICH = True
@@ -116,6 +117,7 @@ class ChatUI:
         self._phase = "idle"
         self._at_line_start = False
         self._dim_active = False  # ANSI dim currently applied
+        self._assistant_buffer = ""
 
         # Spinner
         self._spinner_live: Optional[Any] = None
@@ -168,7 +170,7 @@ class ChatUI:
                 self._prefixed(PREFIX_STATUS, f"workspace: {workspace}", self.theme["hint"])
         self._prefixed(
             PREFIX_STATUS,
-            "commands: exit | reset | clear | skills | memory | session",
+            "commands: exit | reset | clear | skills | session",
             self.theme["hint"],
         )
         self._rule()
@@ -242,6 +244,7 @@ class ChatUI:
         if self._phase not in ("idle", "started"):
             self._ensure_stream_closed()
         self._phase = "started"
+        self._assistant_buffer = ""
 
     def stream_token(self, token: str) -> None:
         """Stream assistant content token."""
@@ -263,7 +266,10 @@ class ChatUI:
             self._phase = "assistant"
             self._at_line_start = True
 
-        self._raw_write(token)
+        if self._use_rich and self.console is not None:
+            self._assistant_buffer += token
+        else:
+            self._raw_write(token)
 
     def stream_reasoning(self, token: str) -> None:
         """Stream reasoning/thinking token (dim italic)."""
@@ -287,6 +293,15 @@ class ChatUI:
     def stream_end(self) -> None:
         """End current stream phase."""
         self.thinking_stop()
+        if self._phase == "assistant" and self._use_rich and self.console is not None:
+            content = self._assistant_buffer.strip()
+            if content:
+                self.console.print(Markdown(content), soft_wrap=True)
+            self._assistant_buffer = ""
+            self._phase = "idle"
+            self._at_line_start = False
+            return
+        self._assistant_buffer = ""
         self._ensure_stream_closed()
 
     # ── Tool display ────────────────────────────────────────

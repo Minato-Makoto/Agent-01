@@ -19,7 +19,6 @@ from typing import Any, Callable, Dict, List, Optional
 from .context import ContextBuilder
 from .contracts import ChatCompletionResult, ToolCall
 from .llm_inference import LLMInference
-from .memory import MemoryStore
 from .prompting import ChatMessage, PromptBuilder
 from .session import SessionManager
 from .skills import SkillInfo, SkillLoader
@@ -75,7 +74,6 @@ class Agent:
         tools: ToolRegistry,
         session_mgr: Optional[SessionManager] = None,
         summarizer: Optional[Summarizer] = None,
-        memory: Optional[MemoryStore] = None,
         skill_loader: Optional[SkillLoader] = None,
         context_builder: Optional[ContextBuilder] = None,
     ):
@@ -94,7 +92,6 @@ class Agent:
 
         self.session_mgr = session_mgr
         self.summarizer = summarizer
-        self.memory = memory
         self.skill_loader = skill_loader
         self.context_builder = context_builder
 
@@ -404,8 +401,6 @@ class Agent:
 
         try:
             module = importlib.import_module(skill.module)
-            if hasattr(module, "init_memory_store") and self.config.workspace_dir:
-                module.init_memory_store(self.config.workspace_dir)
             if hasattr(module, "register"):
                 module.register(self.tools, skill.name)
                 logger.info("Skill activated: %s", skill.name)
@@ -421,7 +416,6 @@ class Agent:
             self.prompt.set_system("You are a helpful assistant.")
             return
 
-        memory_context = self.memory.get_memory_context() if self.memory else ""
         skills_xml = self.skill_loader.build_skills_xml() if self.skill_loader else ""
         tool_summaries = []
         for tool in self.tools.get_all():
@@ -430,7 +424,6 @@ class Agent:
 
         system_prompt = self.context_builder.build_system_prompt(
             skills_xml=skills_xml,
-            memory_context=memory_context,
             tool_summaries=tool_summaries,
         )
         self.prompt.set_system(system_prompt)

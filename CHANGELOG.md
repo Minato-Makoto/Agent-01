@@ -3,6 +3,8 @@
 ## [Unreleased]
 
 ### Changed
+- Enabled Markdown rendering for assistant output in Rich terminal UI (`src/agentforge/ui.py`).
+- Removed long-term memory injection from system prompt assembly.
 - Restored `src/agentforge/llm_inference.py` as a single-file transport module (no split inference package).
 - Split CLI responsibilities:
   - `src/agentforge/cli_args.py` for parser/env/config resolution
@@ -16,10 +18,9 @@
   - `SessionMessage.from_dict(...)`
 - Expanded regression coverage for critical runtime paths:
   - `context.py`
-  - `memory.py`
   - `prompting.py`
   - skill activation to real tool execution
-- Standardized ignore policy for runtime-generated artifacts (`workspace/sessions`, `workspace/screenshots`, `workspace/memory`, logs), local environment files, and local runtime binaries/models.
+- Standardized ignore policy for runtime-generated artifacts (`workspace/sessions`, `workspace/screenshots`, logs), local environment files, and local runtime binaries/models.
 - Reworked `run.bat` to a single-file Windows launcher:
   - removed hidden/banner toggles and extra control flags
   - removed dependency on helper scripts (`scripts\\setup.bat`)
@@ -56,6 +57,12 @@
 - CI now executes launcher smoke (`run.bat` with remote help mode) on Windows.
 
 ### Removed
+- Removed persistent memory feature modules:
+  - `src/agentforge/memory.py`
+  - `src/builtin_tools/memory_tools.py`
+- Removed memory command and memory-specific tests:
+  - `src/tests/test_memory_store.py`
+  - `src/tests/test_context_memory_format.py`
 - Deleted generated Python cache artifacts from `src/**/__pycache__` and `.pytest_cache`.
   - Reason: generated runtime files are non-source artifacts and caused noisy audits.
   - Impact: no runtime behavior change; caches are regenerated automatically.

@@ -9,8 +9,6 @@ MUTATING_TOOL_NAMES = {
     "write_file",
     "shell_command",
     "message",
-    "remember",
-    "note",
     "ps_export_png",
     "ps_export_jpg",
     "ps_save_document",
@@ -21,7 +19,6 @@ READ_ONLY_TOOL_NAMES = {
     "list_directory",
     "search_files",
     "file_info",
-    "recall",
     "calculate",
     "web_search",
     "web_scrape",
@@ -38,7 +35,6 @@ READ_ONLY_ACTIONS = {
     "show",
     "fetch",
     "query",
-    "recall",
 }
 
 PROCESS_MUTATING_ACTIONS = {"write", "send_keys", "submit", "paste", "kill"}

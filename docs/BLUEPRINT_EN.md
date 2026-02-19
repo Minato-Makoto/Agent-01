@@ -42,7 +42,6 @@ Agent-01/
 │   ├── AGENT.md                # Agent instructions & tool contract
 │   ├── USER.md                 # User preferences
 │   ├── skills/                 # Skill definition folders (8 skills)
-│   ├── memory/                 # Persistent memory (MEMORY.md + daily notes)
 │   ├── sessions/               # Session JSON files
 │   └── screenshots/            # Browser screenshots
 ├── adb-mcp/                    # Optional: Photoshop/ADB integration
@@ -64,7 +63,7 @@ User Input
 │  │ 1. Build system prompt           │       │
 │  │    (ContextBuilder: runtime      │       │
 │  │     header + bootstrap .md +     │       │
-│  │     skills XML + memory)         │       │
+│  │     skills XML)                  │       │
 │  │ 2. Build messages                │       │
 │  │    (PromptBuilder → OpenAI msg)  │       │
 │  │ 3. Call LLM                      │       │
@@ -88,7 +87,7 @@ Final Assistant Text → UI Output
 1. `cli.py` is a compatibility facade; parser/config lives in `cli_args.py` and runtime wiring lives in `cli_runtime.py`.
 2. `run_interactive()` runs the REPL loop: read input → `Agent.run()` → display result.
 3. `Agent.run()`:
-   - Calls `_update_system_prompt()` (ContextBuilder assembles from workspace .md, skills XML, tools list, memory).
+   - Calls `_update_system_prompt()` (ContextBuilder assembles from workspace .md, skills XML, tools list).
    - Calls `_build_messages()` (PromptBuilder emits OpenAI-format messages).
    - Calls `_run_model_once()` → `LLMInference.chat_completion()`.
    - If tool calls present → `_execute_tool_calls()` → `ToolLoop.execute_tool()` → append results → loop.
@@ -120,13 +119,12 @@ Final Assistant Text → UI Output
 | `transcript_policy.py` | 251 | Provider-aware transcript sanitization, tool-call-id normalization, pairing repair |
 | `skills.py` | 205 | `SkillLoader`: 3-tier skill discovery (workspace > user_config > builtin), activation/deactivation |
 | `context.py` | 139 | `ContextBuilder`: dynamic system prompt assembly from workspace .md + runtime state |
-| `memory.py` | 106 | `MemoryStore`: long-term memory (MEMORY.md) + daily notes (YYYYMM/YYYYMMDD.md) |
 | `summarizer.py` | 173 | `Summarizer`: 3-tier context compression (soft-trim → graceful → emergency) |
-| `ui.py` | 410 | `ChatUI`: terminal UI, ANSI streaming, thinking/reasoning display, tool blocks |
+| `ui.py` | 410 | `ChatUI`: terminal UI, Markdown-rendered assistant output (Rich mode), thinking/reasoning display, tool blocks |
 
 ---
 
-## 5) Module Map — `src/builtin_tools/` (9 modules)
+## 5) Module Map — `src/builtin_tools/` (8 modules)
 
 | File | Lines | Skill Name | Tools |
 |------|-------|------------|-------|
@@ -136,7 +134,6 @@ Final Assistant Text → UI Output
 | `web_search.py` | 139 | WebSearch | `web_search` (DuckDuckGo HTML scraping) |
 | `browser_tools.py` | 246 | Browser | `browser_navigate`, `browser_click`, `browser_type`, `browser_screenshot`, `browser_get_content`, `browser_evaluate`, `browser_wait`, `browser_scroll`, `browser_select`, `browser_close` |
 | `calculator.py` | 134 | Math | `calculate` (safe AST eval) |
-| `memory_tools.py` | 107 | Memory | `remember`, `recall`, `note` |
 | `message_tool.py` | 41 | Communication | `message` |
 | `photoshop_tools.py` | 175 | Photoshop | 53 tools via Socket.IO → adb-mcp proxy → UXP Plugin |
 
@@ -193,7 +190,6 @@ tools:
 | `web_operations/` | Web Operations | `builtin_tools.web_ops` |
 | `web_search/` | WebSearch | `builtin_tools.web_search` |
 | `math/` | Math | `builtin_tools.calculator` |
-| `memory/` | Memory | `builtin_tools.memory_tools` |
 | `communication/` | Communication | `builtin_tools.message_tool` |
 | `photoshop/` | Photoshop | `builtin_tools.photoshop_tools` |
 
@@ -272,11 +268,10 @@ Tool call  → add_assistant_tool_calls() + add_tool_result()
              → _save()
 ```
 
-### 8.3 Memory Persistence
+### 8.3 Persistence Scope
 
-- Long-term: `workspace/memory/MEMORY.md` (append-style, read via `recall` tool).
-- Daily notes: `workspace/memory/YYYYMM/YYYYMMDD.md` (via `note` tool).
-- Memory context is injected into the system prompt every turn.
+- Persistent conversation state is stored in `workspace/sessions/*.json`.
+- No long-term memory subsystem is loaded in runtime.
 
 ---
 
@@ -288,7 +283,6 @@ Tool call  → add_assistant_tool_calls() + add_tool_result()
 2. **Available Tools** (dynamic): from `ToolRegistry`.
 3. **Skills XML** (dynamic): from `SkillLoader.build_skills_xml()`.
 4. **Bootstrap files** (static): read from workspace — `IDENTITY.md`, `SOUL.md`, `AGENT.md`, `USER.md`.
-5. **Memory context** (dynamic): from `MemoryStore.get_memory_context()`.
 
 Sections are joined by `\n\n---\n\n`.
 
@@ -471,7 +465,6 @@ addopts = -q
 | `test_calculator_safety.py` | Calculator safe eval |
 | `test_cli_config_merge.py` | CLI arg merge logic |
 | `test_cli_env_file.py` | .env file loading |
-| `test_context_memory_format.py` | Memory format in system prompt |
 | `test_context_builder.py` | ContextBuilder bootstrap/runtime assembly + load error handling |
 | `test_contracts_and_registry.py` | ToolCall, ToolRegistry contracts |
 | `test_docs_link_integrity.py` | Doc link validity |
@@ -479,7 +472,6 @@ addopts = -q
 | `test_integration_mock_provider.py` | Full integration with mock LLM |
 | `test_llm_fallback.py` | LLM compatibility fallback |
 | `test_llm_rate_limit.py` | LLM request-per-minute guard |
-| `test_memory_store.py` | MemoryStore persistence + atomic write behavior |
 | `test_prompting_builder.py` | PromptBuilder structured message construction/truncation |
 | `test_regression_callbacks_streaming.py` | Streaming callback regression |
 | `test_schema_provider_compat.py` | Schema normalization per provider |
@@ -590,7 +582,7 @@ jobs:
 - **Structured-first, fallback-second**: Prefers structured `tool_calls`; falls back to ToolCallParser when provider doesn't support it.
 - **PicoClaw/OpenClaw patterns**: Many modules reference patterns from PicoClaw (Go) and OpenClaw (TypeScript).
 - **Dual-output ToolResult**: `for_llm` (context for LLM) and `for_user` (display for user) separate content.
-- **Atomic file I/O**: Session and memory use atomic writes (write .tmp, then rename).
+- **Atomic file I/O**: Session persistence uses atomic writes (write .tmp, then rename).
 
 ### 20.2 Coding Conventions
 

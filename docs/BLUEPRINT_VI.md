@@ -42,7 +42,6 @@ Agent-01/
 │   ├── AGENT.md                # Hướng dẫn & tool contract cho agent
 │   ├── USER.md                 # Thông tin/sở thích user
 │   ├── skills/                 # Các thư mục định nghĩa skill (8 skills)
-│   ├── memory/                 # Bộ nhớ dài hạn (MEMORY.md + daily notes)
 │   ├── sessions/               # Session JSON files
 │   └── screenshots/            # Ảnh chụp màn hình browser
 ├── adb-mcp/                    # Tuỳ chọn: Tích hợp Photoshop/ADB
@@ -64,7 +63,7 @@ User Input
 │  │ 1. Xây dựng system prompt       │        │
 │  │    (ContextBuilder: runtime      │       │
 │  │     header + bootstrap .md +     │       │
-│  │     skills XML + memory)         │       │
+│  │     skills XML)                  │       │
 │  │ 2. Xây dựng messages            │        │
 │  │    (PromptBuilder → OpenAI msg)  │       │
 │  │ 3. Gọi LLM                      │       │
@@ -88,7 +87,7 @@ Final Assistant Text → UI Output
 1. `cli.py` là facade tương thích; parse/config nằm ở `cli_args.py`, wiring runtime nằm ở `cli_runtime.py`.
 2. `run_interactive()` chạy vòng lặp REPL: đọc input → `Agent.run()` → hiển thị kết quả.
 3. `Agent.run()`:
-   - Gọi `_update_system_prompt()` (ContextBuilder lắp ráp từ workspace .md, skills XML, tools list, memory).
+   - Gọi `_update_system_prompt()` (ContextBuilder lắp ráp từ workspace .md, skills XML, tools list).
    - Gọi `_build_messages()` (PromptBuilder phát sinh OpenAI-format messages).
    - Gọi `_run_model_once()` → `LLMInference.chat_completion()`.
    - Nếu có tool calls → `_execute_tool_calls()` → `ToolLoop.execute_tool()` → thêm results → lặp lại.
@@ -120,13 +119,12 @@ Final Assistant Text → UI Output
 | `transcript_policy.py` | 251 | Làm sạch transcript theo provider, chuẩn hoá tool-call-id, sửa ghép cặp |
 | `skills.py` | 205 | `SkillLoader`: khám phá skill 3 tầng (workspace > user_config > builtin), kích hoạt/huỷ kích hoạt |
 | `context.py` | 139 | `ContextBuilder`: lắp ráp system prompt động từ workspace .md + trạng thái runtime |
-| `memory.py` | 106 | `MemoryStore`: bộ nhớ dài hạn (MEMORY.md) + ghi chú hàng ngày (YYYYMM/YYYYMMDD.md) |
 | `summarizer.py` | 173 | `Summarizer`: nén context 3 tầng (soft-trim → graceful → emergency) |
-| `ui.py` | 410 | `ChatUI`: giao diện terminal, ANSI streaming, hiển thị thinking/reasoning, tool blocks |
+| `ui.py` | 410 | `ChatUI`: giao diện terminal, render Markdown cho output assistant (Rich mode), hiển thị thinking/reasoning, tool blocks |
 
 ---
 
-## 5) Module map — `src/builtin_tools/` (9 modules)
+## 5) Module map — `src/builtin_tools/` (8 modules)
 
 | File | Dòng | Tên skill | Các tools |
 |------|------|-----------|-----------|
@@ -136,7 +134,6 @@ Final Assistant Text → UI Output
 | `web_search.py` | 139 | WebSearch | `web_search` (scraping HTML DuckDuckGo) |
 | `browser_tools.py` | 246 | Browser | `browser_navigate`, `browser_click`, `browser_type`, `browser_screenshot`, `browser_get_content`, `browser_evaluate`, `browser_wait`, `browser_scroll`, `browser_select`, `browser_close` |
 | `calculator.py` | 134 | Math | `calculate` (đánh giá AST an toàn) |
-| `memory_tools.py` | 107 | Memory | `remember`, `recall`, `note` |
 | `message_tool.py` | 41 | Communication | `message` |
 | `photoshop_tools.py` | 175 | Photoshop | 53 tools qua Socket.IO → adb-mcp proxy → UXP Plugin |
 
@@ -193,7 +190,6 @@ tools:
 | `web_operations/` | Web Operations | `builtin_tools.web_ops` |
 | `web_search/` | WebSearch | `builtin_tools.web_search` |
 | `math/` | Math | `builtin_tools.calculator` |
-| `memory/` | Memory | `builtin_tools.memory_tools` |
 | `communication/` | Communication | `builtin_tools.message_tool` |
 | `photoshop/` | Photoshop | `builtin_tools.photoshop_tools` |
 
@@ -272,11 +268,10 @@ Tool call  → add_assistant_tool_calls() + add_tool_result()
              → _save()
 ```
 
-### 8.3 Bộ nhớ bền vững
+### 8.3 Phạm vi lưu trữ
 
-- Dài hạn: `workspace/memory/MEMORY.md` (kiểu append, đọc qua tool `recall`).
-- Ghi chú hàng ngày: `workspace/memory/YYYYMM/YYYYMMDD.md` (qua tool `note`).
-- Context bộ nhớ được tiêm vào system prompt mỗi lượt.
+- Trạng thái hội thoại bền vững được lưu trong `workspace/sessions/*.json`.
+- Runtime không còn nạp subsystem bộ nhớ dài hạn.
 
 ---
 
@@ -288,7 +283,6 @@ Tool call  → add_assistant_tool_calls() + add_tool_result()
 2. **Available Tools** (động): từ `ToolRegistry`.
 3. **Skills XML** (động): từ `SkillLoader.build_skills_xml()`.
 4. **Bootstrap files** (tĩnh): đọc từ workspace — `IDENTITY.md`, `SOUL.md`, `AGENT.md`, `USER.md`.
-5. **Memory context** (động): từ `MemoryStore.get_memory_context()`.
 
 Các phần được nối bởi `\n\n---\n\n`.
 
@@ -471,7 +465,6 @@ addopts = -q
 | `test_calculator_safety.py` | Đánh giá an toàn calculator |
 | `test_cli_config_merge.py` | Logic gộp cấu hình CLI |
 | `test_cli_env_file.py` | Tải file .env |
-| `test_context_memory_format.py` | Định dạng bộ nhớ trong system prompt |
 | `test_context_builder.py` | Lắp ráp ContextBuilder + xử lý lỗi đọc bootstrap |
 | `test_contracts_and_registry.py` | Hợp đồng ToolCall, ToolRegistry |
 | `test_docs_link_integrity.py` | Tính hợp lệ link tài liệu |
@@ -479,7 +472,6 @@ addopts = -q
 | `test_integration_mock_provider.py` | Tích hợp đầy đủ với mock LLM |
 | `test_llm_fallback.py` | Fallback tương thích LLM |
 | `test_llm_rate_limit.py` | Guard giới hạn request LLM/phút |
-| `test_memory_store.py` | Persistence MemoryStore + ghi file nguyên tử |
 | `test_prompting_builder.py` | Dựng/truncate structured messages trong PromptBuilder |
 | `test_regression_callbacks_streaming.py` | Hồi quy callback streaming |
 | `test_schema_provider_compat.py` | Chuẩn hoá schema theo provider |
@@ -590,7 +582,7 @@ jobs:
 - **Structured-first, fallback-second**: Ưu tiên `tool_calls` có cấu trúc, fallback sang ToolCallParser khi provider không hỗ trợ.
 - **Patterns PicoClaw/OpenClaw**: Nhiều module tham khảo patterns từ PicoClaw (Go) và OpenClaw (TypeScript).
 - **ToolResult đầu ra kép**: `for_llm` (context cho LLM) và `for_user` (hiển thị cho user) phân biệt nội dung.
-- **I/O file nguyên tử**: Session và memory dùng ghi nguyên tử (ghi .tmp, rồi rename).
+- **I/O file nguyên tử**: Session dùng ghi nguyên tử (ghi .tmp, rồi rename).
 
 ### 20.2 Quy ước viết mã
 
