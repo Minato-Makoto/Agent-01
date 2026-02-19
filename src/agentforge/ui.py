@@ -67,7 +67,8 @@ class ChatUI:
             and getattr(sys.stdout, "isatty", lambda: False)()
             and getattr(sys.stdin, "isatty", lambda: False)()
         )
-        self.console = Console(soft_wrap=True) if self._use_rich else None
+        # Keep Rich hard-wrap enabled so long streaming lines don't get clipped.
+        self.console = Console() if self._use_rich else None
 
         theme_mode = detect_theme_mode()
         self.palette = build_palette(theme_mode)
@@ -261,7 +262,7 @@ class ChatUI:
                 end=end,
                 markup=False,
                 highlight=False,
-                soft_wrap=True,
+                soft_wrap=False,
             )
             return
         print(safe, end=end, flush=True)
@@ -281,6 +282,6 @@ class ChatUI:
             line = Text()
             line.append(prefix, style=lane_style)
             line.append(safe_message, style=(message_style or self.palette.text))
-            self.console.print(line, end=end, markup=False, highlight=False, soft_wrap=True)
+            self.console.print(line, end=end, markup=False, highlight=False, soft_wrap=False)
             return
         print(f"{prefix}{safe_message}", end=end, flush=True)
