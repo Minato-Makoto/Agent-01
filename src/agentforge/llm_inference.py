@@ -343,6 +343,52 @@ class LLMInference:
             return "parsed"
         return fmt
 
+    def _should_suppress_reasoning_stream(self) -> bool:
+        """
+        Decide whether reasoning tokens should be hidden from UI callbacks.
+
+        For local/non-OpenAI providers, `reasoning_format=none` means
+        reasoning should not be surfaced to the user even if the server still
+        emits `reasoning_content` chunks.
+        """
+        if self._provider_kind in {"openai", "openrouter", "openai_compatible"}:
+            return False
+        return self._effective_reasoning_format() == "none"
+
+    @staticmethod
+    def _strip_think_blocks(text: str) -> str:
+        if not text:
+            return text
+        # Handle providers/models that stream CoT in `content` via <think>...</think>.
+        return re.sub(r"<think>.*?</think>\s*", "", text, flags=re.IGNORECASE | re.DOTALL)
+
+    @staticmethod
+    def _strip_think_blocks_stream_chunk(chunk: str, in_think_block: bool) -> Tuple[str, bool]:
+        if not chunk:
+            return "", in_think_block
+
+        lower = chunk.lower()
+        i = 0
+        out_parts: List[str] = []
+        while i < len(chunk):
+            if in_think_block:
+                end = lower.find("</think>", i)
+                if end < 0:
+                    return "".join(out_parts), True
+                i = end + len("</think>")
+                in_think_block = False
+                continue
+
+            start = lower.find("<think>", i)
+            if start < 0:
+                out_parts.append(chunk[i:])
+                return "".join(out_parts), False
+            out_parts.append(chunk[i:start])
+            i = start + len("<think>")
+            in_think_block = True
+
+        return "".join(out_parts), in_think_block
+
     def _resolved_model_id(self) -> str:
         model = (self._config.model_id or "").strip().lower()
         if "/" in model:
@@ -554,11 +600,17 @@ class LLMInference:
         if grammar:
             payload["grammar"] = grammar
 
+        suppress_reasoning_stream = self._should_suppress_reasoning_stream()
+        reasoning_callback = None if suppress_reasoning_stream else on_reasoning
+
         if stream or on_token is not None:
             if self._capabilities.supports_stream is not False:
                 payload["stream"] = True
             return self._stream_chat_completion(
-                payload=payload, on_token=on_token, on_reasoning=on_reasoning
+                payload=payload,
+                on_token=on_token,
+                on_reasoning=reasoning_callback,
+                suppress_think_blocks=suppress_reasoning_stream,
             )
 
         try:
@@ -576,6 +628,8 @@ class LLMInference:
             self._capabilities.supports_reasoning_format = True
 
         result = self._parse_chat_completion_response(resp)
+        if suppress_reasoning_stream:
+            result.content = self._strip_think_blocks(result.content)
         result.used_tools_fallback = used_fallback
         return result
 
@@ -643,7 +697,11 @@ class LLMInference:
         )
 
     def _stream_chat_completion(
-        self, payload: Dict[str, Any], on_token=None, on_reasoning=None
+        self,
+        payload: Dict[str, Any],
+        on_token=None,
+        on_reasoning=None,
+        suppress_think_blocks: bool = False,
     ) -> ChatCompletionResult:
         used_fallback = False
         for _ in range(max(1, self._config.compat_retry_limit)):
@@ -664,6 +722,7 @@ class LLMInference:
                     payload=payload,
                     on_token=on_token,
                     on_reasoning=on_reasoning,
+                    suppress_think_blocks=suppress_think_blocks,
                 )
                 self._capabilities.supports_stream = True
                 if "parallel_tool_calls" in payload:
@@ -712,7 +771,12 @@ class LLMInference:
             raise RuntimeError(f"Network error: {e}")
 
     def _stream_post(
-        self, endpoint: str, payload: Dict[str, Any], on_token=None, on_reasoning=None
+        self,
+        endpoint: str,
+        payload: Dict[str, Any],
+        on_token=None,
+        on_reasoning=None,
+        suppress_think_blocks: bool = False,
     ) -> ChatCompletionResult:
         self._consume_rate_limit_slot()
         req = self._build_json_post_request(endpoint, payload)
@@ -720,6 +784,7 @@ class LLMInference:
         full_text = ""
         finish_reason = "stop"
         tc_parts: Dict[int, Dict[str, Any]] = {}
+        in_think_block = False
 
         try:
             with urllib.request.urlopen(req, timeout=self._config.request_timeout_s) as resp:
@@ -748,6 +813,10 @@ class LLMInference:
                         on_reasoning(reasoning)
 
                     content = delta.get("content", "")
+                    if content and suppress_think_blocks:
+                        content, in_think_block = self._strip_think_blocks_stream_chunk(
+                            content, in_think_block
+                        )
                     if content:
                         full_text += content
                         if on_token:

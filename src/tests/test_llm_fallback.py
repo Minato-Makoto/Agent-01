@@ -359,6 +359,41 @@ def test_streaming_fallback_when_stream_is_rejected(mock_chat_server):
     assert "stream" not in mock_chat_server.requests[1]["payload"]
 
 
+def test_llama_cpp_low_effort_suppresses_reasoning_callback_and_think_blocks(mock_chat_server):
+    llm = _connect_remote(
+        mock_chat_server.url,
+        config=InferenceConfig(max_tokens=64, reasoning_format="auto", reasoning_effort="low"),
+    )
+    llm._provider_kind = "llama_cpp"
+
+    mock_chat_server.enqueue_stream(
+        [
+            {
+                "choices": [
+                    {"delta": {"reasoning_content": "very long hidden thinking"}, "finish_reason": None}
+                ]
+            },
+            {"choices": [{"delta": {"content": "<think>hidden</think>Visible"}, "finish_reason": None}]},
+            {"choices": [{"delta": {"content": " answer"}, "finish_reason": "stop"}]},
+        ]
+    )
+
+    tokens: list[str] = []
+    reasoning: list[str] = []
+    result = llm.chat_completion(
+        messages=[{"role": "user", "content": "hello"}],
+        stream=True,
+        on_token=tokens.append,
+        on_reasoning=reasoning.append,
+    )
+
+    assert result.error == ""
+    assert result.content == "Visible answer"
+    assert "".join(tokens) == "Visible answer"
+    assert reasoning == []
+    assert mock_chat_server.requests[0]["payload"]["reasoning_format"] == "none"
+
+
 def test_chat_completion_applies_transcript_policy_before_send(mock_chat_server):
     llm = _connect_remote(mock_chat_server.url)
     llm._provider_kind = "openai"
