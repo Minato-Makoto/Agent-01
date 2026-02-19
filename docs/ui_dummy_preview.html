@@ -6,18 +6,18 @@
   <title>Agent-01 UI Dummy Preview</title>
   <style>
     :root {
-      --bg: #0f1115;
-      --panel: #151922;
+      --bg: #181818;
+      --panel: #1f1f1f;
       --text: #d0d0d0;
-      --muted: #8a8f99;
+      --muted: #8a8a8a;
       --lane: #38c172;
       --thinking: #d6b045;
       --error: #e05d5d;
       --code-bg: #262626;
       --code-fg: #c8c8c8;
-      --input-bg: #11141c;
-      --btn-bg: #1f2531;
-      --btn-bd: #2d3648;
+      --input-bg: #202020;
+      --btn-bg: #2a2a2a;
+      --btn-bd: #3a3a3a;
       --accent: #38c172;
     }
 
@@ -41,7 +41,7 @@
     body {
       margin: 0;
       min-height: 100vh;
-      background: radial-gradient(1200px 500px at 10% -10%, rgba(56,193,114,0.12), transparent 60%), var(--bg);
+      background: var(--bg);
       color: var(--text);
       font-family: "Consolas", "Cascadia Mono", "Fira Code", monospace;
       display: grid;
@@ -73,8 +73,8 @@
     .controls button:hover { transform: translateY(-1px); border-color: var(--accent); }
 
     .terminal {
-      background: linear-gradient(180deg, color-mix(in srgb, var(--panel) 94%, black), var(--panel));
-      border: 1px solid color-mix(in srgb, var(--panel) 70%, var(--accent));
+      background: var(--panel);
+      border: 1px solid #323232;
       border-radius: 14px;
       padding: 16px;
       min-height: 70vh;

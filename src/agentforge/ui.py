@@ -149,7 +149,8 @@ class ChatUI:
         prompt = "> "
         try:
             if self._use_rich and self.console is not None:
-                line = self.console.input(f"[bold bright_green]{prompt}[/bold bright_green]")
+                prompt_color = "#38c172" if self.palette.mode == "dark" else "#1f7f3e"
+                line = self.console.input(f"[bold {prompt_color}]{prompt}[/bold {prompt_color}]")
             else:
                 line = input(prompt)
             value = line.strip()
