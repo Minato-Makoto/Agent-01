@@ -5,26 +5,24 @@ Responsibilities:
 - Detect effective UI theme mode (auto/dark/light)
 - Build palette used by terminal rendering
 - Render processing/thinking/output states as a minimal lane:
-  - user line starts with `│`
   - status line starts with `├─`
-  - assistant block starts with `└─`
+  - assistant block starts with `├─`
 - Stream markdown output in realtime with Rich Live updates
 """
 
 from __future__ import annotations
 
 import os
+import shutil
 from dataclasses import dataclass
 from typing import Mapping, Optional
 
 from rich import box
-from rich.console import Console, Group, RenderableType
+from rich.console import Console, Group, RenderResult, RenderableType
 from rich.live import Live
-from rich.markdown import BlockQuote, CodeBlock, Heading, Markdown
-from rich.padding import Padding
+from rich.markdown import BlockQuote, CodeBlock, Heading, HorizontalRule, Markdown
 from rich.panel import Panel
 from rich.segment import Segment
-from rich.syntax import Syntax
 from rich.text import Text
 from rich.theme import Theme
 
@@ -76,7 +74,6 @@ class UIPalette:
     mode: str
     code_theme: str
     lane: str
-    user: str
     status_processing: str
     status_thinking: str
     status_success: str
@@ -100,6 +97,7 @@ class UIPalette:
     markdown_quote_text: str
     markdown_code_border: str
     markdown_code_background: str
+    markdown_code_text: str
 
 
 def build_palette(mode: str) -> UIPalette:
@@ -109,17 +107,16 @@ def build_palette(mode: str) -> UIPalette:
         return UIPalette(
             mode=THEME_MODE_LIGHT,
             code_theme="friendly",
-            lane="grey58",
-            user="bold #0969da",
+            lane="bold #1a7f37",
             status_processing="bold #9a6700",
             status_thinking="bold #9a6700",
             status_success="bold #1a7f37",
             status_error="bold #cf222e",
-            assistant="bold #0969da",
-            reasoning_text="#8250df",
+            assistant="bold #1a7f37",
+            reasoning_text="dim",
             text="#24292f",
             hint="grey50",
-            banner="bold #0969da",
+            banner="bold #1a7f37",
             tool_title="bold #9a6700",
             tool_body="#57606a",
             result_title="bold #1a7f37",
@@ -127,43 +124,72 @@ def build_palette(mode: str) -> UIPalette:
             markdown_inline_code="#24292f on #f6f8fa",
             markdown_em="italic #57606a",
             markdown_strong="bold #24292f",
-            markdown_heading_h1="bold #0969da",
-            markdown_heading_h2="bold #1f6feb",
-            markdown_heading_h3="bold #0550ae",
-            markdown_quote_bar="#9a6700",
+            markdown_heading_h1="bold",
+            markdown_heading_h2="bold",
+            markdown_heading_h3="bold",
+            markdown_quote_bar="grey58",
             markdown_quote_text="#57606a",
-            markdown_code_border="#d0d7de",
-            markdown_code_background="on #f6f8fa",
+            markdown_code_border="grey58",
+            markdown_code_background="on #eceff3",
+            markdown_code_text="dim #24292f",
         )
     return UIPalette(
         mode=THEME_MODE_DARK,
         code_theme="monokai",
-        lane="grey58",
-        user="bold bright_cyan",
+        lane="bold bright_green",
         status_processing="bold yellow",
         status_thinking="bold yellow",
-        status_success="bold green",
+        status_success="bold bright_green",
         status_error="bold red",
-        assistant="bold bright_cyan",
-        reasoning_text="italic bright_yellow",
+        assistant="bold bright_green",
+        reasoning_text="dim",
         text="white",
         hint="grey62",
-        banner="bold bright_cyan",
+        banner="bold bright_green",
         tool_title="bold yellow",
         tool_body="grey70",
-        result_title="bold green",
+        result_title="bold bright_green",
         result_body="grey70",
         markdown_inline_code="#f0f6fc on #30363d",
         markdown_em="italic grey78",
         markdown_strong="bold white",
-        markdown_heading_h1="bold bright_cyan",
-        markdown_heading_h2="bold cyan",
-        markdown_heading_h3="bold bright_blue",
-        markdown_quote_bar="bright_yellow",
+        markdown_heading_h1="bold",
+        markdown_heading_h2="bold",
+        markdown_heading_h3="bold",
+        markdown_quote_bar="grey58",
         markdown_quote_text="grey78",
-        markdown_code_border="#3d444d",
-        markdown_code_background="on #161b22",
+        markdown_code_border="grey50",
+        markdown_code_background="on #2b3036",
+        markdown_code_text="dim #f0f6fc",
     )
+
+
+class LaneRenderable:
+    """Prefix every rendered line with lane marker."""
+
+    def __init__(
+        self,
+        renderable: RenderableType,
+        *,
+        prefix: str = "│ ",
+        prefix_style: str = "",
+        content_style: str = "",
+    ) -> None:
+        self._renderable = renderable
+        self._prefix = prefix
+        self._prefix_style = prefix_style
+        self._content_style = content_style
+
+    def __rich_console__(self, console: Console, options) -> RenderResult:
+        render_width = max(12, options.max_width - len(self._prefix))
+        render_options = options.update(width=render_width, height=None)
+        content_style = console.get_style(self._content_style, default="")
+        prefix_style = console.get_style(self._prefix_style, default="")
+        lines = console.render_lines(self._renderable, render_options, style=content_style)
+        for line in lines:
+            yield Segment(self._prefix, prefix_style)
+            yield from line
+            yield Segment.line()
 
 
 def build_markdown_theme(palette: UIPalette) -> Theme:
@@ -192,15 +218,20 @@ class LaneHeading(Heading):
         self.palette = palette
         super().__init__(tag)
 
-    def __rich_console__(self, console: Console, options) -> RenderableType:
-        text = self.text.copy()
-        text.justify = "left"
+    def __rich_console__(self, console: Console, options) -> RenderResult:
+        raw = self.text.plain
         if self.tag == "h1":
-            text.stylize(self.palette.markdown_heading_h1)
-        elif self.tag == "h2":
-            text.stylize(self.palette.markdown_heading_h2)
-        else:
-            text.stylize(self.palette.markdown_heading_h3)
+            text = Text(raw.upper(), style=self.palette.markdown_heading_h1)
+            yield Text("")
+            yield text
+            yield Text("")
+            return
+        if self.tag == "h2":
+            text = Text(raw, style=self.palette.markdown_heading_h2)
+            yield Text("")
+            yield text
+            return
+        text = Text(raw, style=self.palette.markdown_heading_h3)
         yield text
 
 
@@ -218,11 +249,16 @@ class LaneCodeBlock(CodeBlock):
         super().__init__(lexer_name, theme)
         self.palette = palette
 
-    def __rich_console__(self, console: Console, options) -> RenderableType:
+    def __rich_console__(self, console: Console, options) -> RenderResult:
         code = str(self.text).rstrip()
-        syntax = Syntax(code, self.lexer_name, theme=self.theme, word_wrap=True, padding=0)
+        code_text = Text(
+            code,
+            style=self.palette.markdown_code_text,
+            no_wrap=False,
+            overflow="fold",
+        )
         panel = Panel(
-            syntax,
+            code_text,
             box=box.ROUNDED,
             border_style=self.palette.markdown_code_border,
             style=self.palette.markdown_code_background,
@@ -243,7 +279,7 @@ class LaneBlockQuote(BlockQuote):
         super().__init__()
         self.palette = palette
 
-    def __rich_console__(self, console: Console, options) -> RenderableType:
+    def __rich_console__(self, console: Console, options) -> RenderResult:
         render_options = options.update(width=max(12, options.max_width - 4))
         quote_style = console.get_style(self.palette.markdown_quote_text, default="dim")
         lines = console.render_lines(self.elements, render_options, style=quote_style)
@@ -256,6 +292,23 @@ class LaneBlockQuote(BlockQuote):
             yield new_line
 
 
+class LaneHorizontalRule(HorizontalRule):
+    """Render markdown hr as literal text separator (`---`)."""
+
+    @classmethod
+    def create(cls, markdown: Markdown, token) -> "LaneHorizontalRule":
+        palette = getattr(markdown, "palette", build_palette(THEME_MODE_DARK))
+        return cls(palette)
+
+    def __init__(self, palette: UIPalette) -> None:
+        super().__init__()
+        self.palette = palette
+
+    def __rich_console__(self, console: Console, options) -> RenderResult:
+        del console, options
+        yield Text("---", style=self.palette.hint)
+
+
 class LaneMarkdown(Markdown):
     """Markdown renderer customized for tree-lane terminal UI."""
 
@@ -266,6 +319,7 @@ class LaneMarkdown(Markdown):
             "fence": LaneCodeBlock,
             "code_block": LaneCodeBlock,
             "blockquote_open": LaneBlockQuote,
+            "hr": LaneHorizontalRule,
         }
     )
 
@@ -295,7 +349,6 @@ class ModelOutputRenderer:
         self._live: Optional[Live] = None
 
         self._active = False
-        self._user_input = ""
         self._status_state = "idle"  # idle|processing|thinking|success|error
         self._reasoning_buffer = ""
         self._output_buffer = ""
@@ -303,6 +356,10 @@ class ModelOutputRenderer:
 
         self._plain_reasoning_started = False
         self._plain_output_started = False
+        self._plain_reasoning_line_open = False
+        self._plain_output_line_open = False
+        self._plain_reasoning_col = 0
+        self._plain_output_col = 0
 
     @property
     def active(self) -> bool:
@@ -325,58 +382,75 @@ class ModelOutputRenderer:
         return self._error_message
 
     def begin_turn(self, user_input: str) -> None:
+        del user_input
         self.close()
         self._active = True
-        self._user_input = user_input.strip()
         self._status_state = "processing"
         self._reasoning_buffer = ""
         self._output_buffer = ""
         self._error_message = ""
         self._plain_reasoning_started = False
         self._plain_output_started = False
+        self._plain_reasoning_line_open = False
+        self._plain_output_line_open = False
+        self._plain_reasoning_col = 0
+        self._plain_output_col = 0
         if self._use_rich:
             self._start_live()
             self._refresh()
-        else:
-            user = self._user_input if self._user_input else "(empty)"
-            print(f"│ user: {user}", flush=True)
 
     def set_processing(self) -> None:
         if not self._active:
             return
         self._status_state = "processing"
         self._refresh()
-        if not self._use_rich:
+        if not self._use_rich and not self._plain_reasoning_started and not self._plain_output_started:
             self._plain_status("processing...", self._status_style())
 
     def append_reasoning(self, token: str) -> None:
-        if not token:
+        normalized = self._normalize_token(token)
+        if not normalized:
             return
         if not self._active:
             self.begin_turn("")
         self._status_state = "thinking"
-        self._reasoning_buffer += token
+        self._reasoning_buffer += normalized
         self._refresh()
         if not self._use_rich:
             if not self._plain_reasoning_started:
-                print("│ thinking: ", end="", flush=True)
+                print("│   ", end="", flush=True)
                 self._plain_reasoning_started = True
-            print(token, end="", flush=True)
+                self._plain_reasoning_line_open = True
+            self._plain_write_with_lane(
+                normalized,
+                lane_prefix="│   ",
+                line_open_attr="_plain_reasoning_line_open",
+                line_col_attr="_plain_reasoning_col",
+            )
 
     def append_output(self, token: str) -> None:
-        if not token:
+        normalized = self._normalize_token(token)
+        if not normalized:
             return
         if not self._active:
             self.begin_turn("")
-        self._output_buffer += token
+        self._output_buffer += normalized
         self._refresh()
         if not self._use_rich:
             if not self._plain_output_started:
-                if self._plain_reasoning_started:
+                if self._plain_reasoning_line_open:
                     print("", flush=True)
-                print("└─ Agent-01:", flush=True)
+                    self._plain_reasoning_line_open = False
+                print("├─ Agent-01", flush=True)
+                print("│ ", end="", flush=True)
                 self._plain_output_started = True
-            print(token, end="", flush=True)
+                self._plain_output_line_open = True
+            self._plain_write_with_lane(
+                normalized,
+                lane_prefix="│ ",
+                line_open_attr="_plain_output_line_open",
+                line_col_attr="_plain_output_col",
+            )
 
     def finish_success(self) -> None:
         if not self._active:
@@ -385,8 +459,10 @@ class ModelOutputRenderer:
         self._refresh()
         self._stop_live()
         if not self._use_rich:
-            if self._plain_reasoning_started or self._plain_output_started:
+            if self._plain_reasoning_line_open or self._plain_output_line_open:
                 print("", flush=True)
+                self._plain_reasoning_line_open = False
+                self._plain_output_line_open = False
             self._plain_status("completed.", self._status_style())
         self._active = False
 
@@ -398,8 +474,10 @@ class ModelOutputRenderer:
         self._refresh()
         self._stop_live()
         if not self._use_rich:
-            if self._plain_reasoning_started or self._plain_output_started:
+            if self._plain_reasoning_line_open or self._plain_output_line_open:
                 print("", flush=True)
+                self._plain_reasoning_line_open = False
+                self._plain_output_line_open = False
             self._plain_status(f"error: {self._error_message}", self._status_style())
         self._active = False
 
@@ -412,6 +490,10 @@ class ModelOutputRenderer:
         self._error_message = ""
         self._plain_reasoning_started = False
         self._plain_output_started = False
+        self._plain_reasoning_line_open = False
+        self._plain_output_line_open = False
+        self._plain_reasoning_col = 0
+        self._plain_output_col = 0
 
     def _start_live(self) -> None:
         if self._live is not None or self._console is None:
@@ -443,7 +525,7 @@ class ModelOutputRenderer:
             return self._palette.status_error
         if self._status_state == "thinking":
             return self._palette.status_thinking
-        return self._palette.status_processing
+        return self._palette.hint
 
     def _status_text(self) -> str:
         if self._status_state == "success":
@@ -454,33 +536,97 @@ class ModelOutputRenderer:
             return "thinking..."
         return "processing..."
 
+    def _status_renderable(self) -> Text:
+        prefix_style = self._palette.lane
+        message_style = self._palette.hint
+        if self._status_state == "thinking":
+            prefix_style = self._palette.status_thinking
+            message_style = self._palette.hint
+        elif self._status_state == "error":
+            prefix_style = self._palette.status_error
+            message_style = self._palette.status_error
+        elif self._status_state == "success":
+            prefix_style = self._palette.status_success
+            message_style = self._palette.status_success
+
+        status = Text()
+        status.append("├─ ", style=prefix_style)
+        status.append(self._status_text(), style=message_style)
+        return status
+
+    def _reasoning_prefix_style(self) -> str:
+        if self._status_state == "thinking":
+            return self._palette.status_thinking
+        return self._palette.lane
+
     def _build_renderable(self) -> RenderableType:
-        user = self._user_input if self._user_input else "(empty)"
         blocks: list[RenderableType] = [
-            Text(f"│ user: {user}", style=self._palette.user),
-            Text(f"├─ {self._status_text()}", style=self._status_style()),
+            self._status_renderable(),
         ]
 
         if self._reasoning_buffer:
-            blocks.append(Text("│", style=self._palette.lane))
-            blocks.append(Text("│ thinking", style=self._palette.status_thinking))
+            reasoning_text = Text(self._reasoning_buffer, overflow="fold")
             blocks.append(
-                Padding(
-                    Text(self._reasoning_buffer, style=self._palette.reasoning_text, overflow="fold"),
-                    (0, 2, 0, 2),
+                LaneRenderable(
+                    reasoning_text,
+                    prefix="│   ",
+                    prefix_style=self._reasoning_prefix_style(),
+                    content_style=self._palette.reasoning_text,
                 )
             )
 
         if self._output_buffer:
-            blocks.append(Text("│", style=self._palette.lane))
-            blocks.append(Text("└─ Agent-01", style=self._palette.assistant))
-            blocks.append(Padding(LaneMarkdown(self._output_buffer, self._palette), (0, 2, 0, 2)))
+            blocks.append(Text("├─ Agent-01", style=self._palette.assistant))
+            blocks.append(
+                LaneRenderable(
+                    LaneMarkdown(self._output_buffer, self._palette),
+                    prefix="│ ",
+                    prefix_style=self._palette.lane,
+                    content_style=self._palette.text,
+                )
+            )
         elif self._status_state == "error" and self._error_message:
-            blocks.append(Text("│", style=self._palette.lane))
-            blocks.append(Text(f"└─ {self._error_message}", style=self._palette.status_error))
+            blocks.append(Text(f"├─ {self._error_message}", style=self._palette.status_error))
 
         return Group(*blocks)
 
     def _plain_status(self, text: str, style: str) -> None:
         del style
         print(f"├─ {text}", flush=True)
+
+    def _normalize_token(self, token: str) -> str:
+        return token.replace("\r\n", "\n").replace("\r", "\n")
+
+    def _terminal_width(self) -> int:
+        return max(40, shutil.get_terminal_size(fallback=(120, 20)).columns)
+
+    def _plain_write_with_lane(
+        self,
+        text: str,
+        *,
+        lane_prefix: str,
+        line_open_attr: str,
+        line_col_attr: str,
+    ) -> None:
+        line_open = bool(getattr(self, line_open_attr))
+        col = int(getattr(self, line_col_attr))
+        available = max(10, self._terminal_width() - len(lane_prefix))
+        for ch in text:
+            if not line_open:
+                print(lane_prefix, end="", flush=True)
+                line_open = True
+                col = 0
+            if ch != "\n" and col >= available:
+                print("", flush=True)
+                line_open = False
+                col = 0
+                print(lane_prefix, end="", flush=True)
+                line_open = True
+            print(ch, end="", flush=True)
+            if ch == "\n":
+                line_open = False
+                col = 0
+            else:
+                col += 1
+        setattr(self, line_open_attr, line_open)
+        setattr(self, line_col_attr, col)

@@ -47,12 +47,42 @@ def test_renderer_state_transitions_without_rich():
     assert renderer.status_state == "success"
 
 
-def test_lane_markdown_quote_and_codeblock_shapes():
+def test_reasoning_lane_prefix_switches_from_thinking_to_done():
+    renderer = ModelOutputRenderer(
+        console=None,
+        use_rich=False,
+        palette=build_palette("dark"),
+    )
+    renderer.begin_turn("hello")
+    renderer.append_reasoning("r1")
+    assert renderer._reasoning_prefix_style() == renderer._palette.status_thinking
+
+    renderer.finish_success()
+    assert renderer._reasoning_prefix_style() == renderer._palette.lane
+
+
+def test_lane_markdown_quote_codeblock_and_hr_rendering():
     palette = build_palette("dark")
-    markdown = LaneMarkdown("> quoted line\n\n```python\nprint('x')\n```", palette)
+    markdown = LaneMarkdown("> quoted line\n\n---\n\n```text\nprint('x')\n```", palette)
     console = Console(record=True, width=80)
     console.print(markdown)
     text = console.export_text()
     assert "│ quoted line" in text
+    assert "---" in text
     assert ("╭" in text) or ("┌" in text)
     assert ("╰" in text) or ("└" in text)
+
+
+def test_code_block_wraps_long_lines_and_keeps_background_style():
+    palette = build_palette("dark")
+    long_line = "x" * 120
+    markdown = LaneMarkdown(f"```text\n{long_line}\n```", palette)
+
+    console = Console(record=True, width=60, force_terminal=True, color_system="truecolor")
+    console.print(markdown)
+
+    ansi = console.export_text(styles=True, clear=False)
+    plain = console.export_text()
+
+    assert plain.count("x") == 120
+    assert "[48;" in ansi

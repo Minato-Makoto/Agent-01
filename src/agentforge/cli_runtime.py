@@ -62,6 +62,12 @@ def _connect_backend(llm: LLMInference, args: Any, config: InferenceConfig, ui: 
 
         ui.status(f"Loading model: {os.path.basename(model)}")
         ui.status(f"Server: {server_exe} ({config.host}:{config.port})")
+        ui.status(
+            "Reasoning controls: "
+            f"format={config.reasoning_format or '(none)'} | "
+            f"effort={config.reasoning_effort or '(none)'} "
+            "(local backends typically apply reasoning_format)."
+        )
         if not llm.load_model(model, config, server_exe=server_exe):
             ui.error("Failed to load model.")
             return False
@@ -79,6 +85,12 @@ def _connect_backend(llm: LLMInference, args: Any, config: InferenceConfig, ui: 
     ui.status(f"Provider: {provider}")
     ui.status(f"Base URL: {base_url}")
     ui.status(f"Model ID: {config.model_id}")
+    ui.status(
+        "Reasoning controls: "
+        f"format={config.reasoning_format or '(none)'} | "
+        f"effort={config.reasoning_effort or '(none)'} "
+        "(OpenAI-compatible endpoints generally prefer reasoning_effort)."
+    )
     ui.status(
         "Transport: Chat Completions-compatible endpoint "
         "(Responses API is recommended for new OpenAI-native projects)."

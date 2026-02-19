@@ -63,7 +63,7 @@ class StreamCallbacks:
 
 
 class Agent:
-    """Main orchestration loop for think -> tool -> answer cycles."""
+    """Main orchestration loop for tool -> answer cycles."""
 
     _DEFAULT_STOP: List[str] = ["<|im_end|>", "<|end|>", "</s>", "<|eot_id|>"]
 
@@ -361,31 +361,6 @@ class Agent:
                     "required": ["path"],
                 },
                 execute_fn=read_file_fn,
-            )
-        )
-
-        def think_fn(args: Dict[str, Any]) -> ToolResult:
-            thought = str(args.get("thought", "")).strip()
-            if not thought:
-                return ToolResult.error_result("Missing 'thought' parameter")
-            visible = f"Thought: {thought}"
-            return ToolResult.llm_result(for_llm=visible, for_user=visible)
-
-        self.tools.register(
-            Tool(
-                name="think",
-                description="Reasoning note tool. The provided thought is shown to the user.",
-                input_schema={
-                    "type": "object",
-                    "properties": {
-                        "thought": {
-                            "type": "string",
-                            "description": "Step-by-step reasoning text.",
-                        }
-                    },
-                    "required": ["thought"],
-                },
-                execute_fn=think_fn,
             )
         )
 

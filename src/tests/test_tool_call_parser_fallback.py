@@ -13,9 +13,9 @@ def test_fallback_parser_prefers_tool_call_block():
 
 def test_fallback_parser_supports_bare_json_object():
     parser = ToolCallParser()
-    result = parser.parse('{"name":"think","arguments":{"thought":"plan"}}')
+    result = parser.parse('{"name":"echo_tool","arguments":{"text":"plan"}}')
     assert result.has_tool_calls
-    assert result.tool_calls[0].name == "think"
+    assert result.tool_calls[0].name == "echo_tool"
 
 
 def test_fallback_parser_plain_text_has_no_tool_call():

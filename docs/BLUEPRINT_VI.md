@@ -141,9 +141,6 @@ Final Assistant Text → UI Output
 ### Bootstrap tools (được mã hoá cứng trong `agent_core.py`)
 
 - `read_file` — Đọc file bất kỳ; cũng dùng để kích hoạt skill.
-- `think` — Ghi chú suy luận minh bạch; nội dung thought được hiển thị cho user.
-
-Luu y: `thinking` stream trong UI la `reasoning_content` do model stream tra ve, khac voi tool `think`.
 
 ---
 
@@ -151,7 +148,7 @@ Luu y: `thinking` stream trong UI la `reasoning_content` do model stream tra ve,
 
 ### 6.1 Cơ chế
 
-1. Khi khởi động, agent chỉ có 2 bootstrap tools: `read_file` và `think`.
+1. Khi khởi động, agent chỉ có 1 bootstrap tool: `read_file`.
 2. `SkillLoader` quét `workspace/skills/` để tìm các thư mục chứa `SKILL_*.md`.
 3. System prompt chứa XML `<available_skills>` liệt kê các skill và trạng thái.
 4. Agent muốn dùng tool của 1 skill → gọi `read_file` trên `SKILL_*.md` → `agent_core` phát hiện và tự động kích hoạt skill, đăng ký tools vào `ToolRegistry`.

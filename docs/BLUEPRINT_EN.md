@@ -141,9 +141,6 @@ Final Assistant Text → UI Output
 ### Bootstrap Tools (hardcoded in `agent_core.py`)
 
 - `read_file` — Read any file; also used to activate skills.
-- `think` — Transparent reasoning note; the thought content is shown to the user.
-
-Note: UI `thinking` stream comes from model `reasoning_content` tokens and is separate from the `think` tool.
 
 ---
 
@@ -151,7 +148,7 @@ Note: UI `thinking` stream comes from model `reasoning_content` tokens and is se
 
 ### 6.1 Mechanism
 
-1. On startup, the agent has only 2 bootstrap tools: `read_file` and `think`.
+1. On startup, the agent has only 1 bootstrap tool: `read_file`.
 2. `SkillLoader` scans `workspace/skills/` for folders containing `SKILL_*.md`.
 3. The system prompt includes XML `<available_skills>` listing skills and their status.
 4. When the agent wants to use a skill's tools → calls `read_file` on `SKILL_*.md` → `agent_core` detects this and auto-activates the skill, registering tools into `ToolRegistry`.

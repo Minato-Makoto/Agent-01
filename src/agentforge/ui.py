@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 try:
     from rich.console import Console
+    from rich.text import Text
 
     HAS_RICH = True
 except ImportError:
@@ -100,27 +101,33 @@ class ChatUI:
     ) -> None:
         del tools
         banner_lines = _BANNER_LINES.strip("\n").splitlines()
+        banner_width = max((len(line.rstrip()) for line in banner_lines), default=0)
         for line in banner_lines:
             self._emit(line, style=self.palette.banner)
-        self._emit(f"v{__version__}", style=self.palette.hint)
-        self._emit(f"│ model: {model_name}", style=self.palette.text)
+        self._emit(f"v{__version__}".rjust(banner_width), style=self.palette.hint)
+        self._emit_branch("│ ", f"model: {model_name}", message_style=self.palette.text)
         if session_id:
-            self._emit(f"│ session: {session_id}", style=self.palette.hint)
+            self._emit_branch("│ ", f"session: {session_id}", message_style=self.palette.hint)
         if self.verbose:
             if provider:
-                self._emit(f"│ runtime: {provider}", style=self.palette.text)
-            self._emit(
-                f"│ tools: {skill_count} skills ({total_tool_count} total tools)",
-                style=self.palette.hint,
+                self._emit_branch("│ ", f"runtime: {provider}", message_style=self.palette.text)
+            self._emit_branch(
+                "│ ",
+                f"tools: {skill_count} skills ({total_tool_count} total tools)",
+                message_style=self.palette.hint,
             )
             if workspace:
-                self._emit(f"│ workspace: {workspace}", style=self.palette.hint)
-        self._emit("│ commands: exit | reset | clear | skills | session", style=self.palette.hint)
+                self._emit_branch("│ ", f"workspace: {workspace}", message_style=self.palette.hint)
+        self._emit_branch(
+            "│ ",
+            "commands: exit | reset | clear | skills | session",
+            message_style=self.palette.hint,
+        )
         self._emit("")
 
     def status(self, msg: str) -> None:
         self._ensure_stream_closed()
-        self._emit(f"│ {msg}", style=self.palette.hint)
+        self._emit_branch("│ ", msg, message_style=self.palette.hint)
 
     def error(self, msg: str) -> None:
         if self._renderer.active:
@@ -135,13 +142,13 @@ class ChatUI:
         if not self.verbose:
             return
         self._ensure_stream_closed()
-        self._emit(f"│ debug: {msg}", style=self.palette.hint)
+        self._emit_branch("│ ", f"debug: {msg}", message_style=self.palette.hint)
 
     def get_input(self) -> Optional[str]:
         prompt = "> "
         try:
             if self._use_rich and self.console is not None:
-                line = self.console.input(f"[bold]{prompt}[/bold]")
+                line = self.console.input(f"[bold bright_green]{prompt}[/bold bright_green]")
             else:
                 line = input(prompt)
             value = line.strip()
@@ -195,13 +202,12 @@ class ChatUI:
 
     def show_tool_call(self, name: str, arguments: Dict[str, Any]) -> None:
         self._ensure_stream_closed()
-        self._emit("│", style=self.palette.lane)
         if not arguments:
-            self._emit(f"├─ tool: {name}()", style=self.palette.tool_title)
+            self._emit_branch("├─ ", f"tool: {name}()", message_style=self.palette.tool_title)
             return
         args_str = _short(arguments, 72)
-        self._emit(f"├─ tool: {name}", style=self.palette.tool_title)
-        self._emit(f"│  {args_str}", style=self.palette.tool_body)
+        self._emit_branch("├─ ", f"tool: {name}", message_style=self.palette.tool_title)
+        self._emit_branch("│   ", args_str, message_style=self.palette.tool_body)
 
     def show_tool_result(self, name: str, result: Any) -> None:
         self._ensure_stream_closed()
@@ -213,14 +219,14 @@ class ChatUI:
         rendered = rendered.strip() or "(empty)"
         lines = _truncate_lines(rendered.splitlines(), TOOL_RESULT_LINE_LIMIT)
 
-        self._emit(f"└─ result: {name}", style=self.palette.result_title)
+        self._emit_branch("└─ ", f"result: {name}", message_style=self.palette.result_title)
         for line in lines:
-            self._emit(f"│  {line}", style=self.palette.result_body)
+            self._emit_branch("│   ", line, message_style=self.palette.result_body)
 
     def goodbye(self) -> None:
         self._ensure_stream_closed()
         self._emit("")
-        self._emit("└─ session terminated.", style=self.palette.hint)
+        self._emit_branch("└─ ", "session terminated.", message_style=self.palette.hint)
 
     def _ensure_stream_closed(self) -> None:
         if self._renderer.active:
@@ -260,3 +266,21 @@ class ChatUI:
             return
         print(safe, end=end, flush=True)
 
+    def _emit_branch(
+        self,
+        prefix: str,
+        message: str,
+        *,
+        message_style: str = "",
+        prefix_style: str = "",
+        end: str = "\n",
+    ) -> None:
+        safe_message = self._sanitize(message)
+        lane_style = prefix_style or self.palette.lane
+        if self._use_rich and self.console is not None:
+            line = Text()
+            line.append(prefix, style=lane_style)
+            line.append(safe_message, style=(message_style or self.palette.text))
+            self.console.print(line, end=end, markup=False, highlight=False, soft_wrap=True)
+            return
+        print(f"{prefix}{safe_message}", end=end, flush=True)

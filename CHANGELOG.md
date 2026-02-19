@@ -5,6 +5,11 @@
 ### Changed
 - Redesigned terminal UI to a tree-lane flow (`│`, `├─`, `└─`) with realtime markdown streaming and state color transitions.
 - Added dedicated output renderer module (`src/agentforge/model_output_renderer.py`) and adaptive palette detection (`AGENTFORGE_UI_THEME=auto|dark|light`).
+- Stabilized tree-lane streaming behavior:
+  - reasoning lane prefix (`│`) is yellow during thinking and returns to green on success
+  - markdown horizontal rule now renders as literal `---`
+  - code blocks use dim gray background with wrapped long lines
+  - normalized streamed newlines (`\r\n`/`\r`) to prevent broken line rendering
 - Removed long-term memory injection from system prompt assembly.
 - Restored `src/agentforge/llm_inference.py` as a single-file transport module (no split inference package).
 - Split CLI responsibilities:
@@ -64,6 +69,7 @@
 - Removed memory command and memory-specific tests:
   - `src/tests/test_memory_store.py`
   - `src/tests/test_context_memory_format.py`
+- Removed bootstrap `think` tool from runtime (`agent_core`) to avoid overlap with native model reasoning stream.
 - Deleted generated Python cache artifacts from `src/**/__pycache__` and `.pytest_cache`.
   - Reason: generated runtime files are non-source artifacts and caused noisy audits.
   - Impact: no runtime behavior change; caches are regenerated automatically.
