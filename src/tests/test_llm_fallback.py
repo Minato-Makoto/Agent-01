@@ -359,7 +359,7 @@ def test_streaming_fallback_when_stream_is_rejected(mock_chat_server):
     assert "stream" not in mock_chat_server.requests[1]["payload"]
 
 
-def test_llama_cpp_low_effort_suppresses_reasoning_callback_and_think_blocks(mock_chat_server):
+def test_llama_cpp_low_effort_keeps_reasoning_stream_visible(mock_chat_server):
     llm = _connect_remote(
         mock_chat_server.url,
         config=InferenceConfig(max_tokens=64, reasoning_format="auto", reasoning_effort="low"),
@@ -373,7 +373,7 @@ def test_llama_cpp_low_effort_suppresses_reasoning_callback_and_think_blocks(moc
                     {"delta": {"reasoning_content": "very long hidden thinking"}, "finish_reason": None}
                 ]
             },
-            {"choices": [{"delta": {"content": "<think>hidden</think>Visible"}, "finish_reason": None}]},
+            {"choices": [{"delta": {"content": "Visible"}, "finish_reason": None}]},
             {"choices": [{"delta": {"content": " answer"}, "finish_reason": "stop"}]},
         ]
     )
@@ -390,7 +390,7 @@ def test_llama_cpp_low_effort_suppresses_reasoning_callback_and_think_blocks(moc
     assert result.error == ""
     assert result.content == "Visible answer"
     assert "".join(tokens) == "Visible answer"
-    assert reasoning == []
+    assert "".join(reasoning) == "very long hidden thinking"
     assert mock_chat_server.requests[0]["payload"]["reasoning_format"] == "none"
 
 
