@@ -79,3 +79,17 @@ def test_goodbye_does_not_emit_leading_blank_line(monkeypatch):
     assert first[0] == "branch"
     assert first[1] == "└─ "
     assert first[2] == "session terminated."
+
+
+def test_tool_call_stream_formatter_prettifies_complete_json():
+    ui = ChatUI(verbose=False)
+    rendered = ui._format_tool_call_stream_content('{"path":"workspace/AGENT.md","mode":"read"}')
+    assert "\n" in rendered
+    assert '"path": "workspace/AGENT.md"' in rendered
+
+
+def test_tool_call_stream_formatter_keeps_partial_json_raw():
+    ui = ChatUI(verbose=False)
+    raw = '{"path":"workspace/AGENT.md"'
+    rendered = ui._format_tool_call_stream_content(raw)
+    assert rendered == raw

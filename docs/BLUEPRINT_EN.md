@@ -33,9 +33,9 @@ Agent-01/
 │   ├── BLUEPRINT_VI.md         # Vietnamese version
 │   └── TUTORIAL.md             # How to run & parameter reference
 ├── src/
-│   ├── agentforge/             # Core runtime (21 files)
+│   ├── agentforge/             # Core runtime (23 files)
 │   ├── builtin_tools/          # Tool implementations (9 modules)
-│   └── tests/                  # Test suite (25 test files + conftest)
+│   └── tests/                  # Test suite (31 test files + conftest)
 ├── workspace/                  # Runtime data directory
 │   ├── IDENTITY.md             # Agent identity (injected into system prompt)
 │   ├── SOUL.md                 # Agent personality/values
@@ -100,28 +100,29 @@ Final Assistant Text → UI Output
 
 | File | Lines | Role |
 |------|-------|------|
-| `__init__.py` | 7 | Package metadata (`__version__ = "1.0.1"`) |
+| `__init__.py` | 6 | Package metadata (`__version__ = "1.0.1"`) |
 | `cli.py` | 45 | Compatibility facade entry point (`main`, `run_interactive`) |
-| `cli_args.py` | 175 | Parser + env/config loading + `InferenceConfig` mapping |
-| `cli_runtime.py` | 268 | REPL loop, component wiring, backend connect flow |
-| `agent_core.py` | 439 | `Agent` class: orchestration loop, tool execution, skill activation |
-| `llm_inference.py` | 799 | `LLMInference` class: local/remote transport, streaming, compat fallback |
-| `contracts.py` | 102 | Shared dataclasses: `ToolCall`, `AssistantMessage`, `ToolMessage`, `ChatCompletionResult`, `ProviderCapabilities` |
-| `prompting.py` | 122 | `PromptBuilder`: structured message builder for chat-completions API |
-| `tools.py` | 200 | `Tool`, `ToolResult`, `ToolRegistry`: tool definition + OpenAI-compatible schema export |
-| `tool_loop.py` | 209 | `ToolLoop`: anti-loop guards (repeat, no-progress, ping-pong, global circuit breaker) |
-| `tool_call_parser.py` | 196 | `ToolCallParser`: dual-format parser (JSON + XML) for fallback |
-| `tool_id.py` | 59 | `sanitize_tool_call_id`, `remap_tool_call_ids`: ID normalization for strict providers |
-| `tool_mutation.py` | 82 | Heuristic classifier for mutating vs read-only tool calls |
-| `session.py` | 346 | `SessionManager`: persistent conversation state, schema v2, migration |
-| `session_repair.py` | 132 | Transcript repair: normalize tool_calls, pair tool results, insert synthetic results |
-| `schema_normalizer.py` | 352 | JSON Schema normalization for provider compatibility (Gemini, Anthropic, OpenAI) |
-| `transcript_policy.py` | 251 | Provider-aware transcript sanitization, tool-call-id normalization, pairing repair |
-| `skills.py` | 205 | `SkillLoader`: 3-tier skill discovery (workspace > user_config > builtin), activation/deactivation |
-| `context.py` | 139 | `ContextBuilder`: dynamic system prompt assembly from workspace .md + runtime state |
-| `summarizer.py` | 173 | `Summarizer`: 3-tier context compression (soft-trim → graceful → emergency) |
-| `model_output_renderer.py` | 423 | Tree-lane realtime output renderer, markdown styling, adaptive theme detection |
-| `ui.py` | 220 | `ChatUI`: terminal shell wrapper around renderer, stream callback bridge, tool/status display |
+| `cli_args.py` | 184 | Parser + env/config loading + `InferenceConfig` mapping |
+| `cli_runtime.py` | 326 | REPL loop, component wiring, backend connect flow |
+| `agent_core.py` | 424 | `Agent` class: orchestration loop, tool execution, skill activation |
+| `llm_inference.py` | 871 | `LLMInference` class: local/remote transport, streaming, compat fallback |
+| `contracts.py` | 101 | Shared dataclasses: `ToolCall`, `AssistantMessage`, `ToolMessage`, `ChatCompletionResult`, `ProviderCapabilities` |
+| `prompting.py` | 121 | `PromptBuilder`: structured message builder for chat-completions API |
+| `runtime_config.py` | 110 | Env-driven runtime config parsing and clamped defaults for tool/shell policies |
+| `tools.py` | 258 | `Tool`, `ToolResult`, `ToolRegistry`: tool definition + OpenAI-compatible schema export |
+| `tool_loop.py` | 208 | `ToolLoop`: anti-loop guards (repeat, no-progress, ping-pong, global circuit breaker) |
+| `tool_call_parser.py` | 195 | `ToolCallParser`: dual-format parser (JSON + XML) for fallback |
+| `tool_id.py` | 58 | `sanitize_tool_call_id`, `remap_tool_call_ids`: ID normalization for strict providers |
+| `tool_mutation.py` | 77 | Heuristic classifier for mutating vs read-only tool calls |
+| `session.py` | 355 | `SessionManager`: persistent conversation state, schema v2, migration |
+| `session_repair.py` | 131 | Transcript repair: normalize tool_calls, pair tool results, insert synthetic results |
+| `schema_normalizer.py` | 351 | JSON Schema normalization for provider compatibility (Gemini, Anthropic, OpenAI) |
+| `transcript_policy.py` | 250 | Provider-aware transcript sanitization, tool-call-id normalization, pairing repair |
+| `skills.py` | 204 | `SkillLoader`: 3-tier skill discovery (workspace > user_config > builtin), activation/deactivation |
+| `context.py` | 129 | `ContextBuilder`: dynamic system prompt assembly from workspace .md + runtime state |
+| `summarizer.py` | 172 | `Summarizer`: 3-tier context compression (soft-trim → graceful → emergency) |
+| `model_output_renderer.py` | 629 | Tree-lane realtime output renderer, markdown styling, adaptive theme detection |
+| `ui.py` | 498 | `ChatUI`: terminal shell wrapper around renderer, stream callback bridge, tool/status display |
 
 ---
 
@@ -129,14 +130,14 @@ Final Assistant Text → UI Output
 
 | File | Lines | Skill Name | Tools |
 |------|-------|------------|-------|
-| `file_ops.py` | 166 | File Operations | `write_file`, `list_directory`, `search_files`, `file_info` |
-| `sys_ops.py` | 372 | System | `shell_command`, `process_list` |
-| `web_ops.py` | 210 | Web Operations | `http_request`, `web_scrape` |
-| `web_search.py` | 139 | WebSearch | `web_search` (DuckDuckGo HTML scraping) |
-| `browser_tools.py` | 246 | Browser | `browser_navigate`, `browser_click`, `browser_type`, `browser_screenshot`, `browser_get_content`, `browser_evaluate`, `browser_wait`, `browser_scroll`, `browser_select`, `browser_close` |
-| `calculator.py` | 134 | Math | `calculate` (safe AST eval) |
-| `message_tool.py` | 41 | Communication | `message` |
-| `photoshop_tools.py` | 175 | Photoshop | 53 tools via Socket.IO → adb-mcp proxy → UXP Plugin |
+| `file_ops.py` | 204 | File Operations | `write_file`, `list_directory`, `search_files`, `file_info` |
+| `sys_ops.py` | 583 | System | `shell_command`, `process_list` |
+| `web_ops.py` | 214 | Web Operations | `http_request`, `web_scrape` |
+| `web_search.py` | 142 | WebSearch | `web_search` (DuckDuckGo HTML scraping) |
+| `browser_tools.py` | 266 | Browser | `browser_navigate`, `browser_click`, `browser_type`, `browser_screenshot`, `browser_get_content`, `browser_evaluate`, `browser_wait`, `browser_scroll`, `browser_select`, `browser_close` |
+| `calculator.py` | 136 | Math | `calculate` (safe AST eval) |
+| `message_tool.py` | 40 | Communication | `message` |
+| `photoshop_tools.py` | 182 | Photoshop | 53 tools via Socket.IO → adb-mcp proxy → UXP Plugin |
 
 ### Bootstrap Tools (hardcoded in `agent_core.py`)
 
@@ -361,6 +362,7 @@ Thresholds are computed as `max_tokens × chars_per_token` (default 4).
 - **Tree-lane presentation**: minimal flow with `│`, `├─`, `└─` linking user input, processing state, and model output.
 - **Realtime markdown stream**: assistant output is re-rendered live as markdown during token streaming (not deferred to end-of-stream).
 - **Thinking/reasoning stream**: reasoning tokens are displayed in the lane while processing is active.
+- **Tool-call argument stream**: function arguments are streamed incrementally into a code block lane and normalized to pretty JSON once complete.
 - **Adaptive palette**: auto light/dark detection with env override `AGENTFORGE_UI_THEME=auto|dark|light`.
 - **Rich optional**: rich lane rendering when available; plain fallback keeps the same lane semantics.
 - **Phase machine**: `idle → started → reasoning|assistant → idle`.
@@ -373,8 +375,12 @@ Thresholds are computed as `max_tokens × chars_per_token` (default 4).
 |----------|---------|
 | `on_token` | Token output from assistant |
 | `on_reasoning` | Reasoning/thinking token |
-| `on_tool_call` | Tool invoked (name, args) |
+| `on_tool_call_start` | Start streaming a tool call block (`name`, `index`) |
+| `on_tool_call_delta` | Incremental tool-call argument chunk (`index`, `token`) |
+| `on_tool_call_end` | End streaming the tool call block (`index`) |
+| `on_tool_call` | Legacy non-streamed tool call callback (used when stream deltas are unavailable) |
 | `on_tool_result` | Result returned from tool |
+| `on_stream_start` | Stream started (UI-owned trigger) |
 | `on_stream_end` | Stream ended |
 | `on_thinking_start/end` | Thinking phase start/end |
 | `on_skill_activated` | Skill activated |

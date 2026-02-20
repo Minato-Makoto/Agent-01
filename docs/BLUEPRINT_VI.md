@@ -33,9 +33,9 @@ Agent-01/
 │   ├── BLUEPRINT_VI.md         # (file này) Tài liệu kiến trúc đầy đủ (Tiếng Việt)
 │   └── TUTORIAL.md             # Hướng dẫn chạy & tham số
 ├── src/
-│   ├── agentforge/             # Core runtime (21 files)
+│   ├── agentforge/             # Core runtime (23 files)
 │   ├── builtin_tools/          # Tool implementations (9 modules)
-│   └── tests/                  # Test suite (25 test files + conftest)
+│   └── tests/                  # Test suite (31 test files + conftest)
 ├── workspace/                  # Thư mục dữ liệu runtime
 │   ├── IDENTITY.md             # Danh tính agent (đọc vào system prompt)
 │   ├── SOUL.md                 # Tính cách, giá trị agent
@@ -100,28 +100,29 @@ Final Assistant Text → UI Output
 
 | File | Dòng | Vai trò |
 |------|------|---------|
-| `__init__.py` | 7 | Package metadata (`__version__ = "1.0.1"`) |
+| `__init__.py` | 6 | Package metadata (`__version__ = "1.0.1"`) |
 | `cli.py` | 45 | Facade tương thích (`main`, `run_interactive`) |
-| `cli_args.py` | 175 | Parser + nạp env/config + mapping `InferenceConfig` |
-| `cli_runtime.py` | 268 | Vòng lặp REPL, wiring components, kết nối backend |
-| `agent_core.py` | 439 | Class `Agent`: vòng lặp điều phối, thực thi tool, kích hoạt skill |
-| `llm_inference.py` | 799 | Class `LLMInference`: transport local/remote, streaming, compat fallback |
-| `contracts.py` | 102 | Dataclasses chung: `ToolCall`, `AssistantMessage`, `ToolMessage`, `ChatCompletionResult`, `ProviderCapabilities` |
-| `prompting.py` | 122 | `PromptBuilder`: xây dựng structured messages cho chat-completions API |
-| `tools.py` | 200 | `Tool`, `ToolResult`, `ToolRegistry`: định nghĩa tool + xuất schema tương thích OpenAI |
-| `tool_loop.py` | 209 | `ToolLoop`: các bộ bảo vệ chống lặp (repeat, no-progress, ping-pong, global circuit breaker) |
-| `tool_call_parser.py` | 196 | `ToolCallParser`: parser hai định dạng (JSON + XML) cho fallback |
-| `tool_id.py` | 59 | `sanitize_tool_call_id`, `remap_tool_call_ids`: chuẩn hoá ID cho các provider nghiêm ngặt |
-| `tool_mutation.py` | 82 | Heuristic phân loại tool call thay đổi dữ liệu (mutating) vs chỉ đọc (read-only) |
-| `session.py` | 346 | `SessionManager`: trạng thái hội thoại bền vững, schema v2, migration |
-| `session_repair.py` | 132 | Sửa chữa transcript: chuẩn hoá tool_calls, ghép cặp tool results, chèn kết quả tổng hợp |
-| `schema_normalizer.py` | 352 | Chuẩn hoá JSON Schema cho tương thích provider (Gemini, Anthropic, OpenAI) |
-| `transcript_policy.py` | 251 | Làm sạch transcript theo provider, chuẩn hoá tool-call-id, sửa ghép cặp |
-| `skills.py` | 205 | `SkillLoader`: khám phá skill 3 tầng (workspace > user_config > builtin), kích hoạt/huỷ kích hoạt |
-| `context.py` | 139 | `ContextBuilder`: lắp ráp system prompt động từ workspace .md + trạng thái runtime |
-| `summarizer.py` | 173 | `Summarizer`: nén context 3 tầng (soft-trim → graceful → emergency) |
-| `model_output_renderer.py` | 423 | Renderer realtime tree-lane, style markdown, tự nhận diện light/dark |
-| `ui.py` | 220 | `ChatUI`: lớp giao diện terminal bọc renderer, cầu nối callback stream, hiển thị tool/status |
+| `cli_args.py` | 184 | Parser + nạp env/config + mapping `InferenceConfig` |
+| `cli_runtime.py` | 326 | Vòng lặp REPL, wiring components, kết nối backend |
+| `agent_core.py` | 424 | Class `Agent`: vòng lặp điều phối, thực thi tool, kích hoạt skill |
+| `llm_inference.py` | 871 | Class `LLMInference`: transport local/remote, streaming, compat fallback |
+| `contracts.py` | 101 | Dataclasses chung: `ToolCall`, `AssistantMessage`, `ToolMessage`, `ChatCompletionResult`, `ProviderCapabilities` |
+| `prompting.py` | 121 | `PromptBuilder`: xây dựng structured messages cho chat-completions API |
+| `runtime_config.py` | 110 | Parse cấu hình runtime từ ENV, clamp giá trị timeout/chính sách shell |
+| `tools.py` | 258 | `Tool`, `ToolResult`, `ToolRegistry`: định nghĩa tool + xuất schema tương thích OpenAI |
+| `tool_loop.py` | 208 | `ToolLoop`: các bộ bảo vệ chống lặp (repeat, no-progress, ping-pong, global circuit breaker) |
+| `tool_call_parser.py` | 195 | `ToolCallParser`: parser hai định dạng (JSON + XML) cho fallback |
+| `tool_id.py` | 58 | `sanitize_tool_call_id`, `remap_tool_call_ids`: chuẩn hoá ID cho các provider nghiêm ngặt |
+| `tool_mutation.py` | 77 | Heuristic phân loại tool call thay đổi dữ liệu (mutating) vs chỉ đọc (read-only) |
+| `session.py` | 355 | `SessionManager`: trạng thái hội thoại bền vững, schema v2, migration |
+| `session_repair.py` | 131 | Sửa chữa transcript: chuẩn hoá tool_calls, ghép cặp tool results, chèn kết quả tổng hợp |
+| `schema_normalizer.py` | 351 | Chuẩn hoá JSON Schema cho tương thích provider (Gemini, Anthropic, OpenAI) |
+| `transcript_policy.py` | 250 | Làm sạch transcript theo provider, chuẩn hoá tool-call-id, sửa ghép cặp |
+| `skills.py` | 204 | `SkillLoader`: khám phá skill 3 tầng (workspace > user_config > builtin), kích hoạt/huỷ kích hoạt |
+| `context.py` | 129 | `ContextBuilder`: lắp ráp system prompt động từ workspace .md + trạng thái runtime |
+| `summarizer.py` | 172 | `Summarizer`: nén context 3 tầng (soft-trim → graceful → emergency) |
+| `model_output_renderer.py` | 629 | Renderer realtime tree-lane, style markdown, tự nhận diện light/dark |
+| `ui.py` | 498 | `ChatUI`: lớp giao diện terminal bọc renderer, cầu nối callback stream, hiển thị tool/status |
 
 ---
 
@@ -129,14 +130,14 @@ Final Assistant Text → UI Output
 
 | File | Dòng | Tên skill | Các tools |
 |------|------|-----------|-----------|
-| `file_ops.py` | 166 | File Operations | `write_file`, `list_directory`, `search_files`, `file_info` |
-| `sys_ops.py` | 372 | System | `shell_command`, `process_list` |
-| `web_ops.py` | 210 | Web Operations | `http_request`, `web_scrape` |
-| `web_search.py` | 139 | WebSearch | `web_search` (scraping HTML DuckDuckGo) |
-| `browser_tools.py` | 246 | Browser | `browser_navigate`, `browser_click`, `browser_type`, `browser_screenshot`, `browser_get_content`, `browser_evaluate`, `browser_wait`, `browser_scroll`, `browser_select`, `browser_close` |
-| `calculator.py` | 134 | Math | `calculate` (đánh giá AST an toàn) |
-| `message_tool.py` | 41 | Communication | `message` |
-| `photoshop_tools.py` | 175 | Photoshop | 53 tools qua Socket.IO → adb-mcp proxy → UXP Plugin |
+| `file_ops.py` | 204 | File Operations | `write_file`, `list_directory`, `search_files`, `file_info` |
+| `sys_ops.py` | 583 | System | `shell_command`, `process_list` |
+| `web_ops.py` | 214 | Web Operations | `http_request`, `web_scrape` |
+| `web_search.py` | 142 | WebSearch | `web_search` (scraping HTML DuckDuckGo) |
+| `browser_tools.py` | 266 | Browser | `browser_navigate`, `browser_click`, `browser_type`, `browser_screenshot`, `browser_get_content`, `browser_evaluate`, `browser_wait`, `browser_scroll`, `browser_select`, `browser_close` |
+| `calculator.py` | 136 | Math | `calculate` (đánh giá AST an toàn) |
+| `message_tool.py` | 40 | Communication | `message` |
+| `photoshop_tools.py` | 182 | Photoshop | 53 tools qua Socket.IO → adb-mcp proxy → UXP Plugin |
 
 ### Bootstrap tools (được mã hoá cứng trong `agent_core.py`)
 
@@ -361,6 +362,7 @@ Ngưỡng được tính theo `max_tokens × chars_per_token` (mặc định 4).
 - **Hiển thị tree-lane tối giản**: luồng `│`, `├─`, `└─` nối input user, trạng thái xử lý, và output model.
 - **Markdown stream thời gian thực**: output assistant được render markdown trực tiếp trong lúc token đang stream, không đợi cuối stream.
 - **Thinking/reasoning stream**: token reasoning hiển thị trong lane khi đang xử lý.
+- **Tool-call argument stream**: arguments của function được stream tăng dần trong code block lane và chuẩn hoá JSON đẹp khi hoàn tất.
 - **Palette thích ứng**: tự nhận light/dark và override bằng `AGENTFORGE_UI_THEME=auto|dark|light`.
 - **Rich tuỳ chọn**: có Rich thì render lane đầy đủ; không có Rich vẫn fallback cùng semantics lane.
 - **Máy trạng thái pha**: `idle → started → reasoning|assistant → idle`.
@@ -373,8 +375,12 @@ Dataclass `StreamCallbacks` trong `agent_core.py`:
 |----------|----------|
 | `on_token` | Token đầu ra từ assistant |
 | `on_reasoning` | Token suy luận/thinking |
-| `on_tool_call` | Tool được gọi (tên, arguments) |
+| `on_tool_call_start` | Bắt đầu stream khối tool call (`name`, `index`) |
+| `on_tool_call_delta` | Chunk arguments tool-call theo thời gian thực (`index`, `token`) |
+| `on_tool_call_end` | Kết thúc stream khối tool call (`index`) |
+| `on_tool_call` | Callback tương thích cũ cho tool call không-stream (khi không có delta) |
 | `on_tool_result` | Kết quả trả về từ tool |
+| `on_stream_start` | Bắt đầu stream (UI chủ động kích hoạt) |
 | `on_stream_end` | Kết thúc stream |
 | `on_thinking_start/end` | Bắt đầu/kết thúc pha thinking |
 | `on_skill_activated` | Skill được kích hoạt |

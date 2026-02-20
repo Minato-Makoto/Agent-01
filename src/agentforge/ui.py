@@ -277,7 +277,7 @@ class ChatUI:
             self._stop_tool_call_live()
             self._tool_call_stream_open = False
             return
-        pending = str(self._tool_call_stream_buffer or "")
+        pending = self._format_tool_call_stream_content(str(self._tool_call_stream_buffer or ""))
         if pending:
             self._emit_branch(
                 "│   ",
@@ -321,6 +321,7 @@ class ChatUI:
 
     def _build_tool_call_live_renderable(self):
         content = self._tool_call_stream_buffer if self._tool_call_stream_buffer else " "
+        content = self._format_tool_call_stream_content(content)
         code_text = Text(
             content,
             style=self._tool_call_stream_body_style,
@@ -333,6 +334,24 @@ class ChatUI:
             prefix_style=self._tool_call_stream_prefix_style,
             content_style=self._tool_call_stream_body_style,
         )
+
+    def _format_tool_call_stream_content(self, content: str) -> str:
+        text = content or ""
+        stripped = text.strip()
+        if not stripped:
+            return text
+        if not (stripped.startswith("{") or stripped.startswith("[")):
+            return text
+        try:
+            parsed = json.loads(stripped)
+        except json.JSONDecodeError:
+            return text
+        if not isinstance(parsed, (dict, list)):
+            return text
+        try:
+            return json.dumps(parsed, ensure_ascii=False, indent=2)
+        except (TypeError, ValueError):
+            return text
 
     def show_tool_result(self, name: str, result: Any) -> None:
         self._ensure_stream_closed()

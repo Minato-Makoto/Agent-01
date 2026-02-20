@@ -121,6 +121,9 @@ def _build_callbacks(ui: Any) -> tuple[StreamCallbacks, Dict[str, bool]]:
         ui.status(f"Skill activated: {name}")
 
     def on_tool_call_start(name: str, _index: int) -> None:
+        # Keep lifecycle parity with preview flow where tool call rendering
+        # begins after the model stream settles.
+        ui.stream_end()
         ui.tool_call_stream_start(name)
 
     def on_tool_call_delta(_index: int, token: str) -> None:
