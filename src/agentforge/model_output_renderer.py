@@ -550,6 +550,10 @@ class ModelOutputRenderer:
     def _reasoning_prefix_style(self) -> str:
         if self._status_state == "thinking":
             return self._palette.status_thinking
+        if self._status_state == "error":
+            return self._palette.status_error
+        if self._status_state == "success":
+            return self._palette.status_success
         return self._palette.lane
 
     def _build_renderable(self) -> RenderableType:
