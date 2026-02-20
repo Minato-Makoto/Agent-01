@@ -54,6 +54,9 @@ class StreamCallbacks:
     on_token: Optional[OutputCallback] = None
     on_reasoning: Optional[OutputCallback] = None
     on_tool_call: Optional[Callable[[str, Dict], None]] = None
+    on_tool_call_start: Optional[Callable[[str, int], None]] = None
+    on_tool_call_delta: Optional[Callable[[int, str], None]] = None
+    on_tool_call_end: Optional[Callable[[int], None]] = None
     on_tool_result: Optional[Callable[[str, Any], None]] = None
     on_stream_start: Optional[Callable[[], None]] = None
     on_stream_end: Optional[Callable[[], None]] = None
@@ -131,7 +134,11 @@ class Agent:
             tool_calls = self._resolve_tool_calls(result)
             if tool_calls:
                 self._append_assistant_tool_calls(tool_calls, result.content or "")
-                self._execute_tool_calls(tool_calls, cb)
+                self._execute_tool_calls(
+                    tool_calls,
+                    cb,
+                    tool_calls_streamed=bool(result.tool_calls_streamed),
+                )
                 continue
 
             answer = (result.content or "").strip()
@@ -156,6 +163,9 @@ class Agent:
                 stop=self._DEFAULT_STOP,
                 on_token=cb.on_token,
                 on_reasoning=cb.on_reasoning,
+                on_tool_call_start=cb.on_tool_call_start,
+                on_tool_call_delta=cb.on_tool_call_delta,
+                on_tool_call_end=cb.on_tool_call_end,
             )
         finally:
             self._safe_callback(cb.on_thinking_end, "on_thinking_end")
@@ -173,9 +183,16 @@ class Agent:
             content=content,
         )
 
-    def _execute_tool_calls(self, tool_calls: List[ToolCall], cb: StreamCallbacks) -> None:
+    def _execute_tool_calls(
+        self,
+        tool_calls: List[ToolCall],
+        cb: StreamCallbacks,
+        *,
+        tool_calls_streamed: bool = False,
+    ) -> None:
         for tc in tool_calls:
-            self._safe_callback(cb.on_tool_call, "on_tool_call", tc.name, tc.arguments)
+            if not tool_calls_streamed:
+                self._safe_callback(cb.on_tool_call, "on_tool_call", tc.name, tc.arguments)
 
             tool_result = self.tool_loop.execute_tool(tc.name, tc.arguments, tc.id)
             llm_result_text = tool_result.to_string()

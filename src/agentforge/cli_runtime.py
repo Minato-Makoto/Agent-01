@@ -120,10 +120,22 @@ def _build_callbacks(ui: Any) -> tuple[StreamCallbacks, Dict[str, bool]]:
     def on_skill_activated(name: str) -> None:
         ui.status(f"Skill activated: {name}")
 
+    def on_tool_call_start(name: str, _index: int) -> None:
+        ui.tool_call_stream_start(name)
+
+    def on_tool_call_delta(_index: int, token: str) -> None:
+        ui.tool_call_stream_token(token)
+
+    def on_tool_call_end(_index: int) -> None:
+        ui.tool_call_stream_end()
+
     callbacks = StreamCallbacks(
         on_token=on_token,
         on_reasoning=ui.stream_reasoning,
         on_tool_call=ui.show_tool_call,
+        on_tool_call_start=on_tool_call_start,
+        on_tool_call_delta=on_tool_call_delta,
+        on_tool_call_end=on_tool_call_end,
         on_tool_result=ui.show_tool_result,
         on_stream_start=ui.stream_start,
         on_stream_end=ui.stream_end,

@@ -93,6 +93,7 @@ class ChatCompletionResult:
     finish_reason: str = "stop"
     raw_response: Dict[str, Any] = field(default_factory=dict)
     used_tools_fallback: bool = False
+    tool_calls_streamed: bool = False
     error: str = ""
 
     @property

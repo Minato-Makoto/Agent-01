@@ -481,6 +481,9 @@ class LLMInference:
         stream: bool = False,
         on_token=None,
         on_reasoning=None,
+        on_tool_call_start=None,
+        on_tool_call_delta=None,
+        on_tool_call_end=None,
     ) -> ChatCompletionResult:
         """
         Generate from chat-completions endpoint.
@@ -529,6 +532,9 @@ class LLMInference:
                 payload=payload,
                 on_token=on_token,
                 on_reasoning=on_reasoning,
+                on_tool_call_start=on_tool_call_start,
+                on_tool_call_delta=on_tool_call_delta,
+                on_tool_call_end=on_tool_call_end,
             )
 
         try:
@@ -615,6 +621,9 @@ class LLMInference:
         payload: Dict[str, Any],
         on_token=None,
         on_reasoning=None,
+        on_tool_call_start=None,
+        on_tool_call_delta=None,
+        on_tool_call_end=None,
     ) -> ChatCompletionResult:
         used_fallback = False
         for _ in range(max(1, self._config.compat_retry_limit)):
@@ -635,6 +644,9 @@ class LLMInference:
                     payload=payload,
                     on_token=on_token,
                     on_reasoning=on_reasoning,
+                    on_tool_call_start=on_tool_call_start,
+                    on_tool_call_delta=on_tool_call_delta,
+                    on_tool_call_end=on_tool_call_end,
                 )
                 self._capabilities.supports_stream = True
                 if "parallel_tool_calls" in payload:
@@ -686,6 +698,9 @@ class LLMInference:
         payload: Dict[str, Any],
         on_token=None,
         on_reasoning=None,
+        on_tool_call_start=None,
+        on_tool_call_delta=None,
+        on_tool_call_end=None,
     ) -> ChatCompletionResult:
         self._consume_rate_limit_slot()
         req = self._build_json_post_request(endpoint, payload)
@@ -693,6 +708,11 @@ class LLMInference:
         full_text = ""
         finish_reason = "stop"
         tc_parts: Dict[int, Dict[str, Any]] = {}
+        started_tool_stream_indices: List[int] = []
+        tool_stream_callbacks_enabled = any(
+            callback is not None
+            for callback in (on_tool_call_start, on_tool_call_delta, on_tool_call_end)
+        )
 
         try:
             with urllib.request.urlopen(req, timeout=self._config.request_timeout_s) as resp:
@@ -735,7 +755,14 @@ class LLMInference:
                             if not isinstance(idx, int):
                                 idx = 0
                             entry = tc_parts.setdefault(
-                                idx, {"id": "", "name": "", "arguments_parts": []}
+                                idx,
+                                {
+                                    "id": "",
+                                    "name": "",
+                                    "arguments_parts": [],
+                                    "pending_stream_parts": [],
+                                    "stream_started": False,
+                                },
                             )
                             if isinstance(part.get("id"), str):
                                 entry["id"] = part["id"]
@@ -743,12 +770,55 @@ class LLMInference:
                             if isinstance(fn, dict):
                                 if isinstance(fn.get("name"), str):
                                     entry["name"] = fn["name"]
+                                    if (
+                                        not entry["stream_started"]
+                                        and entry["name"]
+                                        and tool_stream_callbacks_enabled
+                                    ):
+                                        if on_tool_call_start is not None:
+                                            on_tool_call_start(entry["name"], idx)
+                                        entry["stream_started"] = True
+                                        started_tool_stream_indices.append(idx)
+                                        pending_stream_parts = entry.get("pending_stream_parts", [])
+                                        for pending_part in pending_stream_parts:
+                                            if on_tool_call_delta is not None and pending_part:
+                                                on_tool_call_delta(idx, pending_part)
+                                        entry["pending_stream_parts"] = []
                                 if isinstance(fn.get("arguments"), str):
-                                    entry["arguments_parts"].append(fn["arguments"])
+                                    arg_delta = fn["arguments"]
+                                    entry["arguments_parts"].append(arg_delta)
+                                    if entry["stream_started"]:
+                                        if on_tool_call_delta is not None and arg_delta:
+                                            on_tool_call_delta(idx, arg_delta)
+                                    else:
+                                        pending = entry.get("pending_stream_parts", [])
+                                        pending.append(arg_delta)
+                                        entry["pending_stream_parts"] = pending
         except urllib.error.HTTPError as err:
             self._raise_http_error(err)
         except urllib.error.URLError as e:
             raise RuntimeError(f"Network error: {e}")
+
+        for idx in sorted(tc_parts.keys()):
+            item = tc_parts[idx]
+            if item.get("stream_started"):
+                continue
+            name = str(item.get("name", "")).strip()
+            if not name or not tool_stream_callbacks_enabled:
+                continue
+            if on_tool_call_start is not None:
+                on_tool_call_start(name, idx)
+            item["stream_started"] = True
+            started_tool_stream_indices.append(idx)
+            pending_stream_parts = item.get("pending_stream_parts", [])
+            for pending_part in pending_stream_parts:
+                if on_tool_call_delta is not None and pending_part:
+                    on_tool_call_delta(idx, pending_part)
+            item["pending_stream_parts"] = []
+
+        if on_tool_call_end is not None:
+            for idx in sorted(set(started_tool_stream_indices)):
+                on_tool_call_end(idx)
 
         tool_calls: List[ToolCall] = []
         for idx in sorted(tc_parts.keys()):
@@ -772,6 +842,7 @@ class LLMInference:
             tool_calls=tool_calls,
             finish_reason=finish_reason,
             raw_response={},
+            tool_calls_streamed=bool(started_tool_stream_indices),
         )
 
     def __del__(self):
