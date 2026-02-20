@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import json
 import os
 import sys
 import time
@@ -146,6 +147,28 @@ def _stream_text(callback, text: str, delay: float) -> None:
         _sleep(delay)
 
 
+def _stream_text_chunks(callback, text: str, delay: float, chunk_size: int = 32) -> None:
+    size = max(1, int(chunk_size))
+    for idx in range(0, len(text), size):
+        callback(text[idx : idx + size])
+        _sleep(delay)
+
+
+def _stream_tool_call(ui: Any, name: str, arguments: dict, delay: float) -> None:
+    payload = json.dumps(arguments, ensure_ascii=False, indent=2)
+    start = getattr(ui, "tool_call_stream_start", None)
+    stream = getattr(ui, "tool_call_stream_token", None)
+    end = getattr(ui, "tool_call_stream_end", None)
+
+    if callable(start) and callable(stream) and callable(end):
+        start(name)
+        _stream_text_chunks(stream, payload, delay)
+        end()
+        return
+
+    ui.show_tool_call(name, arguments)
+
+
 def _emit_user_line(ui: Any, text: str) -> None:
     print(f"> {text}", flush=True)
 
@@ -222,8 +245,8 @@ def _run_success_turn(ui: Any, prompt: str, delay: float) -> None:
     _sleep(delay * 10)
 
     args = _tool_args_payload()
-    ui.show_tool_call("read_file", args)
-    _sleep(delay * 20)
+    _stream_tool_call(ui, "read_file", args, delay)
+    _sleep(delay * 8)
     ui.show_tool_result(
         "read_file",
         {
@@ -261,8 +284,8 @@ def _run_error_turn(ui: Any, prompt: str, delay: float) -> None:
     _sleep(delay * 10)
 
     args = _tool_args_payload()
-    ui.show_tool_call("read_file", args)
-    _sleep(delay * 20)
+    _stream_tool_call(ui, "read_file", args, delay)
+    _sleep(delay * 8)
     ui.show_tool_result("read_file", _tool_error_payload(args))
     _sleep(delay * 8)
     ui.error("tool execution aborted by runtime timeout.")

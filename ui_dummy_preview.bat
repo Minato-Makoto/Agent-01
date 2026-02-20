@@ -9,7 +9,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-python ui_dummy_preview %*
+python -u ui_dummy_preview %*
 if errorlevel 1 (
   echo.
   echo [ui_dummy_preview] Exited with error code %errorlevel%.

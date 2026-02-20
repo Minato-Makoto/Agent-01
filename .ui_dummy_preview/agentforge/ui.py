@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 try:
     from rich.console import Console
+    from rich.live import Live
     from rich.padding import Padding
     from rich.text import Text
 
@@ -112,6 +113,11 @@ class ChatUI:
         self._last_user_input = ""
 
         self._encoding = self._detect_encoding()
+        self._tool_call_stream_open = False
+        self._tool_call_stream_buffer = ""
+        self._tool_call_stream_body_style = self.palette.tool_body
+        self._tool_call_stream_prefix_style = self.palette.lane
+        self._tool_call_stream_live = None
 
     def welcome(
         self,
@@ -227,9 +233,106 @@ class ChatUI:
         self._dim_active = False
 
     def show_tool_call(self, name: str, arguments: Dict[str, Any]) -> None:
+        payload = _render_payload(arguments)
+        self.tool_call_stream_start(name)
+        self.tool_call_stream_token(payload)
+        self.tool_call_stream_end()
+
+    def tool_call_stream_start(self, name: str) -> None:
         self._ensure_stream_closed()
         self._emit_branch("├─ ", f"tool: {name}", message_style=self.palette.tool_title)
-        self._emit_tool_block(_render_payload(arguments), body_style=self.palette.tool_body)
+        self._tool_call_stream_open = True
+        self._tool_call_stream_buffer = ""
+        self._tool_call_stream_prefix_style = self.palette.lane
+        if self._use_rich and self.console is not None:
+            self._tool_call_stream_body_style = (
+                f"{self.palette.markdown_code_text} {self.palette.markdown_code_background}".strip()
+            )
+            self._start_tool_call_live()
+        else:
+            self._tool_call_stream_body_style = self.palette.tool_body
+            self._emit_branch("│   ", "```", message_style=self.palette.tool_body)
+
+    def tool_call_stream_token(self, token: str) -> None:
+        if not token:
+            return
+        if not self._tool_call_stream_open:
+            self.tool_call_stream_start("tool")
+        if self._tool_call_stream_live is not None:
+            self._tool_call_stream_buffer += self._sanitize(token)
+            self._refresh_tool_call_live()
+            return
+        self._emit_stream_lines_with_lane(
+            token,
+            prefix="│   ",
+            prefix_style=self._tool_call_stream_prefix_style,
+            message_style=self._tool_call_stream_body_style,
+            pending_attr="_tool_call_stream_buffer",
+        )
+
+    def tool_call_stream_end(self) -> None:
+        if not self._tool_call_stream_open:
+            return
+        if self._tool_call_stream_live is not None:
+            self._stop_tool_call_live()
+            self._tool_call_stream_open = False
+            return
+        pending = str(self._tool_call_stream_buffer or "")
+        if pending:
+            self._emit_branch(
+                "│   ",
+                pending,
+                message_style=self._tool_call_stream_body_style,
+                prefix_style=self._tool_call_stream_prefix_style,
+            )
+            self._tool_call_stream_buffer = ""
+        self._emit_branch(
+            "│   ",
+            "```",
+            message_style=self.palette.tool_body,
+            prefix_style=self._tool_call_stream_prefix_style,
+        )
+        self._tool_call_stream_open = False
+
+    def _start_tool_call_live(self) -> None:
+        if self.console is None or self._tool_call_stream_live is not None:
+            return
+        self._tool_call_stream_live = Live(
+            self._build_tool_call_live_renderable(),
+            console=self.console,
+            refresh_per_second=20,
+            transient=False,
+            auto_refresh=False,
+        )
+        self._tool_call_stream_live.start()
+        self._refresh_tool_call_live()
+
+    def _refresh_tool_call_live(self) -> None:
+        if self._tool_call_stream_live is None:
+            return
+        self._tool_call_stream_live.update(self._build_tool_call_live_renderable(), refresh=True)
+
+    def _stop_tool_call_live(self) -> None:
+        if self._tool_call_stream_live is None:
+            return
+        self._refresh_tool_call_live()
+        self._tool_call_stream_live.stop()
+        self._tool_call_stream_live = None
+
+    def _build_tool_call_live_renderable(self):
+        content = self._tool_call_stream_buffer if self._tool_call_stream_buffer else " "
+        code_text = Text(
+            content,
+            style=self._tool_call_stream_body_style,
+            no_wrap=False,
+            overflow="fold",
+        )
+        return LaneRenderable(
+            Padding(code_text, (0, 1), style=self.palette.markdown_code_background),
+            prefix="│   ",
+            prefix_style=self._tool_call_stream_prefix_style,
+            content_style=self._tool_call_stream_body_style,
+        )
 
     def show_tool_result(self, name: str, result: Any) -> None:
         self._ensure_stream_closed()
@@ -259,6 +362,8 @@ class ChatUI:
         self._emit_branch("└─ ", "session terminated.", message_style=self.palette.hint)
 
     def _ensure_stream_closed(self) -> None:
+        if self._tool_call_stream_open:
+            self.tool_call_stream_end()
         if self._renderer.active:
             # Preserve lifecycle color transitions for reasoning-only turns:
             # settle to success before tool/result blocks instead of dropping state.
@@ -300,6 +405,28 @@ class ChatUI:
             )
             return
         print(safe, end=end, flush=True)
+
+    def _emit_stream_lines_with_lane(
+        self,
+        text: str,
+        *,
+        prefix: str,
+        prefix_style: str,
+        message_style: str,
+        pending_attr: str,
+    ) -> None:
+        pending = str(getattr(self, pending_attr, "")) + self._sanitize(text)
+        parts = pending.split("\n")
+        complete_lines = parts[:-1]
+        tail = parts[-1]
+        for line in complete_lines:
+            self._emit_branch(
+                prefix,
+                line,
+                message_style=message_style,
+                prefix_style=prefix_style,
+            )
+        setattr(self, pending_attr, tail)
 
     def _emit_tool_block(self, text: str, *, body_style: str, prefix_style: str = "") -> None:
         safe = self._sanitize(text)
