@@ -154,7 +154,7 @@ def _tool_args_payload() -> dict:
     docs_long = (
         "This payload intentionally carries a long mixed markdown/html/docs body "
         "to validate wrapping and streaming for command arguments. "
-    ) * 5
+    ) * 18
     html_long = (
         "<article><h1>Runtime UI Preview</h1><p>The command block should wrap long "
         "inline HTML safely without clipping lanes.</p></article>"
@@ -170,7 +170,43 @@ def _tool_args_payload() -> dict:
         "parse_as": "markdown+html",
         "max_chars": 24000,
         "docs_excerpt": docs_long,
-        "html_preview": html_long,
+        "html_preview": html_long * 3,
+        "extra_html_sections": [
+            "<section><h2>Spec A</h2><p>Long html fragment for wrapping checks.</p></section>"
+            * 2,
+            "<section><h2>Spec B</h2><p>Ensure nested-like content is visible without truncation.</p></section>"
+            * 2,
+        ],
+        "notes": {
+            "source": "docs + html + markdown",
+            "intention": "force long payload rendering in tool block",
+        },
+    }
+
+
+def _tool_error_payload(args: dict) -> dict:
+    traceback_long = (
+        "Traceback (most recent call last):\n"
+        '  File "workspace/tools/read_file.py", line 118, in execute\n'
+        "    raise TimeoutError('read_file exceeded execution budget while parsing large html/doc payload')\n"
+        "TimeoutError: read_file exceeded execution budget while parsing large html/doc payload\n"
+    ) * 2
+    return {
+        "ok": False,
+        "status": "error",
+        "error": "tool execution aborted by runtime timeout.",
+        "tool": "read_file",
+        "path": args.get("path"),
+        "attempt": 1,
+        "timeout_seconds": 30,
+        "traceback": traceback_long,
+        "context": {
+            "parse_as": args.get("parse_as"),
+            "max_chars": args.get("max_chars"),
+            "include": args.get("include"),
+            "html_preview": args.get("html_preview"),
+            "docs_excerpt": args.get("docs_excerpt"),
+        },
     }
 
 
@@ -180,6 +216,9 @@ def _run_success_turn(ui: Any, prompt: str, delay: float) -> None:
     _sleep(delay * 8)
     _stream_text(ui.stream_reasoning, REASONING_TEXT, delay)
     ui.thinking_stop()
+    # Match runtime callback order: thinking_end is followed by stream_end
+    # even when the model produced reasoning-only output for this iteration.
+    ui.stream_end()
     _sleep(delay * 10)
 
     args = _tool_args_payload()
@@ -191,7 +230,17 @@ def _run_success_turn(ui: Any, prompt: str, delay: float) -> None:
             "ok": True,
             "bytes": 4823,
             "path": args["path"],
-            "note": "Preview payload shortened by renderer line limit.",
+            "note": "Full payload kept for long-wrap preview (no truncation).",
+            "meta": {
+                "parse_as": args["parse_as"],
+                "max_chars": args["max_chars"],
+                "include_count": len(args["include"]),
+            },
+            "preview": {
+                "docs_excerpt": args["docs_excerpt"],
+                "html_preview": args["html_preview"],
+                "extra_html_sections": args["extra_html_sections"],
+            },
         },
     )
     _sleep(delay * 12)
@@ -208,6 +257,13 @@ def _run_error_turn(ui: Any, prompt: str, delay: float) -> None:
     _sleep(delay * 8)
     _stream_text(ui.stream_reasoning, REASONING_TEXT, delay)
     ui.thinking_stop()
+    ui.stream_end()
+    _sleep(delay * 10)
+
+    args = _tool_args_payload()
+    ui.show_tool_call("read_file", args)
+    _sleep(delay * 20)
+    ui.show_tool_result("read_file", _tool_error_payload(args))
     _sleep(delay * 8)
     ui.error("tool execution aborted by runtime timeout.")
 

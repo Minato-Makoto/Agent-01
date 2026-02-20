@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional
 
 from .__init__ import __version__
 from .model_output_renderer import (
+    LaneRenderable,
     ModelOutputRenderer,
     build_markdown_theme,
     build_palette,
@@ -26,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 try:
     from rich.console import Console
+    from rich.padding import Padding
     from rich.text import Text
 
     HAS_RICH = True
@@ -42,19 +44,41 @@ _BANNER_LINES = r"""
       /____/                                /____/
 """
 
-TOOL_RESULT_LINE_LIMIT = 15
+def _render_payload(value: Any) -> str:
+    if isinstance(value, str):
+        text = value
+    else:
+        try:
+            text = json.dumps(value, ensure_ascii=False, indent=2)
+        except TypeError:
+            text = str(value)
+    text = text.rstrip("\n")
+    return text if text.strip() else "(empty)"
 
 
-def _short(value: Any, limit: int = 80) -> str:
-    text = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
-    text = text.replace("\n", " ").strip()
-    return text if len(text) <= limit else text[: limit - 3] + "..."
+def _is_tool_result_error(value: Any) -> bool:
+    if isinstance(value, dict):
+        if "error" in value and value.get("error"):
+            return True
+        if "errors" in value and value.get("errors"):
+            return True
+        status = str(value.get("status", "")).strip().lower()
+        if status in {"error", "failed", "failure"}:
+            return True
+        if "ok" in value and value.get("ok") is False:
+            return True
+        if "success" in value and value.get("success") is False:
+            return True
+        return False
 
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered.startswith("error:") or lowered.startswith("[error"):
+            return True
+        if "traceback" in lowered:
+            return True
 
-def _truncate_lines(lines: List[str], limit: int) -> List[str]:
-    if len(lines) <= limit:
-        return lines
-    return lines[:limit] + ["... (truncated)"]
+    return False
 
 
 class ChatUI:
@@ -167,12 +191,7 @@ class ChatUI:
             self._phase = "started"
 
     def thinking_stop(self) -> None:
-        # In preview runtime, close a reasoning-only phase so lane/status
-        # can settle to success color before the next block is rendered.
-        if self._renderer.active and not self._renderer.output_text and self._renderer.reasoning_text:
-            self._renderer.finish_success()
-            self._phase = "idle"
-            self._dim_active = False
+        return
 
     def stream_start(self) -> None:
         if not self._renderer.active:
@@ -209,26 +228,31 @@ class ChatUI:
 
     def show_tool_call(self, name: str, arguments: Dict[str, Any]) -> None:
         self._ensure_stream_closed()
-        if not arguments:
-            self._emit_branch("├─ ", f"tool: {name}()", message_style=self.palette.tool_title)
-            return
-        args_str = _short(arguments, 72)
         self._emit_branch("├─ ", f"tool: {name}", message_style=self.palette.tool_title)
-        self._emit_branch("│   ", args_str, message_style=self.palette.tool_body)
+        self._emit_tool_block(_render_payload(arguments), body_style=self.palette.tool_body)
 
     def show_tool_result(self, name: str, result: Any) -> None:
         self._ensure_stream_closed()
-
-        if isinstance(result, dict):
-            rendered = json.dumps(result, ensure_ascii=False, indent=2)
-        else:
-            rendered = str(result)
-        rendered = rendered.strip() or "(empty)"
-        lines = _truncate_lines(rendered.splitlines(), TOOL_RESULT_LINE_LIMIT)
+        if _is_tool_result_error(result):
+            self._emit_branch(
+                "└─ ",
+                f"result: {name}",
+                message_style=self.palette.status_error,
+                prefix_style=self.palette.status_error,
+            )
+            self._emit_tool_block(
+                _render_payload(result),
+                body_style=self.palette.result_body,
+                prefix_style=self.palette.status_error,
+            )
+            return
 
         self._emit_branch("└─ ", f"result: {name}", message_style=self.palette.result_title)
-        for line in lines:
-            self._emit_branch("│   ", line, message_style=self.palette.result_body)
+        self._emit_branch(
+            "│   ",
+            "tool executed successfully.",
+            message_style=self.palette.result_body,
+        )
 
     def goodbye(self) -> None:
         self._ensure_stream_closed()
@@ -236,7 +260,12 @@ class ChatUI:
 
     def _ensure_stream_closed(self) -> None:
         if self._renderer.active:
-            self._renderer.close()
+            # Preserve lifecycle color transitions for reasoning-only turns:
+            # settle to success before tool/result blocks instead of dropping state.
+            if self._renderer.reasoning_text and not self._renderer.output_text:
+                self._renderer.finish_success()
+            else:
+                self._renderer.close()
         self._phase = "idle"
         self._dim_active = False
         self._assistant_buffer = ""
@@ -271,6 +300,37 @@ class ChatUI:
             )
             return
         print(safe, end=end, flush=True)
+
+    def _emit_tool_block(self, text: str, *, body_style: str, prefix_style: str = "") -> None:
+        safe = self._sanitize(text)
+        lane_style = prefix_style or self.palette.lane
+        if self._use_rich and self.console is not None:
+            code_style = (
+                f"{self.palette.markdown_code_text} {self.palette.markdown_code_background}".strip()
+            )
+            code_text = Text(
+                safe,
+                style=code_style,
+                no_wrap=False,
+                overflow="fold",
+            )
+            self.console.print(
+                LaneRenderable(
+                    Padding(code_text, (0, 1), style=self.palette.markdown_code_background),
+                    prefix="│   ",
+                    prefix_style=lane_style,
+                    content_style=body_style,
+                ),
+                markup=False,
+                highlight=False,
+                soft_wrap=False,
+            )
+            return
+
+        self._emit_branch("│   ", "```", message_style=body_style, prefix_style=lane_style)
+        for line in safe.splitlines() or [""]:
+            self._emit_branch("│   ", line, message_style=body_style, prefix_style=lane_style)
+        self._emit_branch("│   ", "```", message_style=body_style, prefix_style=lane_style)
 
     def _emit_branch(
         self,
