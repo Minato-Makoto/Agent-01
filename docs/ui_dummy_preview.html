@@ -91,11 +91,24 @@
       overflow-wrap: anywhere;
       line-height: 1.45;
     }
+    .line > span, .line > div { min-width: 0; }
     .line + .line { margin-top: 2px; }
-    .prompt, .branch { color: var(--lane); font-weight: 700; width: 26px; flex: 0 0 26px; }
+    .prompt, .branch {
+      color: var(--lane);
+      font-weight: 700;
+      width: 26px;
+      flex: 0 0 26px;
+      display: inline-flex;
+      align-self: stretch;
+      align-items: flex-start;
+    }
+    .branch.processing { color: var(--lane); }
     .branch.thinking { color: var(--thinking); }
+    .branch.success { color: var(--lane); }
+    .branch.error { color: var(--error); }
+    .status-text.processing { color: var(--muted); }
     .status-text.thinking { color: var(--muted); }
-    .status-text.done { color: var(--lane); }
+    .status-text.success { color: var(--lane); }
     .status-text.error { color: var(--error); }
     .dim { color: var(--muted); }
     .agent-label { color: var(--lane); font-weight: 700; }
@@ -103,35 +116,94 @@
     .tool-result { color: var(--muted); }
     .error { color: var(--error); }
 
-    .md { margin-top: 2px; min-width: 0; width: 100%; }
-    .md h1, .md h2, .md h3 { margin: 8px 0 4px; font-weight: 700; }
-    .md h1 { font-size: 1.2rem; }
-    .md h2 { font-size: 1.07rem; }
-    .md h3 { font-size: 1rem; }
-    .md p { margin: 4px 0; }
-    .md .quote {
-      display: grid;
-      grid-template-columns: 16px 1fr;
-      gap: 8px;
-      color: var(--muted);
-      margin: 4px 0;
-    }
-    .md .quote .qbar { color: var(--lane); }
-    .md .hr { color: var(--muted); margin: 4px 0; }
-    .md pre {
-      margin: 6px 0;
-      padding: 8px 10px;
-      background: var(--code-bg);
-      color: var(--code-fg);
-      border-radius: 8px;
+    .md-row-wrap { margin-top: 2px; min-width: 0; width: 100%; }
+    .md-row {
+      min-height: 1.45em;
       white-space: pre-wrap;
       overflow-wrap: anywhere;
-      border: none;
     }
-    .md code.inline {
+    .md-row.h1, .md-row.h2, .md-row.h3 { font-weight: 700; }
+    .md-row.h1 { font-size: 1.2rem; text-transform: uppercase; }
+    .md-row.h2 { font-size: 1.07rem; }
+    .md-row.h3 { font-size: 1rem; }
+    .md-row.quote {
+      display: grid;
+      grid-template-columns: 18px minmax(0, 1fr);
+      gap: 8px;
+      color: var(--muted);
+    }
+    .md-row.quote .qbar {
+      color: var(--lane);
+      font-weight: 700;
+      display: inline-block;
+      text-align: center;
+    }
+    .md-row-wrap.processing .md-row.quote .qbar { color: var(--lane); }
+    .md-row-wrap.thinking .md-row.quote .qbar { color: var(--thinking); }
+    .md-row-wrap.success .md-row.quote .qbar { color: var(--lane); }
+    .md-row-wrap.error .md-row.quote .qbar { color: var(--error); }
+    .md-row.hr { color: var(--muted); }
+    .md-row.blank { color: transparent; }
+    .md-row.code {
+      background: var(--code-bg);
+      color: var(--code-fg);
+      padding: 0 10px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .md-row.code-first {
+      padding-top: 8px;
+      border-radius: 8px 8px 0 0;
+    }
+    .md-row.code-last {
+      padding-bottom: 8px;
+      border-radius: 0 0 8px 8px;
+    }
+    .md-row.code-single {
+      padding-top: 8px;
+      padding-bottom: 8px;
+      border-radius: 8px;
+    }
+    .md-row code.inline {
       background: color-mix(in srgb, var(--code-bg) 80%, transparent);
       padding: 0 4px;
       border-radius: 5px;
+    }
+    .tool-args-wrap { width: 100%; min-width: 0; }
+    .tool-args-block {
+      margin: 2px 0 0;
+      border-radius: 8px;
+      background: var(--code-bg);
+      color: var(--code-fg);
+      border: none;
+      overflow: hidden;
+    }
+    .tool-args-block summary {
+      cursor: pointer;
+      list-style: none;
+      user-select: none;
+      padding: 7px 10px;
+      color: var(--muted);
+      border-bottom: 1px solid transparent;
+    }
+    .tool-args-block summary::-webkit-details-marker { display: none; }
+    .tool-args-block summary::before {
+      content: "▸ ";
+      color: var(--thinking);
+      font-weight: 700;
+    }
+    .tool-args-block[open] summary {
+      border-bottom-color: color-mix(in srgb, var(--btn-bd) 60%, transparent);
+    }
+    .tool-args-block[open] summary::before { content: "▾ "; }
+    .tool-args-block pre {
+      margin: 0;
+      padding: 8px 10px 10px;
+      background: transparent;
+      color: var(--code-fg);
+      border-radius: 0;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
     }
   </style>
 </head>
@@ -139,7 +211,8 @@
   <div class="wrap">
     <div class="controls">
       <input id="promptInput" value="Refactor parser and show progress." />
-      <button id="runBtn">Run Demo</button>
+      <button id="runBtn">Run Success Demo</button>
+      <button id="runErrorBtn">Run Error Demo</button>
       <button id="exitBtn">Exit Line</button>
       <button id="resetBtn">Reset</button>
       <button id="themeBtn">Theme: Dark</button>
@@ -148,6 +221,10 @@
   </div>
 
   <script>
+    const LANE = "\u2502";
+    const TREE_MID = "\u251C\u2500 ";
+    const TREE_END = "\u2514\u2500 ";
+
     const state = {
       theme: "dark",
       turns: [],
@@ -173,11 +250,29 @@
       return esc(text).replace(/`([^`]+)`/g, '<code class="inline">$1</code>');
     }
 
-    function markdownLite(src) {
+    function markdownLiteRows(src) {
       const lines = src.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
       let out = [];
       let inCode = false;
       let codeLines = [];
+      let h1PendingBlank = false;
+
+      function pushCodeLines(buffer) {
+        const block = buffer.length ? buffer : [""];
+        const single = block.length === 1;
+        for (let idx = 0; idx < block.length; idx++) {
+          const first = idx === 0;
+          const last = idx === block.length - 1;
+          const cls = [
+            "md-row",
+            "code",
+            single ? "code-single" : "",
+            first && !single ? "code-first" : "",
+            last && !single ? "code-last" : "",
+          ].filter(Boolean).join(" ");
+          out.push(`<div class="${cls}">${esc(block[idx]) || "&nbsp;"}</div>`);
+        }
+      }
 
       for (const line of lines) {
         if (line.startsWith("```")) {
@@ -185,7 +280,7 @@
             inCode = true;
             codeLines = [];
           } else {
-            out.push(`<pre>${esc(codeLines.join("\n"))}</pre>`);
+            pushCodeLines(codeLines);
             inCode = false;
             codeLines = [];
           }
@@ -195,19 +290,61 @@
           codeLines.push(line);
           continue;
         }
-        if (/^###\s+/.test(line)) { out.push(`<h3>${inlineMarkdown(line.replace(/^###\s+/, ""))}</h3>`); continue; }
-        if (/^##\s+/.test(line))  { out.push(`<h2>${inlineMarkdown(line.replace(/^##\s+/, ""))}</h2>`); continue; }
-        if (/^#\s+/.test(line))   { out.push(`<h1>${inlineMarkdown(line.replace(/^#\s+/, ""))}</h1>`); continue; }
+        if (h1PendingBlank) {
+          out.push(`<div class="md-row blank">&nbsp;</div>`);
+          h1PendingBlank = false;
+        }
+        if (/^###\s+/.test(line)) { out.push(`<div class="md-row h3">${inlineMarkdown(line.replace(/^###\s+/, ""))}</div>`); continue; }
+        if (/^##\s+/.test(line))  { out.push(`<div class="md-row h2">${inlineMarkdown(line.replace(/^##\s+/, ""))}</div>`); continue; }
+        if (/^#\s+/.test(line))   { out.push(`<div class="md-row h1">${inlineMarkdown(line.replace(/^#\s+/, ""))}</div>`); h1PendingBlank = true; continue; }
         if (/^>\s?/.test(line)) {
-          out.push(`<div class="quote"><span class="qbar">│</span><span>${inlineMarkdown(line.replace(/^>\s?/, ""))}</span></div>`);
+          out.push(`<div class="md-row quote"><span class="qbar">${LANE}</span><span>${inlineMarkdown(line.replace(/^>\s?/, ""))}</span></div>`);
           continue;
         }
-        if (line.trim() === "---") { out.push('<div class="hr">---</div>'); continue; }
-        if (!line.trim()) { out.push("<p></p>"); continue; }
-        out.push(`<p>${inlineMarkdown(line)}</p>`);
+        if (line.trim() === "---") { out.push('<div class="md-row hr">---</div>'); continue; }
+        if (!line.trim()) { out.push('<div class="md-row blank">&nbsp;</div>'); continue; }
+        out.push(`<div class="md-row">${inlineMarkdown(line)}</div>`);
       }
-      if (inCode) out.push(`<pre>${esc(codeLines.join("\n"))}</pre>`);
-      return out.join("");
+      if (inCode) pushCodeLines(codeLines);
+      return out;
+    }
+
+    function buildToolArgsSource() {
+      const docsLong = "This payload intentionally carries a long mixed markdown/html/docs body so the preview can validate wrapping and streaming for large command arguments. ".repeat(5);
+      const htmlLong = "<article><h1>Runtime UI Preview</h1><p>The command block should wrap long inline HTML safely without clipping lanes.</p><section><h2>Edge Cases</h2><ul><li>long path</li><li>embedded docs</li><li>json escaping</li></ul></section></article>";
+      return JSON.stringify({
+        path: "workspace/AGENT.md",
+        include: [
+          "docs/BLUEPRINT_VI.md",
+          "docs/TUTORIAL.md",
+          "workspace/skills/system/SKILL_SYSTEM.md"
+        ],
+        mode: "stream_preview",
+        parse_as: "markdown+html",
+        max_chars: 24000,
+        docs_excerpt: docsLong,
+        html_preview: htmlLong
+      }, null, 2);
+    }
+
+    function statusView(turn) {
+      if (turn.status === "error") {
+        return { cls: "error", text: `error: ${esc(turn.error || "unknown")}` };
+      }
+      if (turn.status === "done") {
+        return { cls: "success", text: "completed." };
+      }
+      if (turn.status === "processing") {
+        return { cls: "processing", text: "processing..." };
+      }
+      return { cls: "thinking", text: "thinking..." };
+    }
+
+    function turnLaneClass(turn) {
+      if (turn.status === "error") return "error";
+      if (turn.status === "done") return "success";
+      if (turn.status === "thinking") return "thinking";
+      return "processing";
     }
 
     function render() {
@@ -215,33 +352,56 @@
       const html = [];
       html.push(`<pre class="banner">${esc(banner)}</pre>`);
       html.push(`<p class="version">v1.0.1</p>`);
-      html.push(`<div class="line"><span class="branch">│ </span><span class="dim">model: qwen3vl-local</span></div>`);
-      html.push(`<div class="line"><span class="branch">│ </span><span class="dim">commands: exit | reset | clear | skills | session</span></div>`);
+      html.push(`<div class="line"><span class="branch">${LANE} </span><span class="dim">model: qwen3vl-local</span></div>`);
+      html.push(`<div class="line"><span class="branch">${LANE} </span><span class="dim">commands: exit | reset | clear | skills | session</span></div>`);
 
       for (const turn of state.turns) {
+        const laneClass = turnLaneClass(turn);
         html.push(`<div class="line"><span class="prompt">&gt; </span><span>${esc(turn.input)}</span></div>`);
 
-        const thinking = turn.status === "thinking" || turn.status === "processing";
-        const statusClass = turn.status === "error" ? "error" : turn.status === "done" ? "done" : "thinking";
-        const statusText = turn.status === "error" ? `error: ${esc(turn.error || "unknown")}` : (turn.status === "done" ? "completed." : "thinking...");
-        html.push(`<div class="line"><span class="branch ${thinking ? "thinking" : ""}">├─ </span><span class="status-text ${statusClass}">${statusText}</span></div>`);
+        const status = statusView(turn);
+        html.push(`<div class="line"><span class="branch ${status.cls}">${TREE_MID}</span><span class="status-text ${status.cls}">${status.text}</span></div>`);
 
         if (turn.reasoning) {
-          html.push(`<div class="line"><span class="branch ${thinking ? "thinking" : ""}">│ </span><span class="dim">${esc(turn.reasoning)}</span></div>`);
+          html.push(`<div class="line"><span class="branch ${laneClass}">${LANE} </span><span class="dim">${esc(turn.reasoning)}</span></div>`);
         }
 
-        html.push(`<div class="line"><span class="branch">├─ </span><span class="agent-label">Agent-01</span></div>`);
-        html.push(`<div class="line"><span class="branch">│ </span><div class="md">${markdownLite(turn.output)}</div></div>`);
+        if (turn.output.trim()) {
+          html.push(`<div class="line"><span class="branch ${laneClass}">${TREE_MID}</span><span class="agent-label">Agent-01</span></div>`);
+          const mdRows = markdownLiteRows(turn.output);
+          for (const row of mdRows) {
+            html.push(`<div class="line"><span class="branch ${laneClass}">${LANE} </span><div class="md-row-wrap ${laneClass}">${row}</div></div>`);
+          }
+        }
+
+        if (turn.status === "error" && turn.error.trim() && !turn.output.trim()) {
+          html.push(`<div class="line"><span class="branch error">${TREE_MID}</span><span class="error">${esc(turn.error)}</span></div>`);
+        }
 
         if (turn.toolCall) {
-          html.push(`<div class="line"><span class="branch">├─ </span><span class="tool-label">tool: ${esc(turn.toolCall.name)}</span></div>`);
-          html.push(`<div class="line"><span class="branch">│ </span><span class="tool-result">${esc(turn.toolCall.args)}</span></div>`);
-          html.push(`<div class="line"><span class="branch">└─ </span><span class="tool-result">result: ${esc(turn.toolCall.name)} ok</span></div>`);
+          const argsLen = turn.toolCall.args.length;
+          const summary = turn.toolCall.streaming
+            ? `command payload (streaming... ${argsLen} chars)`
+            : `command payload (${argsLen} chars)`;
+          html.push(`<div class="line"><span class="branch ${laneClass}">${TREE_MID}</span><span class="tool-label">tool: ${esc(turn.toolCall.name)}</span></div>`);
+          html.push(
+            `<div class="line"><span class="branch ${laneClass}">${LANE} </span><div class="tool-args-wrap">` +
+            `<details class="tool-args-block"><summary>${esc(summary)}</summary><pre>${esc(turn.toolCall.args)}</pre></details>` +
+            `</div></div>`
+          );
+          if (turn.toolCall.done) {
+            const resultText = turn.toolCall.success
+              ? `result: ${turn.toolCall.name} ok`
+              : `result: ${turn.toolCall.name} failed`;
+            const resultClass = turn.toolCall.success ? "tool-result" : "error";
+            const resultLaneClass = turn.toolCall.success ? laneClass : "error";
+            html.push(`<div class="line"><span class="branch ${resultLaneClass}">${TREE_END}</span><span class="${resultClass}">${esc(resultText)}</span></div>`);
+          }
         }
       }
 
       if (state.showTerminated) {
-        html.push(`<div class="line"><span class="branch">└─ </span><span class="dim">session terminated.</span></div>`);
+        html.push(`<div class="line"><span class="branch">${TREE_END}</span><span class="dim">session terminated.</span></div>`);
       }
 
       t.innerHTML = html.join("");
@@ -249,11 +409,21 @@
     }
 
     function runDemo() {
+      startDemo({ scenario: "success" });
+    }
+
+    function runErrorDemo() {
+      startDemo({ scenario: "error" });
+    }
+
+    function startDemo(options) {
       if (state.timer) clearInterval(state.timer);
       const input = document.getElementById("promptInput").value.trim() || "Test streaming output";
+      const scenario = (options && options.scenario) || "success";
+      const isErrorScenario = scenario === "error";
       const turn = {
         input,
-        status: "thinking",
+        status: "processing",
         reasoning: "",
         output: "",
         error: "",
@@ -276,28 +446,74 @@ def parse(payload: dict) -> dict:
 \`\`\`
 
 Result is ready.`;
+      const toolArgsSource = buildToolArgsSource();
 
+      let p = 0;
       let i = 0;
       let j = 0;
+      let k = 0;
       state.timer = setInterval(() => {
+        if (p < 14) {
+          p += 1;
+          turn.status = "processing";
+          render();
+          return;
+        }
+
         if (i < reasoningSource.length) {
           turn.reasoning += reasoningSource[i++];
           turn.status = "thinking";
           render();
           return;
         }
+
+        if (isErrorScenario) {
+          turn.status = "error";
+          turn.error = "tool execution aborted by runtime timeout.";
+          clearInterval(state.timer);
+          state.timer = null;
+          render();
+          return;
+        }
+
         if (j < outputSource.length) {
           turn.output += outputSource[j++];
           turn.status = "thinking";
           render();
           return;
         }
+
+        if (!turn.toolCall) {
+          turn.toolCall = {
+            name: "read_file",
+            args: "",
+            streaming: true,
+            done: false,
+            success: false
+          };
+          turn.status = "thinking";
+          render();
+          return;
+        }
+
+        if (k < toolArgsSource.length) {
+          const chunk = toolArgsSource.slice(k, k + 6);
+          k += chunk.length;
+          turn.toolCall.args += chunk;
+          turn.status = "thinking";
+          render();
+          return;
+        }
+
+        turn.toolCall.streaming = false;
+        turn.toolCall.done = true;
+        turn.toolCall.success = true;
         turn.status = "done";
-        turn.toolCall = { name: "read_file", args: "{\"path\":\"workspace/AGENT.md\"}" };
+        turn.error = "";
         clearInterval(state.timer);
         state.timer = null;
         render();
-      }, 16);
+      }, 18);
     }
 
     function resetDemo() {
@@ -320,6 +536,7 @@ Result is ready.`;
     }
 
     document.getElementById("runBtn").addEventListener("click", runDemo);
+    document.getElementById("runErrorBtn").addEventListener("click", runErrorDemo);
     document.getElementById("resetBtn").addEventListener("click", resetDemo);
     document.getElementById("themeBtn").addEventListener("click", toggleTheme);
     document.getElementById("exitBtn").addEventListener("click", showExitLine);

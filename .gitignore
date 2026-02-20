@@ -17,6 +17,7 @@ workspace/screenshots/
 workspace/memory/
 workspace/logs/
 *.log
+.ui_dummy_preview/
 
 # Local runtime binaries/models
 llama-b*-win-cuda-*/

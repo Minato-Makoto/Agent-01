@@ -1,0 +1,333 @@
+from __future__ import annotations
+
+import argparse
+import importlib
+import os
+import shutil
+import sys
+import time
+from pathlib import Path
+from typing import Any, Callable
+
+
+ROOT = Path(__file__).resolve().parent
+SRC = ROOT / "src"
+SRC_AGENTFORGE = SRC / "agentforge"
+SANDBOX_ROOT = ROOT / ".ui_dummy_preview"
+SANDBOX_AGENTFORGE = SANDBOX_ROOT / "agentforge"
+SANDBOX_FILES = ("__init__.py", "ui.py", "model_output_renderer.py")
+
+
+REASONING_TEXT = "Inspecting parser flow, verifying schema, checking edge cases... "
+OUTPUT_TEXT = """## Plan
+We'll patch the parser and keep callbacks stable.
+
+> Streaming markdown is rendered inline.
+
+---
+
+```python
+def parse(payload: dict) -> dict:
+    return {"ok": True, "size": len(payload)}
+```
+
+Result is ready.
+"""
+
+
+def _clear_terminal() -> None:
+    os.system("cls" if sys.platform == "win32" else "clear")
+
+
+def _force_utf8_stdio() -> None:
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            try:
+                reconfigure(encoding="utf-8", errors="replace")
+            except OSError:
+                pass
+
+
+def _purge_agentforge_modules() -> None:
+    keys = [name for name in sys.modules if name == "agentforge" or name.startswith("agentforge.")]
+    for key in keys:
+        sys.modules.pop(key, None)
+
+
+def _sandbox_ready() -> bool:
+    return all((SANDBOX_AGENTFORGE / name).is_file() for name in SANDBOX_FILES)
+
+
+def _sync_sandbox() -> None:
+    SANDBOX_AGENTFORGE.mkdir(parents=True, exist_ok=True)
+    for name in SANDBOX_FILES:
+        src_file = SRC_AGENTFORGE / name
+        dst_file = SANDBOX_AGENTFORGE / name
+        if not src_file.is_file():
+            raise FileNotFoundError(f"Missing source file: {src_file}")
+        shutil.copy2(src_file, dst_file)
+
+
+def _load_chat_ui(mode: str) -> type:
+    if mode not in {"source", "sandbox"}:
+        raise ValueError(f"Unsupported mode: {mode}")
+
+    if mode == "sandbox" and not _sandbox_ready():
+        _sync_sandbox()
+
+    package_root = SRC if mode == "source" else SANDBOX_ROOT
+    package_root_str = str(package_root)
+
+    if package_root_str in sys.path:
+        sys.path.remove(package_root_str)
+    sys.path.insert(0, package_root_str)
+
+    _purge_agentforge_modules()
+    module = importlib.import_module("agentforge.ui")
+    chat_ui = getattr(module, "ChatUI", None)
+    if chat_ui is None:
+        raise RuntimeError(f"ChatUI not found in mode '{mode}'.")
+    return chat_ui
+
+
+def _sandbox_signature() -> tuple[tuple[str, int, int], ...]:
+    signature: list[tuple[str, int, int]] = []
+    for name in SANDBOX_FILES:
+        path = SANDBOX_AGENTFORGE / name
+        if not path.is_file():
+            signature.append((name, -1, -1))
+            continue
+        stat = path.stat()
+        signature.append((name, stat.st_mtime_ns, stat.st_size))
+    return tuple(signature)
+
+
+def _sleep(seconds: float) -> None:
+    if seconds > 0:
+        time.sleep(seconds)
+
+
+def _stream_text(callback, text: str, delay: float) -> None:
+    for ch in text:
+        callback(ch)
+        _sleep(delay)
+
+
+def _emit_user_line(ui: Any, text: str) -> None:
+    if ui.console is not None:
+        prompt_color = "#38c172" if ui.palette.mode == "dark" else "#1f7f3e"
+        ui.console.print(
+            f"[bold {prompt_color}]> [/bold {prompt_color}]{text}",
+            markup=True,
+            highlight=False,
+        )
+        return
+    print(f"> {text}", flush=True)
+
+
+def _tool_args_payload() -> dict:
+    docs_long = (
+        "This payload intentionally carries a long mixed markdown/html/docs body "
+        "to validate wrapping and streaming for command arguments. "
+    ) * 5
+    html_long = (
+        "<article><h1>Runtime UI Preview</h1><p>The command block should wrap long "
+        "inline HTML safely without clipping lanes.</p></article>"
+    )
+    return {
+        "path": "workspace/AGENT.md",
+        "include": [
+            "docs/BLUEPRINT_VI.md",
+            "docs/TUTORIAL.md",
+            "workspace/skills/system/SKILL_SYSTEM.md",
+        ],
+        "mode": "stream_preview",
+        "parse_as": "markdown+html",
+        "max_chars": 24000,
+        "docs_excerpt": docs_long,
+        "html_preview": html_long,
+    }
+
+
+def _run_success_turn(ui: Any, prompt: str, delay: float) -> None:
+    _emit_user_line(ui, prompt)
+    ui.thinking_start()
+    _sleep(delay * 8)
+    _stream_text(ui.stream_reasoning, REASONING_TEXT, delay)
+    _sleep(delay * 10)
+
+    args = _tool_args_payload()
+    ui.show_tool_call("read_file", args)
+    _sleep(delay * 20)
+    ui.show_tool_result(
+        "read_file",
+        {
+            "ok": True,
+            "bytes": 4823,
+            "path": args["path"],
+            "note": "Preview payload shortened by renderer line limit.",
+        },
+    )
+    _sleep(delay * 12)
+
+    ui.thinking_start()
+    _sleep(delay * 6)
+    _stream_text(ui.stream_token, OUTPUT_TEXT, delay)
+    ui.stream_end()
+
+
+def _run_error_turn(ui: Any, prompt: str, delay: float) -> None:
+    _emit_user_line(ui, prompt)
+    ui.thinking_start()
+    _sleep(delay * 8)
+    _stream_text(ui.stream_reasoning, REASONING_TEXT, delay)
+    _sleep(delay * 8)
+    ui.error("tool execution aborted by runtime timeout.")
+
+
+def _run_demo(ui: Any, scenario: str, delay: float) -> None:
+    if scenario in {"success", "both"}:
+        _run_success_turn(
+            ui,
+            "Refactor parser and show progress.",
+            delay,
+        )
+        _sleep(delay * 35)
+
+    if scenario in {"error", "both"}:
+        _run_error_turn(
+            ui,
+            "Run the same flow but force timeout.",
+            delay,
+        )
+
+
+def _run_once(chat_ui_factory: Callable[..., Any], args: argparse.Namespace) -> None:
+    ui = chat_ui_factory(verbose=bool(args.verbose))
+    ui.welcome(
+        model_name="qwen3vl-local",
+        tools=[],
+        session_id="preview-session",
+        skill_count=7,
+        total_tool_count=24,
+        workspace=str((ROOT / "workspace").resolve()),
+        provider=f"preview-{args.mode}",
+    )
+    try:
+        _run_demo(ui, args.scenario, max(0.0, args.delay))
+    finally:
+        ui.goodbye()
+
+
+def _run_watch(args: argparse.Namespace) -> int:
+    interval = max(0.1, args.watch_interval)
+    last_signature: tuple[tuple[str, int, int], ...] | None = None
+    print(
+        f"[watch] Edit files in: {SANDBOX_AGENTFORGE}\n"
+        "        Auto-refresh preview on save. Ctrl+C to stop.\n",
+        flush=True,
+    )
+    try:
+        while True:
+            signature = _sandbox_signature()
+            if signature != last_signature:
+                last_signature = signature
+                _clear_terminal()
+                print(
+                    f"[watch] Reloaded sandbox from: {SANDBOX_AGENTFORGE}",
+                    flush=True,
+                )
+                chat_ui = _load_chat_ui("sandbox")
+                _run_once(chat_ui, args)
+                print("", flush=True)
+            time.sleep(interval)
+    except KeyboardInterrupt:
+        print("\n[watch] Stopped.", flush=True)
+        return 0
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Live terminal preview for AgentForge UI. "
+            "Default mode uses sandbox copy so you can tweak preview "
+            "without touching source files."
+        ),
+    )
+    parser.add_argument(
+        "--scenario",
+        choices=("success", "error", "both"),
+        default="both",
+        help="Demo flow to render.",
+    )
+    parser.add_argument(
+        "--delay",
+        type=float,
+        default=0.012,
+        help="Per-character stream delay in seconds.",
+    )
+    parser.add_argument(
+        "--theme",
+        choices=("auto", "dark", "light"),
+        default="auto",
+        help="Override AGENTFORGE_UI_THEME for preview.",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Enable verbose welcome metadata (runtime/tools/workspace).",
+    )
+    parser.add_argument(
+        "--mode",
+        choices=("sandbox", "source"),
+        default="sandbox",
+        help=(
+            "sandbox: run from .ui_dummy_preview copy (safe for experiments). "
+            "source: run directly from src/agentforge."
+        ),
+    )
+    parser.add_argument(
+        "--sync-sandbox",
+        action="store_true",
+        help="Refresh sandbox files from current source UI files before run.",
+    )
+    parser.add_argument(
+        "--watch",
+        action="store_true",
+        help="Watch sandbox files and auto-refresh preview on save.",
+    )
+    parser.add_argument(
+        "--watch-interval",
+        type=float,
+        default=0.4,
+        help="Polling interval in seconds for --watch.",
+    )
+    return parser.parse_args()
+
+
+def main() -> int:
+    _force_utf8_stdio()
+    args = parse_args()
+    if args.theme != "auto":
+        os.environ["AGENTFORGE_UI_THEME"] = args.theme
+
+    if args.mode == "sandbox" and (args.sync_sandbox or not _sandbox_ready()):
+        _sync_sandbox()
+
+    if args.watch:
+        if args.mode != "sandbox":
+            print("`--watch` requires `--mode sandbox`.", file=sys.stderr)
+            return 1
+        return _run_watch(args)
+
+    chat_ui = _load_chat_ui(args.mode)
+    try:
+        _run_once(chat_ui, args)
+    except KeyboardInterrupt:
+        print("\nPreview interrupted by user.", flush=True)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
