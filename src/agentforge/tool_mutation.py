@@ -7,10 +7,19 @@ from typing import Any, Dict, Optional
 
 MUTATING_TOOL_NAMES = {
     "write_file",
+    "move_file",
+    "copy_file",
+    "rename_path",
+    "make_directory",
     "shell_command",
     "ps_export_png",
     "ps_export_jpg",
     "ps_save_document",
+    "desktop_move_mouse",
+    "desktop_click",
+    "desktop_type",
+    "desktop_key",
+    "desktop_scroll",
 }
 
 READ_ONLY_TOOL_NAMES = {
@@ -18,11 +27,13 @@ READ_ONLY_TOOL_NAMES = {
     "list_directory",
     "search_files",
     "file_info",
+    "find_duplicates",
     "web_search",
     "web_scrape",
     "http_request",
     "process_list",
     "browser_get_content",
+    "desktop_screenshot",
 }
 
 READ_ONLY_ACTIONS = {

@@ -15,3 +15,11 @@ def test_process_poll_action_is_not_mutating():
 
 def test_process_kill_action_is_mutating():
     assert is_mutating_tool_call("process", {"action": "kill"}) is True
+
+
+def test_desktop_screenshot_is_read_only():
+    assert is_mutating_tool_call("desktop_screenshot", {}) is False
+
+
+def test_desktop_click_is_mutating():
+    assert is_mutating_tool_call("desktop_click", {"x": 10, "y": 20}) is True

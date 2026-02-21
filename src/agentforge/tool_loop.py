@@ -46,9 +46,9 @@ class ToolLoop:
     def __init__(
         self,
         registry: ToolRegistry,
-        max_iterations: int = 10,
-        max_repeats: int = 3,
-        timeout: float = 60.0,
+        max_iterations: int,
+        max_repeats: int,
+        timeout: float,
         warning_threshold: int = 10,
         critical_threshold: int = 20,
         global_threshold: int = 30,

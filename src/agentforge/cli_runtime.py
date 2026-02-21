@@ -23,20 +23,30 @@ from .tools import ToolRegistry
 logger = logging.getLogger(__name__)
 
 
-def _coerce_positive_int(value: Any, default: int) -> int:
+def _require_positive_int_arg(args: Any, name: str) -> int:
+    value = get_arg(args, name, None)
+    if value is None:
+        raise ValueError(f"Missing required argument --{name.replace('_', '-')}")
     try:
         parsed = int(value)
-    except (TypeError, ValueError):
-        return default
-    return parsed if parsed > 0 else default
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Invalid --{name.replace('_', '-')}: must be integer") from exc
+    if parsed <= 0:
+        raise ValueError(f"Invalid --{name.replace('_', '-')}: must be > 0")
+    return parsed
 
 
-def _coerce_positive_float(value: Any, default: float) -> float:
+def _require_positive_float_arg(args: Any, name: str) -> float:
+    value = get_arg(args, name, None)
+    if value is None:
+        raise ValueError(f"Missing required argument --{name.replace('_', '-')}")
     try:
         parsed = float(value)
-    except (TypeError, ValueError):
-        return default
-    return parsed if parsed > 0 else default
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Invalid --{name.replace('_', '-')}: must be number") from exc
+    if parsed <= 0:
+        raise ValueError(f"Invalid --{name.replace('_', '-')}: must be > 0")
+    return parsed
 
 
 def _create_or_load_session(session_mgr: SessionManager, requested_id: str, ui: Any):
@@ -261,16 +271,20 @@ def run_interactive(
     ui.status(f"Workspace: {workspace_dir}")
     ui.status(f"Skills discovered: {skill_count} ({discovered_tool_count} tools total)")
 
-    max_iterations = _coerce_positive_int(get_arg(args, "max_iterations", 10), 10)
-    max_repeats = _coerce_positive_int(get_arg(args, "max_repeats", 3), 3)
-    agent_timeout = _coerce_positive_float(get_arg(args, "agent_timeout", 300.0), 300.0)
+    try:
+        max_iterations = _require_positive_int_arg(args, "max_iterations")
+        max_repeats = _require_positive_int_arg(args, "max_repeats")
+        agent_timeout = _require_positive_float_arg(args, "agent_timeout")
+    except ValueError as exc:
+        ui.error(str(exc))
+        return 1
 
     agent = Agent(
         config=AgentConfig(
-            workspace_dir=workspace_dir,
             max_iterations=max_iterations,
             max_repeats=max_repeats,
             timeout=agent_timeout,
+            workspace_dir=workspace_dir,
             verbose=bool(get_arg(args, "verbose", False)),
         ),
         llm=llm,

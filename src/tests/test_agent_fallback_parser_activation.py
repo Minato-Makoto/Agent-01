@@ -32,7 +32,12 @@ def test_agent_uses_text_fallback_parser_when_provider_has_no_tools(minimal_work
         )
     )
     agent = Agent(
-        config=AgentConfig(workspace_dir=str(minimal_workspace), max_iterations=4),
+        config=AgentConfig(
+            max_iterations=4,
+            max_repeats=3,
+            timeout=30.0,
+            workspace_dir=str(minimal_workspace),
+        ),
         llm=_FallbackLLM(),
         tools=registry,
     )

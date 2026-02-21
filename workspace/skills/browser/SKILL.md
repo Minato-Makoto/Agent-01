@@ -1,5 +1,5 @@
 ---
-name: Browser
+name: browser
 description: Control a Chromium browser through Playwright for navigation, interaction, extraction, screenshots, and JS evaluation.
 module: builtin_tools.browser_tools
 tools:
@@ -12,6 +12,7 @@ tools:
   - browser_wait
   - browser_scroll
   - browser_select
+  - browser_reset_context
   - browser_close
 ---
 
@@ -31,11 +32,12 @@ Automates a real browser session with persistent page context across calls.
 - Returns: `{title, url}` after navigation
 
 ### `browser_click`
-- Optional: `selector` (string), `text` (string)
-- Rule: provide at least one of `selector` or `text`
+- Optional locators: `selector`, `role` + `name`, `text`
+- Rule: provide at least one locator
 
 ### `browser_type`
-- Required: `selector`, `text`
+- Required: `text_to_type` (or backward-compatible `text`)
+- Optional locators: `selector`, `role` + `name`, `text`, `name`
 
 ### `browser_screenshot`
 - Optional: `full_page` (boolean, default `false`)
@@ -50,7 +52,7 @@ Automates a real browser session with persistent page context across calls.
 - Use only for deterministic, task-related page inspection/manipulation
 
 ### `browser_wait`
-- Required: `selector`
+- Optional locators: `selector`, `role` + `name`, `text`
 - Optional: `timeout` in milliseconds (default `10000`)
 
 ### `browser_scroll`
@@ -59,6 +61,10 @@ Automates a real browser session with persistent page context across calls.
 
 ### `browser_select`
 - Required: `selector`, `value`
+
+### `browser_reset_context`
+- No arguments
+- Recreates browser context/page for clean test isolation
 
 ### `browser_close`
 - No arguments

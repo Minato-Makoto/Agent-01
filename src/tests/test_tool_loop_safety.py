@@ -17,7 +17,7 @@ def _registry_with_tool(name: str, output: str) -> ToolRegistry:
 
 def test_generic_repeat_detection_blocks_identical_calls():
     registry = _registry_with_tool("noop", "ok")
-    loop = ToolLoop(registry=registry, max_repeats=3)
+    loop = ToolLoop(registry=registry, max_iterations=10, max_repeats=3, timeout=60.0)
 
     r1 = loop.execute_tool("noop", {"a": 1})
     r2 = loop.execute_tool("noop", {"a": 1})
@@ -33,7 +33,9 @@ def test_no_progress_polling_hits_global_circuit_breaker():
     registry = _registry_with_tool("process", "still running")
     loop = ToolLoop(
         registry=registry,
+        max_iterations=20,
         max_repeats=50,
+        timeout=60.0,
         warning_threshold=3,
         critical_threshold=4,
         global_threshold=4,
@@ -55,7 +57,9 @@ def test_ping_pong_detection_blocks_alternating_patterns():
     registry = _registry_with_tool("process", "same result")
     loop = ToolLoop(
         registry=registry,
+        max_iterations=20,
         max_repeats=50,
+        timeout=60.0,
         warning_threshold=4,
         critical_threshold=5,
         global_threshold=20,

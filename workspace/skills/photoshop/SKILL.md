@@ -1,5 +1,5 @@
 ---
-name: Photoshop
+name: photoshop
 description: Control Adobe Photoshop via UXP plugin over adb-mcp Socket.IO bridge.
 module: builtin_tools.photoshop_tools
 tools:

@@ -35,11 +35,11 @@ logger = logging.getLogger(__name__)
 class AgentConfig:
     """Configurable runtime limits and behavior flags."""
 
+    max_iterations: int
+    max_repeats: int
+    timeout: float
     name: str = ""
     workspace_dir: str = ""
-    max_iterations: int = 10
-    max_repeats: int = 3
-    timeout: float = 300.0
     verbose: bool = False
     parallel_tool_calls: bool = False
 
@@ -412,7 +412,7 @@ class Agent:
         self.tools.register(
             Tool(
                 name="read_file",
-                description="Read file contents. Reading a SKILL_xxx.md file activates that skill.",
+                description="Read file contents. Reading a skill SKILL.md file activates that skill.",
                 input_schema={
                     "type": "object",
                     "properties": {
@@ -430,7 +430,7 @@ class Agent:
     def _activate_skill(self, skill: SkillInfo) -> None:
         if not self.skill_loader:
             return
-        self.skill_loader.activate(skill.name)
+        self.skill_loader.activate(skill.skill_id)
 
         if not skill.module:
             logger.warning("Skill '%s' has no module in frontmatter; skipping tool load.", skill.name)
@@ -440,7 +440,7 @@ class Agent:
         try:
             module = importlib.import_module(skill.module)
             if hasattr(module, "register"):
-                module.register(self.tools, skill.name)
+                module.register(self.tools, skill.skill_id)
                 logger.info("Skill activated: %s", skill.name)
         except ImportError as exc:
             logger.warning("Could not load tools for skill '%s': %s", skill.name, exc)

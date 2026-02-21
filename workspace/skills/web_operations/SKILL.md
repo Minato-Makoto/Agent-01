@@ -1,5 +1,5 @@
 ---
-name: Web Operations
+name: web_operations
 description: Perform HTTP requests and web scraping with URL safety checks.
 module: builtin_tools.web_ops
 tools:

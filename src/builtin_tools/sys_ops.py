@@ -22,7 +22,7 @@ from agentforge.runtime_config import load_shell_policy_config, load_tool_timeou
 logger = logging.getLogger(__name__)
 
 
-def register(registry: ToolRegistry, skill_name: str = "System") -> None:
+def register(registry: ToolRegistry, skill_name: str = "system") -> None:
     tools = [
         Tool(
             name="shell_command",
@@ -100,6 +100,17 @@ ALLOWED_COMMANDS = {
     "file",
     "stat",
     "chmod",
+    # PowerShell cmdlets for safe local inspection workflows.
+    "get-childitem",
+    "get-content",
+    "select-string",
+    "where-object",
+    "select-object",
+    "sort-object",
+    "measure-object",
+    "test-path",
+    "join-path",
+    "get-filehash",
 }
 
 BLOCKED_COMMANDS = {
@@ -256,10 +267,7 @@ def _extract_command_name(segment: str) -> str:
         tokens = segment.split()
     if not tokens:
         return ""
-    cmd = os.path.basename(tokens[0]).lower()
-    if cmd.endswith(".exe"):
-        cmd = cmd[:-4]
-    return cmd
+    return _normalize_command_name(tokens[0])
 
 
 def _tokenize_segment(segment: str) -> List[str]:
@@ -268,6 +276,13 @@ def _tokenize_segment(segment: str) -> List[str]:
     except ValueError:
         tokens = segment.split()
     return tokens
+
+
+def _normalize_command_name(raw_command: str) -> str:
+    cmd = os.path.basename(raw_command).strip().lower()
+    if cmd.endswith(".exe"):
+        cmd = cmd[:-4]
+    return cmd
 
 
 def _validate_python_invocation(tokens: List[str]) -> Tuple[bool, str, str]:
@@ -438,9 +453,7 @@ def _validate_command(command_string: str) -> Tuple[bool, str, str]:
         if not tokens:
             return False, "PARSE_ERROR", "Could not tokenize command segment"
 
-        cmd = os.path.basename(tokens[0]).lower()
-        if cmd.endswith(".exe"):
-            cmd = cmd[:-4]
+        cmd = _normalize_command_name(tokens[0])
 
         if cmd in BLOCKED_COMMANDS:
             return False, "BLOCKED_COMMAND", f"Command '{cmd}' is blocked for safety"
@@ -448,7 +461,9 @@ def _validate_command(command_string: str) -> Tuple[bool, str, str]:
             return (
                 False,
                 "NOT_ALLOWED",
-                f"Command '{cmd}' is not in allowed list: {', '.join(sorted(ALLOWED_COMMANDS))}",
+                "Command "
+                f"'{cmd}' is not allowlisted. Use a safe command/cmdlet "
+                f"from: {', '.join(sorted(ALLOWED_COMMANDS))}",
             )
         allowed, code, reason = _validate_command_policy(cmd, tokens)
         if not allowed:

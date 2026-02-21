@@ -187,7 +187,7 @@ def _tool_args_payload() -> dict:
         "include": [
             "docs/BLUEPRINT_VI.md",
             "docs/TUTORIAL.md",
-            "workspace/skills/system/SKILL_SYSTEM.md",
+            "workspace/skills/system/SKILL.md",
         ],
         "mode": "stream_preview",
         "parse_as": "markdown+html",

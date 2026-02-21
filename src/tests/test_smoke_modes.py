@@ -178,6 +178,9 @@ def test_remote_mode_smoke_with_mock_endpoint(monkeypatch, mock_chat_server, min
         verbose=False,
         workspace=str(minimal_workspace),
         session="",
+        max_iterations=10,
+        max_repeats=3,
+        agent_timeout=300.0,
     )
     os.environ["OPENAI_API_KEY"] = "dummy"
 
@@ -206,6 +209,9 @@ def test_remote_openai_endpoint_requires_api_key(monkeypatch, minimal_workspace)
         verbose=False,
         workspace=str(minimal_workspace),
         session="",
+        max_iterations=10,
+        max_repeats=3,
+        agent_timeout=300.0,
     )
 
     rc = cli.run_interactive(args)
@@ -249,6 +255,9 @@ def test_local_mode_smoke_without_starting_real_server(monkeypatch, minimal_work
         verbose=False,
         workspace=str(minimal_workspace),
         session="",
+        max_iterations=10,
+        max_repeats=3,
+        agent_timeout=300.0,
     )
 
     rc = cli.run_interactive(args)
@@ -348,6 +357,9 @@ def test_runtime_closes_browser_manager_on_exit(monkeypatch, minimal_workspace):
         verbose=False,
         workspace=str(minimal_workspace),
         session="",
+        max_iterations=10,
+        max_repeats=3,
+        agent_timeout=300.0,
     )
 
     rc = cli.run_interactive(args)

@@ -74,6 +74,8 @@ class ToolTimeoutConfig:
     browser_nav_ms: int = 30000
     browser_action_ms: int = 5000
     browser_wait_ms: int = 10000
+    desktop_action_ms: int = 5000
+    desktop_screenshot_s: int = 15
     web_request_s: int = 30
     web_search_s: int = 15
     photoshop_s: int = 30
@@ -96,6 +98,12 @@ def load_tool_timeout_config() -> ToolTimeoutConfig:
         browser_wait_ms=parse_int_env(
             "TOOL_TIMEOUT_BROWSER_WAIT_MS", 10000, min_value=200, max_value=300000
         ),
+        desktop_action_ms=parse_int_env(
+            "TOOL_TIMEOUT_DESKTOP_ACTION_MS", 5000, min_value=50, max_value=120000
+        ),
+        desktop_screenshot_s=parse_int_env(
+            "TOOL_TIMEOUT_DESKTOP_SCREENSHOT_S", 15, min_value=1, max_value=120
+        ),
         web_request_s=parse_int_env("TOOL_TIMEOUT_WEB_REQUEST_S", 30, min_value=1, max_value=300),
         web_search_s=parse_int_env("TOOL_TIMEOUT_WEB_SEARCH_S", 15, min_value=1, max_value=120),
         photoshop_s=parse_int_env("TOOL_TIMEOUT_PHOTOSHOP_S", 30, min_value=1, max_value=300),
@@ -107,4 +115,3 @@ def load_shell_policy_config() -> ShellPolicyConfig:
     return ShellPolicyConfig(
         workspace_only=parse_bool_env("SHELL_WORKSPACE_ONLY", True),
     )
-

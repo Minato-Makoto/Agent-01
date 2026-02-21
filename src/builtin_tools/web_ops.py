@@ -27,7 +27,7 @@ CONTROL_CHARS_RE = re.compile(r"[\x00-\x08\x0B\x0C\x0E-\x1F]")
 logger = logging.getLogger(__name__)
 
 
-def register(registry: ToolRegistry, skill_name: str = "Web Operations") -> None:
+def register(registry: ToolRegistry, skill_name: str = "web_operations") -> None:
     tools = [
         Tool(
             name="http_request",

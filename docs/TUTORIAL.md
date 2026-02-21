@@ -58,7 +58,7 @@ Ban co 2 cach:
 | `SHUTDOWN_TIMEOUT` | `--shutdown-timeout` | Timeout dung local process an toan | `5`, `10` |
 | `COMPAT_RETRY_LIMIT` | `--compat-retry-limit` | So lan retry fallback compatibility | `8`, `12` |
 | `MAX_REQUESTS_PER_MINUTE` | `--max-requests-per-minute` | Tran request LLM moi phut (chong runaway loop) | `60`, `120` |
-| `MAX_ITERATIONS` | `--max-iterations` | Gioi han vong loop agent moi turn | `10`, `20` |
+| `MAX_ITERATIONS` | `--max-iterations` | Gioi han vong loop agent moi turn | `25`, `40` |
 | `MAX_REPEATS` | `--max-repeats` | Gioi han lap lai tool call giong nhau | `3`, `5` |
 | `AGENT_TIMEOUT` | `--agent-timeout` | Timeout toan bo loop agent (giay) | `300`, `600` |
 | `WORKSPACE` | `--workspace` | Thu muc du lieu runtime | `%~dp0workspace` |

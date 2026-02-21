@@ -6,12 +6,11 @@ Dynamic activation/deactivation of skills and their tools.
 Generates status panel for system prompt.
 """
 
-import os
 import re
 import logging
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
-from dataclasses import dataclass, field
+from typing import Dict, List, Optional
+from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +22,7 @@ except ImportError:
 # Skill name validation: allow alphanumeric, spaces, hyphens, underscores
 # Must NOT contain XML-dangerous chars (<, >, &, ", ')
 _SKILL_NAME_RE = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9 _-]*$')
+_SKILL_ID_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$")
 _MAX_SKILL_NAME_LEN = 64
 _MAX_SKILL_DESC_LEN = 1024
 
@@ -35,9 +35,10 @@ def _escape_xml(s: str) -> str:
 @dataclass
 class SkillInfo:
     """Metadata about a discovered skill."""
+    skill_id: str
     name: str
     description: str
-    skill_file: str  # absolute path to SKILL_xxx.md
+    skill_file: str  # absolute path to SKILL.md
     folder: str  # skill folder name
     tools: List[str]  # tool names listed in frontmatter
     module: str = ""  # Python module path (e.g. "builtin_tools.file_ops")
@@ -58,6 +59,7 @@ class SkillLoader:
     def discover(self) -> Dict[str, SkillInfo]:
         """Discover all available skills from all tiers."""
         self._skills.clear()
+        self._active_skills.clear()
 
         # Tier 3: builtin (lowest priority)
         if self._builtin_dir and self._builtin_dir.exists():
@@ -74,28 +76,37 @@ class SkillLoader:
 
         return self._skills
 
-    def get_skill(self, name: str) -> Optional[SkillInfo]:
-        """Get a skill by name (case-insensitive)."""
-        name_lower = name.lower()
-        for skill in self._skills.values():
-            if skill.name.lower() == name_lower:
+    def get_skill(self, skill_ref: str) -> Optional[SkillInfo]:
+        """Get a skill by canonical id or display name (case-insensitive)."""
+        query = str(skill_ref or "").strip()
+        if not query:
+            return None
+
+        # Canonical lookup by skill_id first.
+        direct = self._skills.get(query)
+        if direct:
+            return direct
+
+        query_lower = query.lower()
+        for skill_id, skill in self._skills.items():
+            if skill_id.lower() == query_lower or skill.name.lower() == query_lower:
                 return skill
         return None
 
-    def activate(self, skill_name: str) -> Optional[SkillInfo]:
+    def activate(self, skill_ref: str) -> Optional[SkillInfo]:
         """Mark a skill as active."""
-        skill = self.get_skill(skill_name)
+        skill = self.get_skill(skill_ref)
         if skill:
             skill.active = True
-            self._active_skills.add(skill.name)
+            self._active_skills.add(skill.skill_id)
         return skill
 
-    def deactivate(self, skill_name: str) -> Optional[SkillInfo]:
+    def deactivate(self, skill_ref: str) -> Optional[SkillInfo]:
         """Mark a skill as inactive."""
-        skill = self.get_skill(skill_name)
+        skill = self.get_skill(skill_ref)
         if skill:
             skill.active = False
-            self._active_skills.discard(skill.name)
+            self._active_skills.discard(skill.skill_id)
         return skill
 
     def get_active_skills(self) -> List[SkillInfo]:
@@ -119,6 +130,7 @@ class SkillLoader:
 
         for skill in self._skills.values():
             lines.append("  <skill>")
+            lines.append(f"    <id>{_escape_xml(skill.skill_id)}</id>")
             lines.append(f"    <name>{_escape_xml(skill.name)}</name>")
             lines.append(f"    <description>{_escape_xml(skill.description)}</description>")
             lines.append(f"    <location>{_escape_xml(skill.skill_file)}</location>")
@@ -137,7 +149,7 @@ class SkillLoader:
         return self.build_skills_xml()
 
     def find_skill_by_file(self, file_path: str) -> Optional[SkillInfo]:
-        """Find which skill a SKILL_xxx.md file belongs to."""
+        """Find which skill a SKILL.md file belongs to."""
         file_path = str(Path(file_path).resolve())
         for skill in self._skills.values():
             if str(Path(skill.skill_file).resolve()) == file_path:
@@ -145,7 +157,7 @@ class SkillLoader:
         return None
 
     def _scan_dir(self, skills_dir: Path, source: str) -> None:
-        """Scan a directory for skill folders containing SKILL_xxx.md files."""
+        """Scan a directory for skill folders containing SKILL.md files."""
         if not skills_dir.is_dir():
             return
 
@@ -153,16 +165,17 @@ class SkillLoader:
             if not child.is_dir():
                 continue
 
-            # Look for SKILL_xxx.md files
-            for f in child.iterdir():
-                if f.is_file() and f.name.startswith("SKILL_") and f.name.endswith(".md"):
-                    skill_info = self._parse_skill_file(f, child.name, source)
-                    if skill_info:
-                        # Higher priority source overrides lower
-                        self._skills[skill_info.name] = skill_info
+            skill_path = child / "SKILL.md"
+            if not skill_path.is_file():
+                continue
+
+            skill_info = self._parse_skill_file(skill_path, child.name, source)
+            if skill_info:
+                # Higher-priority source overrides lower for same canonical id.
+                self._skills[skill_info.skill_id] = skill_info
 
     def _parse_skill_file(self, path: Path, folder: str, source: str) -> Optional[SkillInfo]:
-        """Parse a SKILL_xxx.md file to extract metadata."""
+        """Parse a SKILL.md file to extract metadata."""
         if yaml is None:
             logger.warning("PyYAML is not installed; cannot parse skill metadata: %s", path)
             return None
@@ -175,10 +188,15 @@ class SkillLoader:
                 return None
 
             frontmatter = yaml.safe_load(match.group(1))
-            if not frontmatter or "name" not in frontmatter:
+            if not frontmatter:
                 return None
 
-            name = str(frontmatter["name"])
+            skill_id = str(folder).strip()
+            if not _SKILL_ID_RE.match(skill_id):
+                logger.warning("Invalid skill id (folder name): %s", skill_id)
+                return None
+
+            name = str(frontmatter.get("name", skill_id)).strip() or skill_id
             description = str(frontmatter.get("description", ""))
             tools = [str(t) for t in frontmatter.get("tools", []) if isinstance(t, str)]
             module = str(frontmatter.get("module", "")).strip()
@@ -191,11 +209,19 @@ class SkillLoader:
             if len(description) > _MAX_SKILL_DESC_LEN:
                 description = description[:_MAX_SKILL_DESC_LEN]  # Truncate
 
+            if name.lower() != skill_id.lower():
+                logger.warning(
+                    "Skill name/id mismatch: id='%s' name='%s'. Using folder id as canonical.",
+                    skill_id,
+                    name,
+                )
+
             return SkillInfo(
+                skill_id=skill_id,
                 name=name,
                 description=description,
                 skill_file=str(path.resolve()),
-                folder=folder,
+                folder=skill_id,
                 tools=tools,
                 module=module,
                 source=source,

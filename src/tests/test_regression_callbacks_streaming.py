@@ -167,7 +167,12 @@ def test_agent_ui_callbacks_regression(minimal_workspace):
         )
     )
     agent = Agent(
-        config=AgentConfig(workspace_dir=str(minimal_workspace), max_iterations=4),
+        config=AgentConfig(
+            max_iterations=4,
+            max_repeats=3,
+            timeout=30.0,
+            workspace_dir=str(minimal_workspace),
+        ),
         llm=_FakeLLM(),
         tools=registry,
     )
@@ -212,7 +217,12 @@ def test_agent_skips_duplicate_tool_call_callback_when_streamed(minimal_workspac
         )
     )
     agent = Agent(
-        config=AgentConfig(workspace_dir=str(minimal_workspace), max_iterations=4),
+        config=AgentConfig(
+            max_iterations=4,
+            max_repeats=3,
+            timeout=30.0,
+            workspace_dir=str(minimal_workspace),
+        ),
         llm=_FakeLLMToolCallStream(),
         tools=registry,
     )

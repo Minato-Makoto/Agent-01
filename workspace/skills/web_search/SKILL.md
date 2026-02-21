@@ -1,5 +1,5 @@
 ---
-name: WebSearch
+name: web_search
 description: Search the web via DuckDuckGo HTML and return structured result snippets.
 module: builtin_tools.web_search
 tools:

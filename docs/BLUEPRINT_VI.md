@@ -1,6 +1,6 @@
 # BLUEPRINT — Agent-01 (AgentForge Runtime)
 
-> Version: **1.1.0** · Python 3.10+ · Windows-first · Single launcher: `run.bat`
+> Version: **1.1.1** · Python 3.10+ · Windows-first · Single launcher: `run.bat`
 
 ---
 
@@ -11,7 +11,7 @@ Agent-01 là một AI agent runtime chạy trên Windows, hỗ trợ tool-callin
 - **Windows-first**: mọi entry point và script đều target Windows.
 - **Single launcher**: `run.bat` là điểm vào duy nhất cho user.
 - **Provider-agnostic**: chạy với local llama-server (GGUF) hoặc remote OpenAI-compatible endpoint.
-- **Skill-gated tools**: tools được khoá sau hệ thống skill, chỉ được kích hoạt khi agent đọc file `SKILL_*.md`.
+- **Skill-gated tools**: tools được khoá sau hệ thống skill, chỉ được kích hoạt khi agent đọc file `SKILL.md`.
 - **3-tier context compression**: tự động quản lý context window qua soft-trim, graceful summarization, và emergency compression.
 
 ---
@@ -100,7 +100,7 @@ Final Assistant Text → UI Output
 
 | File | Dòng | Vai trò |
 |------|------|---------|
-| `__init__.py` | 6 | Package metadata (`__version__ = "1.1.0"`) |
+| `__init__.py` | 6 | Package metadata (`__version__ = "1.1.1"`) |
 | `cli.py` | 45 | Facade tương thích (`main`, `run_interactive`) |
 | `cli_args.py` | 184 | Parser + nạp env/config + mapping `InferenceConfig` |
 | `cli_runtime.py` | 326 | Vòng lặp REPL, wiring components, kết nối backend |
@@ -148,10 +148,16 @@ Final Assistant Text → UI Output
 ### 6.1 Cơ chế
 
 1. Khi khởi động, agent chỉ có 1 bootstrap tool: `read_file`.
-2. `SkillLoader` quét `workspace/skills/` để tìm các thư mục chứa `SKILL_*.md`.
+2. `SkillLoader` quét `workspace/skills/` để tìm các thư mục chứa `SKILL.md`.
 3. System prompt chứa XML `<available_skills>` liệt kê các skill và trạng thái.
-4. Agent muốn dùng tool của 1 skill → gọi `read_file` trên `SKILL_*.md` → `agent_core` phát hiện và tự động kích hoạt skill, đăng ký tools vào `ToolRegistry`.
+4. Agent muốn dùng tool của 1 skill → gọi `read_file` trên `SKILL.md` → `agent_core` phát hiện và tự động kích hoạt skill, đăng ký tools vào `ToolRegistry`.
 5. Skill chưa kích hoạt **không liệt kê tên tool** trong system prompt (ngăn agent gọi tools chưa activate).
+
+### 6.1.1 Model biết skill/tool qua đâu?
+
+1. Skill được bơm vào system prompt bằng XML `<available_skills>`.
+2. Tool callable được bơm theo từng request qua payload `tools=[...]` từ `ToolRegistry.to_openai_tools()`.
+3. Sau khi activate skill, runtime rebuild prompt + tools payload, nên lượt model kế tiếp thấy tool mới ngay.
 
 ### 6.2 Độ ưu tiên 3 tầng
 
@@ -165,7 +171,7 @@ builtin_dir/       (thấp nhất — mặc định đi kèm)
 
 ```yaml
 ---
-name: Browser
+name: browser
 description: Điều khiển trình duyệt headless hoặc hiển thị qua Playwright.
 module: builtin_tools.browser_tools
 tools:
@@ -305,7 +311,7 @@ Ngưỡng được tính theo `max_tokens × chars_per_token` (mặc định 4).
 | Phát hiện lặp chung | `max_repeats` (mặc định 3) | Chặn tool call trùng arguments |
 | Chuỗi không tiến triển | `global_threshold` (mặc định 30) | Circuit breaker khi kết quả giống nhau |
 | Ping-pong | `warning_threshold` (mặc định 10) | Phát hiện mẫu A→B→A→B |
-| Giới hạn vòng lặp | `max_iterations` (mặc định 10) | Dừng vòng lặp |
+| Giới hạn vòng lặp | `max_iterations` (mặc định 25) | Dừng vòng lặp |
 | Timeout | `timeout` (mặc định 60s) | Dừng vòng lặp |
 
 ---
@@ -430,7 +436,7 @@ Bypass: gọi trực tiếp `python -m agentforge.cli --flag value` sẽ ghi đ�
 | `SHUTDOWN_TIMEOUT` | `--shutdown-timeout` | `5` | Timeout dừng local process (giây) |
 | `COMPAT_RETRY_LIMIT` | `--compat-retry-limit` | `8` | Giới hạn retry tương thích |
 | `MAX_REQUESTS_PER_MINUTE` | `--max-requests-per-minute` | `60` | Trần số request LLM mỗi phút |
-| `MAX_ITERATIONS` | `--max-iterations` | `10` | Giới hạn vòng lặp agent mỗi lượt |
+| `MAX_ITERATIONS` | `--max-iterations` | `25` | Giới hạn vòng lặp agent mỗi lượt |
 | `MAX_REPEATS` | `--max-repeats` | `3` | Giới hạn lặp tool call cùng tham số |
 | `AGENT_TIMEOUT` | `--agent-timeout` | `300` | Timeout vòng lặp agent (giây) |
 | `WORKSPACE` | `--workspace` | `./workspace` | Thư mục dữ liệu runtime |
@@ -599,7 +605,7 @@ jobs:
 ## 21) Lưu ý cho AI model/developer
 
 1. **Khi sửa `run.bat`** phải chạy smoke `cmd /c run.bat` với `PROVIDER=openai_compatible` + `EXTRA_ARGS=--help` để xác nhận launcher còn hoạt động.
-2. **Mỗi tool mới** phải có: định nghĩa trong `builtin_tools/`, file skill `SKILL_*.md` trong `workspace/skills/`, và hàm `register()`.
+2. **Mỗi tool mới** phải có: định nghĩa trong `builtin_tools/`, file skill `SKILL.md` trong `workspace/skills/`, và hàm `register()`.
 3. **Test trước khi merge** — mọi thay đổi cần chạy `python -m pytest -q`.
 4. **Không mã hoá cứng secrets** — dùng biến env.
 5. **Module mới trong `agentforge/`** cần được import trong `cli.py` hoặc `agent_core.py` để nối vào runtime.

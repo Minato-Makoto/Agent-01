@@ -6,6 +6,7 @@ beautifulsoup4
 
 # Browser Skill (Playwright)
 playwright
+pyautogui
 
 # Photoshop Skill (Socket.IO)
 python-socketio

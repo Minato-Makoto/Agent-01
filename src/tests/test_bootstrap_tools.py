@@ -14,7 +14,12 @@ class _DoneLLM:
 
 def test_bootstrap_tools_only_register_read_file(minimal_workspace):
     agent = Agent(
-        config=AgentConfig(workspace_dir=str(minimal_workspace), max_iterations=2),
+        config=AgentConfig(
+            max_iterations=2,
+            max_repeats=2,
+            timeout=30.0,
+            workspace_dir=str(minimal_workspace),
+        ),
         llm=_DoneLLM(),
         tools=ToolRegistry(),
     )

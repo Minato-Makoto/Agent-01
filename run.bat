@@ -130,7 +130,8 @@ REM ---- Runtime ----
 if not defined WORKSPACE set "WORKSPACE=%~dp0workspace"
 if not defined EXTRA_ARGS set "EXTRA_ARGS="
 if not defined AGENTFORGE_BROWSER_HEADLESS set "AGENTFORGE_BROWSER_HEADLESS=0"
-if not defined MAX_ITERATIONS set "MAX_ITERATIONS=10"
+if not defined AGENTFORGE_DESKTOP_CONTROL set "AGENTFORGE_DESKTOP_CONTROL=1"
+if not defined MAX_ITERATIONS set "MAX_ITERATIONS=25"
 if not defined MAX_REPEATS set "MAX_REPEATS=3"
 if not defined AGENT_TIMEOUT set "AGENT_TIMEOUT=300"
 
@@ -138,6 +139,8 @@ REM ---- Tool timeout env defaults (read by runtime/tool modules) ----
 if not defined TOOL_TIMEOUT_BROWSER_NAV_MS set "TOOL_TIMEOUT_BROWSER_NAV_MS=30000"
 if not defined TOOL_TIMEOUT_BROWSER_ACTION_MS set "TOOL_TIMEOUT_BROWSER_ACTION_MS=5000"
 if not defined TOOL_TIMEOUT_BROWSER_WAIT_MS set "TOOL_TIMEOUT_BROWSER_WAIT_MS=10000"
+if not defined TOOL_TIMEOUT_DESKTOP_ACTION_MS set "TOOL_TIMEOUT_DESKTOP_ACTION_MS=5000"
+if not defined TOOL_TIMEOUT_DESKTOP_SCREENSHOT_S set "TOOL_TIMEOUT_DESKTOP_SCREENSHOT_S=15"
 if not defined TOOL_TIMEOUT_WEB_REQUEST_S set "TOOL_TIMEOUT_WEB_REQUEST_S=30"
 if not defined TOOL_TIMEOUT_WEB_SEARCH_S set "TOOL_TIMEOUT_WEB_SEARCH_S=15"
 if not defined TOOL_TIMEOUT_PHOTOSHOP_S set "TOOL_TIMEOUT_PHOTOSHOP_S=30"
@@ -169,7 +172,7 @@ if errorlevel 1 (
 )
 
 REM Ensure deps for first-run users (download repo then run.bat)
-python -c "import rich,bs4,playwright,socketio,yaml" >nul 2>&1
+python -c "import rich,bs4,playwright,socketio,yaml,pyautogui" >nul 2>&1
 if errorlevel 1 (
     echo Installing Python dependencies from requirements.txt...
     python -m pip install -r requirements.txt

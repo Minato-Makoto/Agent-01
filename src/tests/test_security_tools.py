@@ -38,6 +38,12 @@ def test_npx_arbitrary_command_is_blocked():
     assert code == "BLOCKED_NPX_COMMAND"
 
 
+def test_powershell_cmdlet_pipeline_is_allowlisted():
+    ok, code, _ = _validate_command("Get-ChildItem | Select-Object -First 1")
+    assert ok is True
+    assert code == "OK"
+
+
 def test_web_url_policy_blocks_basic_ssrf_targets():
     ok_localhost, reason_localhost = _validate_url("http://localhost:8080")
     ok_metadata, reason_metadata = _validate_url("http://169.254.169.254/latest/meta-data/")

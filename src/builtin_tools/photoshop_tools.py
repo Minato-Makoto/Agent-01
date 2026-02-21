@@ -165,7 +165,7 @@ PS_TOOLS = [
 ]
 
 
-def register(registry: ToolRegistry, skill_name: str = "Photoshop") -> None:
+def register(registry: ToolRegistry, skill_name: str = "photoshop") -> None:
     """Register all 53 Photoshop tools."""
     tools = []
     for name, description, params in PS_TOOLS:

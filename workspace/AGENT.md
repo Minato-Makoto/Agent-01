@@ -39,7 +39,7 @@ Other tools are locked behind skills.
 
 To activate a skill:
 1. Read the skill file path from `<available_skills>`.
-2. Call `read_file` on that `SKILL_*.md` path.
+2. Call `read_file` on that `SKILL.md` path.
 3. Use newly unlocked tools only after activation.
 
 ## Response Discipline

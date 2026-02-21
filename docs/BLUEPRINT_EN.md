@@ -1,6 +1,6 @@
 # BLUEPRINT — Agent-01 (AgentForge Runtime)
 
-> Version: **1.1.0** · Python 3.10+ · Windows-first · Single launcher: `run.bat`
+> Version: **1.1.1** · Python 3.10+ · Windows-first · Single launcher: `run.bat`
 
 ---
 
@@ -11,7 +11,7 @@ Agent-01 is a Windows-first AI agent runtime supporting structured tool-calling 
 - **Windows-first**: all entry points and scripts target Windows.
 - **Single launcher**: `run.bat` is the only user entry point.
 - **Provider-agnostic**: runs with a local llama-server (GGUF) or a remote OpenAI-compatible endpoint.
-- **Skill-gated tools**: tools are locked behind a skill system; they are only activated when the agent reads a `SKILL_*.md` file.
+- **Skill-gated tools**: tools are locked behind a skill system; they are only activated when the agent reads a `SKILL.md` file.
 - **3-tier context compression**: automatic context window management via soft-trim, graceful summarization, and emergency compression.
 
 ---
@@ -100,7 +100,7 @@ Final Assistant Text → UI Output
 
 | File | Lines | Role |
 |------|-------|------|
-| `__init__.py` | 6 | Package metadata (`__version__ = "1.1.0"`) |
+| `__init__.py` | 6 | Package metadata (`__version__ = "1.1.1"`) |
 | `cli.py` | 45 | Compatibility facade entry point (`main`, `run_interactive`) |
 | `cli_args.py` | 184 | Parser + env/config loading + `InferenceConfig` mapping |
 | `cli_runtime.py` | 326 | REPL loop, component wiring, backend connect flow |
@@ -148,10 +148,17 @@ Final Assistant Text → UI Output
 ### 6.1 Mechanism
 
 1. On startup, the agent has only 1 bootstrap tool: `read_file`.
-2. `SkillLoader` scans `workspace/skills/` for folders containing `SKILL_*.md`.
+2. `SkillLoader` scans `workspace/skills/` for folders containing `SKILL.md`.
+3. Canonical `skill_id` is the folder name (stable runtime identity).
 3. The system prompt includes XML `<available_skills>` listing skills and their status.
-4. When the agent wants to use a skill's tools → calls `read_file` on `SKILL_*.md` → `agent_core` detects this and auto-activates the skill, registering tools into `ToolRegistry`.
+4. When the agent wants to use a skill's tools → calls `read_file` on `SKILL.md` → `agent_core` detects this and auto-activates the skill, registering tools into `ToolRegistry`.
 5. Inactive skills **do not list tool names** in the system prompt (prevents the agent from calling unactivated tools).
+
+### 6.1.1 How the model knows skills/tools
+
+1. Skills are injected into the system prompt via `<available_skills>` XML.
+2. Callable tools are injected per request via `tools=[...]` payload from `ToolRegistry.to_openai_tools()`.
+3. After skill activation, runtime rebuilds prompt + tool payload, so the next model turn sees new tools immediately.
 
 ### 6.2 3-Tier Priority
 
@@ -165,7 +172,7 @@ builtin_dir/       (lowest  — shipped defaults)
 
 ```yaml
 ---
-name: Browser
+name: browser
 description: Control headless or visible browser via Playwright.
 module: builtin_tools.browser_tools
 tools:
@@ -305,7 +312,7 @@ Thresholds are computed as `max_tokens × chars_per_token` (default 4).
 | Generic repeat | `max_repeats` (default 3) | Block tool call with duplicate args |
 | No-progress streak | `global_threshold` (default 30) | Circuit breaker when results are identical |
 | Ping-pong | `warning_threshold` (default 10) | Detect A→B→A→B pattern |
-| Iteration limit | `max_iterations` (default 10) | Stop loop |
+| Iteration limit | `max_iterations` (default 25) | Stop loop |
 | Timeout | `timeout` (default 60s) | Stop loop |
 
 ---
@@ -430,7 +437,7 @@ Bypass: calling `python -m agentforge.cli --flag value` directly overrides every
 | `SHUTDOWN_TIMEOUT` | `--shutdown-timeout` | `5` | Local process shutdown timeout (s) |
 | `COMPAT_RETRY_LIMIT` | `--compat-retry-limit` | `8` | Compatibility retry limit |
 | `MAX_REQUESTS_PER_MINUTE` | `--max-requests-per-minute` | `60` | LLM requests per minute hard cap |
-| `MAX_ITERATIONS` | `--max-iterations` | `10` | Agent loop limit per user turn |
+| `MAX_ITERATIONS` | `--max-iterations` | `25` | Agent loop limit per user turn |
 | `MAX_REPEATS` | `--max-repeats` | `3` | Duplicate tool-call repeat guard |
 | `AGENT_TIMEOUT` | `--agent-timeout` | `300` | Agent loop timeout (s) |
 | `WORKSPACE` | `--workspace` | `./workspace` | Runtime data dir |
@@ -599,7 +606,7 @@ jobs:
 ## 21) Notes for AI Models/Developers
 
 1. **When changing `run.bat`**, always run launcher smoke (`cmd /c run.bat` with `PROVIDER=openai_compatible` and `EXTRA_ARGS=--help`) before merge.
-2. **Each new tool** must have: a definition in `builtin_tools/`, a skill file `SKILL_*.md` in `workspace/skills/`, and a `register()` function.
+2. **Each new tool** must have: a definition in `builtin_tools/`, a skill file `SKILL.md` in `workspace/skills/`, and a `register()` function.
 3. **Test before merging** — all changes should pass `python -m pytest -q`.
 4. **Do not hardcode secrets** — use env vars.
 5. **New modules in `agentforge/`** must be imported in `cli.py` or `agent_core.py` to wire into the runtime.

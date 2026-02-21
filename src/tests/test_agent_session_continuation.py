@@ -64,7 +64,7 @@ def test_agent_hydrates_prompt_from_loaded_session(tmp_path):
 
     llm = _CaptureLLM()
     agent = Agent(
-        config=AgentConfig(workspace_dir=str(tmp_path), max_iterations=2),
+        config=AgentConfig(max_iterations=2, max_repeats=2, timeout=30.0, workspace_dir=str(tmp_path)),
         llm=llm,
         tools=ToolRegistry(),
         session_mgr=second_mgr,
@@ -87,7 +87,7 @@ def test_graceful_summary_branches_session_and_links_previous_id(tmp_path):
 
     llm = _SummarizingLLM()
     agent = Agent(
-        config=AgentConfig(workspace_dir=str(tmp_path), max_iterations=2),
+        config=AgentConfig(max_iterations=2, max_repeats=2, timeout=30.0, workspace_dir=str(tmp_path)),
         llm=llm,
         tools=ToolRegistry(),
         session_mgr=session_mgr,
@@ -113,7 +113,7 @@ def test_branch_injects_continuation_system_message(tmp_path):
     old_id = _seed_long_session(session_mgr)
 
     agent = Agent(
-        config=AgentConfig(workspace_dir=str(tmp_path), max_iterations=2),
+        config=AgentConfig(max_iterations=2, max_repeats=2, timeout=30.0, workspace_dir=str(tmp_path)),
         llm=_SummarizingLLM(),
         tools=ToolRegistry(),
         session_mgr=session_mgr,

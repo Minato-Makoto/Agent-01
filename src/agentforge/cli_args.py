@@ -77,9 +77,9 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--shutdown-timeout", type=int, default=None)
     run_parser.add_argument("--compat-retry-limit", type=int, default=None)
     run_parser.add_argument("--max-requests-per-minute", type=int, default=None)
-    run_parser.add_argument("--max-iterations", type=int, default=None)
-    run_parser.add_argument("--max-repeats", type=int, default=None)
-    run_parser.add_argument("--agent-timeout", type=float, default=None)
+    run_parser.add_argument("--max-iterations", type=int, required=True)
+    run_parser.add_argument("--max-repeats", type=int, required=True)
+    run_parser.add_argument("--agent-timeout", type=float, required=True)
 
     run_parser.add_argument("-v", "--verbose", action="store_true", help="Verbose logging")
     run_parser.add_argument("--workspace", default="", help="Path to workspace directory")

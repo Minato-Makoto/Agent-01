@@ -1,7 +1,8 @@
 import threading
 import urllib.request
 
-from builtin_tools import browser_tools, photoshop_tools, sys_ops, web_ops, web_search
+from builtin_tools import browser_tools, computer_use_tools, photoshop_tools, sys_ops, web_ops, web_search
+from agentforge.runtime_config import load_tool_timeout_config
 
 
 class _FakeResponse:
@@ -55,9 +56,19 @@ def test_web_ops_uses_env_timeout(monkeypatch):
 def test_browser_wait_uses_env_timeout(monkeypatch):
     captured = {}
 
-    class _Page:
-        def wait_for_selector(self, selector, timeout=None):
+    class _Locator:
+        @property
+        def first(self):
+            return self
+
+        def wait_for(self, state="visible", timeout=None):
+            del state
             captured["timeout"] = timeout
+
+    class _Page:
+        def locator(self, selector):
+            del selector
+            return _Locator()
 
     monkeypatch.setenv("TOOL_TIMEOUT_BROWSER_WAIT_MS", "4321")
     monkeypatch.setattr(browser_tools.BrowserManager, "get_page", staticmethod(lambda: _Page()))
@@ -70,12 +81,13 @@ def test_browser_wait_uses_env_timeout(monkeypatch):
 def test_browser_navigate_and_click_use_env_timeouts(monkeypatch):
     captured = {}
 
-    class _ClickTarget:
+    class _Locator:
+        @property
+        def first(self):
+            return self
+
         def click(self, timeout=None):
             captured["click_timeout"] = timeout
-
-    class _TextQuery:
-        first = _ClickTarget()
 
     class _Page:
         url = "https://example.com"
@@ -86,11 +98,9 @@ def test_browser_navigate_and_click_use_env_timeouts(monkeypatch):
         def goto(self, url, wait_until=None, timeout=None):
             captured["nav_timeout"] = timeout
 
-        def click(self, selector, timeout=None):
-            captured["click_timeout"] = timeout
-
-        def get_by_text(self, text):
-            return _TextQuery()
+        def locator(self, selector):
+            del selector
+            return _Locator()
 
     monkeypatch.setenv("TOOL_TIMEOUT_BROWSER_NAV_MS", "21000")
     monkeypatch.setenv("TOOL_TIMEOUT_BROWSER_ACTION_MS", "3300")
@@ -150,3 +160,36 @@ def test_process_list_uses_env_timeout(monkeypatch):
     result = sys_ops._process_list({})
     assert result.success is True
     assert captured["timeout"] == 7
+
+
+def test_runtime_config_reads_desktop_timeouts(monkeypatch):
+    monkeypatch.setenv("TOOL_TIMEOUT_DESKTOP_ACTION_MS", "1234")
+    monkeypatch.setenv("TOOL_TIMEOUT_DESKTOP_SCREENSHOT_S", "19")
+    cfg = load_tool_timeout_config()
+    assert cfg.desktop_action_ms == 1234
+    assert cfg.desktop_screenshot_s == 19
+
+
+def test_desktop_screenshot_uses_workspace_output(monkeypatch, tmp_path):
+    class _FakeImage:
+        def save(self, path):
+            with open(path, "wb") as handle:
+                handle.write(b"fake")
+
+    class _FakePyAuto:
+        @staticmethod
+        def size():
+            return (800, 600)
+
+        @staticmethod
+        def screenshot(region=None):
+            del region
+            return _FakeImage()
+
+    monkeypatch.setenv("AGENTFORGE_WORKSPACE", str(tmp_path))
+    monkeypatch.setenv("AGENTFORGE_DESKTOP_CONTROL", "1")
+    monkeypatch.setattr(computer_use_tools, "_import_pyautogui", lambda: (_FakePyAuto(), None))
+
+    result = computer_use_tools._desktop_screenshot({})
+    assert result.success is True
+    assert "screenshots" in result.output["path"]

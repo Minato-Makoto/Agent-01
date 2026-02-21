@@ -29,6 +29,7 @@ llama-b*-win-cuda-*/
 
 # Reference repos (local development only)
 reference/
+skills ref/
 
 # IDE/editor
 .vscode/

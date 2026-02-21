@@ -19,7 +19,7 @@ from agentforge.runtime_config import load_tool_timeout_config
 logger = logging.getLogger(__name__)
 
 
-def register(registry: ToolRegistry, skill_name: str = "WebSearch") -> None:
+def register(registry: ToolRegistry, skill_name: str = "web_search") -> None:
     """Register web search tools."""
     tools = [
         Tool(

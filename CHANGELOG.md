@@ -2,6 +2,36 @@
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-02-21
+
+### Added
+- New `computer-use-agents` skill and desktop control tools:
+  - `desktop_screenshot`
+  - `desktop_move_mouse`
+  - `desktop_click`
+  - `desktop_type`
+  - `desktop_key`
+  - `desktop_scroll`
+- File organizer-style operations in `builtin_tools.file_ops`:
+  - `move_file`
+  - `copy_file`
+  - `rename_path`
+  - `make_directory`
+  - `find_duplicates` (report-only)
+- Browser automation improvements:
+  - user-facing locators (`role`, `name`, `text`) for click/type/wait
+  - `browser_reset_context` for test isolation
+
+### Changed
+- Skill discovery standardized to `SKILL.md` per skill folder.
+- Canonical skill identity is now folder-based (`skill_id`), with XML payload now including `<id>`.
+- Agent bootstrap/documentation now refer to `SKILL.md` activation path.
+- Strict loop argument policy:
+  - runtime requires explicit `max_iterations`, `max_repeats`, `agent_timeout`
+  - launcher default `MAX_ITERATIONS` raised from `10` to `25`
+- `run.bat` runtime defaults expanded for desktop-control timeout/env controls.
+- Package/runtime version bumped to `1.1.1`.
+
 ### Changed
 - Redesigned terminal UI to a tree-lane flow (`│`, `├─`, `└─`) with realtime markdown streaming and state color transitions.
 - Added dedicated output renderer module (`src/agentforge/model_output_renderer.py`) and adaptive palette detection (`AGENTFORGE_UI_THEME=auto|dark|light`).
@@ -119,8 +149,8 @@
   - `src/builtin_tools/calculator.py`
   - `src/builtin_tools/message_tool.py`
 - Skill definitions removed:
-  - `workspace/skills/math/SKILL_MATH.md`
-  - `workspace/skills/communication/SKILL_COMMUNICATION.md`
+  - `workspace/skills/math/SKILL.md`
+  - `workspace/skills/communication/SKILL.md`
 - Obsolete calculator-specific test removed:
   - `src/tests/test_calculator_safety.py`
 

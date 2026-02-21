@@ -17,7 +17,7 @@ class _DummyLLM:
 def _write_skill_file(path: Path) -> Path:
     skill_dir = path / "skills" / "file_ops"
     skill_dir.mkdir(parents=True, exist_ok=True)
-    skill_file = skill_dir / "SKILL_FILE_OPS.md"
+    skill_file = skill_dir / "SKILL.md"
     skill_file.write_text(
         """---
 name: File Ops
@@ -37,11 +37,16 @@ def test_skill_is_unavailable_until_activation_then_unlocked(minimal_workspace):
     skill_file = _write_skill_file(minimal_workspace)
     loader = SkillLoader(str(minimal_workspace))
     discovered = loader.discover()
-    assert "File Ops" in discovered
+    assert "file_ops" in discovered
 
     registry = ToolRegistry()
     agent = Agent(
-        config=AgentConfig(workspace_dir=str(minimal_workspace), max_iterations=2),
+        config=AgentConfig(
+            max_iterations=2,
+            max_repeats=3,
+            timeout=30.0,
+            workspace_dir=str(minimal_workspace),
+        ),
         llm=_DummyLLM(),
         tools=registry,
         skill_loader=loader,
@@ -65,11 +70,16 @@ def test_skill_full_flow_discover_activate_register_execute_deactivate(minimal_w
     skill_file = _write_skill_file(minimal_workspace)
     loader = SkillLoader(str(minimal_workspace))
     discovered = loader.discover()
-    assert "File Ops" in discovered
+    assert "file_ops" in discovered
 
     registry = ToolRegistry()
     agent = Agent(
-        config=AgentConfig(workspace_dir=str(minimal_workspace), max_iterations=2),
+        config=AgentConfig(
+            max_iterations=2,
+            max_repeats=3,
+            timeout=30.0,
+            workspace_dir=str(minimal_workspace),
+        ),
         llm=_DummyLLM(),
         tools=registry,
         skill_loader=loader,
@@ -86,10 +96,10 @@ def test_skill_full_flow_discover_activate_register_execute_deactivate(minimal_w
     assert isinstance(executed.output, list)
 
     # deactivate + unregister
-    loader.deactivate("File Ops")
-    registry.unregister_skill("File Ops")
-    assert loader.get_skill("File Ops") is not None
-    assert loader.get_skill("File Ops").active is False
+    loader.deactivate("file_ops")
+    registry.unregister_skill("file_ops")
+    assert loader.get_skill("file_ops") is not None
+    assert loader.get_skill("file_ops").active is False
     assert registry.has("list_directory") is False
 
     blocked = agent.tool_loop.execute_tool("list_directory", {"path": str(minimal_workspace)})

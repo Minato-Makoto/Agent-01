@@ -2,6 +2,12 @@
 
 Windows-first AI agent runtime. Entry duy nhat cho user: `run.bat`.
 
+v1.1.1 highlights:
+- Skill manifests standardized to `workspace/skills/<skill_id>/SKILL.md`
+- Skill ID is canonical by folder name
+- Native desktop control tools (`desktop_*`) via `computer-use-agents` skill
+- Strict loop args wiring from launcher (`MAX_ITERATIONS`, `MAX_REPEATS`, `AGENT_TIMEOUT`)
+
 ## Quick start
 
 1. Cai Python 3.10+.
@@ -26,6 +32,11 @@ run.bat
 
 - Hien browser de user view:
   - `set AGENTFORGE_BROWSER_HEADLESS=0`
+
+## Desktop control
+
+- Bat/tat desktop tools:
+  - `set AGENTFORGE_DESKTOP_CONTROL=1` (default on)
 
 ## Quality checks
 

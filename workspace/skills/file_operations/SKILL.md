@@ -1,5 +1,5 @@
 ---
-name: File Operations
+name: file_operations
 description: Write, list, search, and inspect files/directories in the local filesystem.
 module: builtin_tools.file_ops
 tools:
@@ -7,6 +7,11 @@ tools:
   - list_directory
   - search_files
   - file_info
+  - move_file
+  - copy_file
+  - rename_path
+  - make_directory
+  - find_duplicates
 ---
 
 # File Operations Skill
@@ -31,3 +36,24 @@ This skill adds mutation and discovery operations.
 ## `file_info`
 - Required: `path`
 - Returns metadata: absolute path, type, size, timestamps
+
+## `move_file`
+- Required: `source`, `destination`
+- Moves file/directory inside workspace
+
+## `copy_file`
+- Required: `source`, `destination`
+- Copies file/directory inside workspace
+
+## `rename_path`
+- Required: `path`, `new_name`
+- Renames target in place inside workspace
+
+## `make_directory`
+- Required: `path`
+- Creates directory recursively inside workspace
+
+## `find_duplicates`
+- Required: `path`
+- Optional: `max_files` (default `5000`)
+- Reports duplicates by SHA-256 hash (read-only, no delete)

@@ -4,13 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agentforge"
-version = "1.0.1"
+version = "1.1.1"
 description = "Windows-first local/remote AI agent runtime with structured tool-calling."
 requires-python = ">=3.10"
 dependencies = [
   "rich",
   "beautifulsoup4",
   "playwright",
+  "pyautogui",
   "python-socketio",
   "websocket-client",
   "pyyaml",
