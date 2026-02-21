@@ -16,122 +16,148 @@ REM 1) Chế độ Cục bộ (Mặc định):
 REM    Đảm bảo đường dẫn biến MODEL_PATH và SERVER_EXE trỏ đến các tập tin hợp lệ.
 REM    Chạy lệnh: run.bat
 REM
-REM 2) Chế độ Từ xa (Tương thích API OpenAI):
+REM 2) Chế độ Từ xa (Mượn API bên ngoài):
 REM    set PROVIDER=openai_compatible
 REM    set BASE_URL=https://api.openai.com/v1
 REM    set MODEL_ID=gpt-4o
 REM    set OPENAI_API_KEY=YOUR_KEY
 REM    run.bat
 REM
-REM 3) Chế độ An toàn (Môi trường cách ly hộp cát):
+REM 3) Chế độ An toàn (Khóa quyền sửa file máy tính):
 REM    set SHELL_WORKSPACE_ONLY=1
 REM    run.bat
 REM
 REM [i] HƯỚNG DẪN CẤU HÌNH THÔNG SỐ
 REM ------------------------------------------------------------
-REM Người dùng có thể chỉnh sửa các giá trị mặc định trực tiếp bên dưới 
-REM tại các dòng "set VAR=value", hoặc ghi đè tạm thời thông qua môi trường dòng lệnh trước khi chạy:
+REM Bạn có thể đổi vĩnh viễn các thông số bằng cách sửa số đằng sau dấu "=" ở dưới.
+REM Hoặc đổi tạm thời dùng ngay ở Terminal:
 REM   set MAX_TOKENS=4096 && run.bat
 REM ============================================================
 
 REM ---- 1. Hệ thống & Chế độ Vận hành (Provider Mode) ----
 
 REM [PROVIDER]
-REM Khái niệm: Xác định bộ mã nguồn xử lý và quản lý mô hình ngôn ngữ lớn (LLM).
-REM Ảnh hưởng: Giá trị 'local' sẽ gọi tệp thực thi llama-server.exe trên máy. Giá trị 'openai_compatible' sẽ tạo kết nối định tuyến API đến máy chủ bên ngoài.
-REM Cú pháp ví dụ: set PROVIDER=local (Sử dụng cấu hình máy tính cá nhân).
+REM Khái niệm: Công tắc chọn "nơi" AI sẽ suy luận.
+REM Tác động: Quyết định việc AI dùng sức mạnh phần cứng máy tính bạn (local) hay thông qua sức mạnh mạng API của dịch vụ đám mây (openai_compatible).
+REM Ví dụ:
+REM - PROVIDER=local (Mặc định): An toàn, riêng tư 100%, có thể rút mạng máy tính AI vẫn chạy.
+REM - PROVIDER=openai_compatible: Mượn năng lực tính toán cực lớn của OpenAI máy chủ.
 if not defined PROVIDER set "PROVIDER=local"
 
-REM ---- 2. Cấu hình Máy chủ Cục bộ (Kích hoạt với PROVIDER=local) ----
+REM ---- 2. Cấu hình Máy chủ Cục bộ (Kích khoản khi PROVIDER=local) ----
 
 REM [SERVER_EXE] & [MODEL_PATH]
-REM Khái niệm: Đường dẫn lưu trữ thư mục tuyệt đối đến phần mềm llama-server và tập tin cơ sở dữ liệu mô hình (GGUF).
-REM Ảnh hưởng: Bắt buộc cung cấp để khởi động dịch vụ máy chủ cục bộ. Vắng thông số MODEL_PATH, phần mềm sẽ dừng khởi động kèm thông báo lỗi thiếu bộ nhớ mô hình.
-REM Cú pháp ví dụ: set MODEL_PATH="D:\models\Llama-3.gguf"
+REM Khái niệm: Đường dẫn tới ứng dụng khởi động AI (SERVER_EXE) và file bộ não AI (MODEL_PATH - định dạng file là .gguf).
+REM Tác động: Nếu không trỏ vào đúng đường dẫn MODEL_PATH, phần mềm sẽ không thể khởi động vì "không có bộ não".
+REM Ví dụ:
+REM - MODEL_PATH="D:\Models\AI_Llama.gguf"
 if not defined SERVER_EXE set "SERVER_EXE=%~dp0llama-b8069-bin-win-cuda-13.1-x64\llama-server.exe"
-if not defined MODEL_PATH set "MODEL_PATH=D:\Personal\MinatoZeroFace\AI Agent\model\Llama-3.3-8B-Instruct.Q4_K_M.gguf"
+if not defined MODEL_PATH set "MODEL_PATH=D:\Personal\MinatoZeroFace\AI Agent\model\Qwen3VL-Thinking\Qwen3VL-8B-Thinking-Q4_K_M.gguf"
 
-REM ---- 3. Cấu hình Máy chủ Từ xa (Kích hoạt với PROVIDER=openai_compatible) ----
+REM ---- 3. Cấu hình Máy chủ Từ xa (Kích hoạt khi PROVIDER=openai_compatible) ----
 
 REM [BASE_URL], [MODEL_ID], [API_KEY_ENV]
-REM Khái niệm: Thiết lập mạng kết nối đến đường dẫn API máy chủ bên thứ ba. API_KEY_ENV chỉ định tên biến lưu trữ khóa xác thực dạng mã hóa.
-REM Ảnh hưởng: Bắt buộc cấu hình thông số BASE_URL và thiết lập rõ MODEL_ID. Việc thiếu khóa API (API Key) từ hệ thống gây ra lỗi hệ thống từ chối kết nối giao thức.
-REM Cú pháp ví dụ: set BASE_URL=https://api.openai.com/v1, set MODEL_ID=gpt-4o
+REM Khái niệm: Dành cho khi bạn kết nối tới máy chủ ngoài. API_KEY_ENV là tên biến môi trường chứa pass giải mã khóa tài khoản bạn.
+REM Tác động: Nếu nhập thiếu BASE_URL hoặc quên khai báo API key, máy chủ sẽ chặn yêu cầu dẫn đến báo lỗi đỏ lòm.
 if not defined BASE_URL set "BASE_URL=http://127.0.0.1:8080"
 if not defined MODEL_ID set "MODEL_ID=local"
 if not defined API_KEY_ENV set "API_KEY_ENV=OPENAI_API_KEY"
 
-REM ---- 4. Tùy chỉnh Suy luận (Inference Tuning) ----
+REM ---- 4. Tùy chỉnh Não Phản hồi (Inference Tuning) - MỤC QUAN TRỌNG NHẤT ----
 
-REM [CTX_SIZE]
-REM Khái niệm: Tổng kích thước vùng nhớ đệm ngữ cảnh (tính theo đơn vị token) được cấp phát hoạt động cho phiên làm việc hiện tại.
-REM Ảnh hưởng: Giá trị CTX_SIZE cao cho phép phần mềm phân tích tệp tin dài hạn, nhưng tiêu tốn mạnh bộ nhớ dung lượng cao của VRAM và RAM.
-REM Cú pháp ví dụ: 8192 (Phản hồi tốc độ cao), 16384 (Xử lý tập tin chuỗi đồ sộ).
+REM [CTX_SIZE] (Kích thước: 1024, 2048, 4096, 8192, 16384...)
+REM Khái niệm: Kích thước bộ nhớ "ngắn hạn" của AI. Số lượng chữ tối đa mà AI được phép ghi nhớ trong một phiên trò chuyện (hay tính bằng Token).
+REM Tác động: Số lượng càng cao, AI càng nhớ được nhiều log cũ, đọc được file tài liệu dài. NHƯNG nó sẽ nuốt rất nhiều RAM / Card màn hình (VRAM).
+REM Ví dụ:
+REM - CTX_SIZE=8192: Đủ bộ nhớ đọc 1-2 file Word nhỏ, thích hợp Card đồ họa phổ thông.
+REM - CTX_SIZE=16384: Dành cho việc ép AI nhét một dự án to vào đầu để đọc. Nếu VRAM (Card đồ họa) dưới 12GB có thể lỗi đen màn.
 if not defined CTX_SIZE set "CTX_SIZE=16384"
 
 REM [GPU_LAYERS] & [THREADS]
-REM Khái niệm: Phân bổ số lượng xử lý tính toán của lớp nơ-ron lên bộ vi xử lý thẻ đồ họa GPU (-1 = đẩy toàn bộ dải băng) và cấp độ nhận luồng vi xử lý ở CPU (0 = phân bổ tự động tự động hóa).
-REM Ảnh hưởng: Thao tác thay đổi GPU_LAYERS giúp tối đa hóa tốc độ nạp dữ liệu chuỗi (token generation). THREADS dùng để phân luồng lại hiệu năng vận hành cho CPU.
+REM Khái niệm: Phân bổ điện toán phần cứng.
+REM - GPU_LAYERS là ép bao nhiêu lớp não của AI chạy qua card Màn Hình (VRAM).
+REM - THREADS là số lõi của vi xử lý (CPU) cho phép trợ lực hệ thống.
+REM Tác động: Quyết định AI nhả chữ nhanh hay chậm. Giải phóng tối đa phần cứng.
+REM Ví dụ: 
+REM - GPU_LAYERS=-1 (Mặc định): Đẩy 100% mạng AI qua Card màn hình (Nhả chữ nhanh nhất thị trường). Nếu máy quá giựt/văng thì có thể tự hạ xuống sửa số bằng 30 hoặc 20.
+REM - THREADS=0 (Mặc định): Để máy tự động quyết định CPU rảnh bao nhiêu thì xài bấy nhiêu.
 if not defined GPU_LAYERS set "GPU_LAYERS=-1"
 if not defined THREADS set "THREADS=0"
 
-REM [TEMPERATURE]
-REM Khái niệm: Tỷ lệ phân kỳ phân phối dữ liệu cho ra văn bản (entropy).
-REM Ảnh hưởng: Giá trị hệ số (0.1) xuất thông số mang cấu trúc chính xác, rập khuôn, thích hợp môi trường phân tích mã độc lập. Mức hệ số (0.7) phù hợp với những dự án văn bản lên dạng thiết kế dự thảo ý tưởng.
+REM [TEMPERATURE] (Khoảng giá trị: 0.0 đến 2.0)
+REM Khái niệm: Độ "sáng tạo", hoặc "ngẫu hứng" khi lấy từ của AI.
+REM Tác động: Càng thấp thì văn càng nguyên tắc, kỹ thuật. Càng cao thì AI càng dùng từ bay bổng, bất ngờ, dễ bị ảo giác chế lời điêu toa.
+REM Ví dụ:
+REM - TEMPERATURE=0.1 (Mặc định): Chuyên cho việc code, sửa logic phần mềm. AI không "vẽ râu ria", trả lời khô khan nhưng trúng thứ cần tìm.
+REM - TEMPERATURE=0.8: Viết email, viết nội dung cho trang Facebook. Cần sự mở rộng từ điển cao nhất để nghe giống người thật.
 if not defined TEMPERATURE set "TEMPERATURE=0.1"
 
-REM [TOP_P]
-REM Khái niệm: Hệ số chọn mẫu cắt bỏ theo định dạng xác suất cộng dồn (Nucleus sampling).
-REM Ảnh hưởng: Tự động loại bỏ các token mang giá trị xác suất không đáng kể. Ứng dụng xuất văn bản bớt loạn mà không mang nguy cơ giống với hệ số Temperature.
+REM [TOP_P] (Khoảng giá trị: 0.0 đến 1.0)
+REM Khái niệm: Màng lọc tỷ lệ % từ khóa. AI sẽ sắp xếp các từ tiếp theo có khả năng được nó chọn từ tốt nhất (VD: từ "Tôi" là 80%, "Tớ" là 10%) dần xuống thấp. TOP_P sẽ lấy từ cao nhất xuống tới khi ĐỦ tổng tỷ lệ P. Phần từ rác ở dưới đáy bảng sẽ bị gạch bỏ hoàn toàn khỏi bộ nhớ.
+REM Tác động: Dùng để chặn AI ném ra những từ vô lý.
+REM Ví dụ:
+REM - TOP_P=0.9 (Mặc định): Loại bỏ 10% các từ khóa xấu/có khả năng bị điên nhất. Giúp giữ lại 90% bộ từ vựng, không làm AI bị thu hẹp không gian dùng từ mềm mại.
+REM - TOP_P=0.1: Chặn đứng 90% từ khóa. Ép AI chỉ được bốc chữ trong một rổ nhỏ các từ đúng logic nhất. Lấy ra output như cái máy.
 if not defined TOP_P set "TOP_P=0.9"
 
-REM [TOP_K]
-REM Khái niệm: Giới hạn tập số lựa chọn mã hóa xuống cho số K mã hiển thị.
-REM Ảnh hưởng: Khống chế thuật toán tạo ra lỗi chữ văn bản trong lúc nâng mức thông số biến Temperature (độ ngẫu nhiên văn bản).
+REM [TOP_K] (Khoảng giá trị: 1 trở lên)
+REM Khái niệm: Màng lọc chốt số lượng chữ chuẩn (Không liên quan tỷ lệ %). TOP_K ép AI chỉ được nhìn đúng tới K cái tên từ khóa điểm cao nhất nằm trên top.
+REM Tác động: Gọt đi đuôi chữ xấu. Dùng rất tốt kết hợp với lúc set Temperature thật to. Temperature làm câu từ bay bổng (dễ hỏng), TOP_K sẽ níu lại bảo đảm dù bay bổng kiểu gì thì từ cuối cùng xuất ra cũng được tuyển chọn ngữ pháp.
+REM Ví dụ:
+REM - TOP_K=40 (Mặc định): Mỗi lần chuẩn bị viết 1 từ, AI chỉ được nhìn 40 cái tên cao điểm nhất để bốc 1 từ lên bảng.
+REM - TOP_K=1: Ép AI chỉ được chọn duy nhất tên đỉnh bảng. Hệ quả: chạy chương trình 10 lần thì sẽ phun ra chữ đúng y hệt 10 lần (y xì đúc như photo bài nhau).
 if not defined TOP_K set "TOP_K=40"
 
-REM [REPEAT_PENALTY]
-REM Khái niệm: Số định mức trừ phạt nhằm cấm lặp lại nội dung đã phản hồi.
-REM Ảnh hưởng: Các cấu trúc tăng trên mức 1.0 cho văn bản LLM tránh tình huống hiện tượng dính vào lỗi vòng lặp text lặp vô thời hạn (infinite loop text). Cấu trúc 1.1 đến dạng 1.2 đáp ứng cho mô hình ổn định nhất.
+REM [REPEAT_PENALTY] (Khoảng giá trị: 1.0 trở lên)
+REM Khái niệm: Hình phạt lặp từ. Khi AI định dùng lại chữ nó vừa mới xuất ra câu trên, điểm số của từ đó bị đè thụt xuống.
+REM Tác động: Phòng chống AI nhảy vào lỗi lặp vô hạn (Ví dụ vòng lập: "Tôi đang đang đang đang").
+REM Ví dụ:
+REM - REPEAT_PENALTY=1.0: Không trừng phạt (Tắt chế độ này). AI lặp từ thoải mái tùy ý.
+REM - REPEAT_PENALTY=1.1 (Mặc định): Mức phạt vừa chuẩn nhất. AI viết tự nhiên, không lặp thành đoạn văn rườm rà.
+REM - REPEAT_PENALTY=1.5: Phạt quá nặng. AI sẽ tìm mọi cách chạy trốn từ nó vừa dùng xong. Hậu quả là nó sẽ thốt ra những tự dở hơi không làm được việc.
 if not defined REPEAT_PENALTY set "REPEAT_PENALTY=1.1"
 
 REM [SEED] & [REASONING_EFFORT]
-REM Khái niệm: Giá trị SEED khóa giá trị ngẫu nhiên gốc sinh hàm (-1 = off). Thông số REASONING_EFFORT (Chi phí phân rã vấn đề logic suy luận chuyên sâu) trên dòng model có thông số (o1, o3).
-REM Ảnh hưởng: Chỉ số khóa thuật bằng giá trị SEED cho ra chính xác cấu hồi output hỗ trợ cho quy trình sửa và gỡ lỗi (Debugging).
+REM Khái niệm:
+REM - SEED: Khóa định sẵn của chuỗi chọn phần mềm. (-1 là mở hệ phát máy tự tạo/Ngẫu nhiên đổi khác chuỗi).
+REM - REASONING_EFFORT: Bắt AI dừng bao lâu trong tiềm thức để nghiền ngẫm kết quả cấu trúc bài. (Chủng hệ như OpenAI đời model o1 mới mở tính năng khóa này).
+REM Ví dụ: Chỉnh SEED=42. Khi chạy ứng dụng nhiều lần, bạn sẽ bắt phần mềm này hoạt động cho ra văn bản luôn trùng và có cùng quá trình mắc lỗi. Tiện nhất để xem mình sửa Code đã thực sự vượt cái lỗi cũ ở lượt trước chưa.
 if not defined SEED set "SEED=-1"
 if not defined REASONING_EFFORT set "REASONING_EFFORT=low"
 
-REM [MAX_TOKENS]
-REM Khái niệm: Giới hạn mức độ phần mềm tải giới hạn trả thông điệp sinh.
-REM Ảnh hưởng: Giảm khả năng LLM tạo văn bản quá khổ dài. Mức chuẩn thiết lập 8192 để không tạo cúp máy file đang chạy in output.
+REM [MAX_TOKENS] (Chỉ số giới hạn vòng trả lời)
+REM Khái niệm: Độ dài tối đa bức thư/đoạn tin nhắn cho Mỗi Một lần AI In ra trên cửa sổ trả lời trả về bạn.
+REM Tác động: Khống chế việc máy bị treo VRAM của hệ do kéo chuỗi sinh vô hạn.
+REM Ví dụ:
+REM - MAX_TOKENS=8192: Chỉnh khá cao để phần mềm kịp thời in phun toàn bộ đoạn Code dài vô cấu trả về cửa số mà không phanh gắt, gián đoạn lệnh in cắt ngang trang.
 if not defined MAX_TOKENS set "MAX_TOKENS=8192"
 
 REM ---- 5. Dấu thời gian phản hồi máy chủ & Lệnh Mạng ----
 
 REM [HOST] & [PORT]
-REM Khái niệm: Điểm kết nối giao thức địa chỉ IPv4/IPv6 qua Port dịch vụ.
+REM Khái niệm: Điểm kết nối địa chỉ thiết bị máy chủ.
 if not defined HOST set "HOST=127.0.0.1"
 if not defined PORT set "PORT=8080"
 
 REM [BOOT_TIMEOUT], [REQUEST_TIMEOUT], [HEALTH_TIMEOUT], [SHUTDOWN_TIMEOUT]
-REM Khái niệm: Vòng lặp ngưỡng giây chờ phần mềm xử lý gọi khởi chạy máy chủ, trả request gửi (API), kiểm tra gói (ping) truy và quá trình thoát quy trình một cách chuẩn thao tác.
-REM Ảnh hưởng: Với tệp LLM nặng tải RAM trên cấu kiện ổ thiết bị thường bằng cơ cứng (HDD) khuyến nghị chỉnh BOOT_TIMEOUT tăng lên hệ 240+ tránh văng phần mềm.
+REM Khái niệm: Tính bằng (Giây). Vòng lặp ngưỡng chờ phần mềm tính giây (gọi khởi chạy máy chủ, trả request gửi API, độ ngậm ping khi gửi nhận truy cập, thoát lưu).
+REM Ảnh hưởng: Khi cắm cái não AI (.gguf) nặng quá khổ dung lượng Ram máy lên HDD ổ thường xoay cơ xoắn từ. Tốc bật máy rất trễ. Để BOOT_TIMEOUT=240, nới rông lề giây lên tránh ứng dụng rớt tắt báo văng ứng dụng chả ra đâu.
 if not defined BOOT_TIMEOUT set "BOOT_TIMEOUT=120"
 if not defined HEALTH_TIMEOUT set "HEALTH_TIMEOUT=2"
 if not defined REQUEST_TIMEOUT set "REQUEST_TIMEOUT=300"
 if not defined SHUTDOWN_TIMEOUT set "SHUTDOWN_TIMEOUT=5"
 
 REM [COMPAT_RETRY_LIMIT] & [MAX_REQUESTS_PER_MINUTE]
-REM Khái niệm: Thông số chặn cố định về lần gửi lỗi API gửi bị đóng mạng và max truy lặp 1 phút.
-REM Ảnh hưởng: Cầu chì bảo vệ tài khoản nạp tín dụng qua dịch vụ giới hạn các query từ vòng tròn xử lý gọi truy suất vô ngắt quãng.
+REM Khái niệm: Thông số cố định lần chặn gửi lại phần lỗi API đứt gãy kết nối mạng/ 1 phút tối đa cho thả request.
+REM Ảnh hưởng: Nếu AI gặp truy sai ngắt lạp truy gửi không thoát khỏi vô mạch lỗi. Nó chận bay tiền dịch vụ (Thẻ trả API bên ngoài/chặn đập tiền ngu).
 if not defined COMPAT_RETRY_LIMIT set "COMPAT_RETRY_LIMIT=8"
 if not defined MAX_REQUESTS_PER_MINUTE set "MAX_REQUESTS_PER_MINUTE=60"
 
 REM ---- 6. Thông số ngắt bộ khung phần mềm Agent ----
 
 REM [MAX_ITERATIONS], [MAX_REPEATS], [AGENT_TIMEOUT]
-REM Khái niệm: Chuỗi kỹ thuật định tuyến cho quá trình AI không chạy ngắt (Infinite). Khống bộ xử lý truy vòng lập vô ích qua số lần cho phép vòng lật (MAX_ITERATIONS). Số lần dùng công cụ trượt liên lục bởi tool gọi tool giống kết (MAX_REPEATS) cùng dải định độ ngõ ra (AGENT_TIMEOUT).
-REM Ảnh hưởng: Đưa hệ thống vào mạch chốt bảo vệ đóng ngay tài nguyên khi bộ khung logic phần mềm không vượt lỗi code ngỏ.
+REM Khái niệm: Số vòng cho phép để AI chạy nhiệm vụ trước khi bạn cưỡng chế gạt điện tắt (MAX_ITERATIONS). Số lần ứng dụng cho phép dùng một tool xịt (trượt lặp quá trình) - (MAX_REPEATS), độ rộng thời gian tính chẵn trên giây cả lần quy trình.
+REM Ví dụ: MAX_ITERATIONS=25 tức phần mềm chỉ nhồi vòng phân gỡ file tìm cho đủ tối lượng tới chu kỳ thao tác 25 đóng và thoát ngay phần mềm ngắt điện trả cửa sổ do hệ phán quá bí.
 if not defined MAX_ITERATIONS set "MAX_ITERATIONS=25"
 if not defined MAX_REPEATS set "MAX_REPEATS=3"
 if not defined AGENT_TIMEOUT set "AGENT_TIMEOUT=300"
@@ -139,19 +165,19 @@ if not defined AGENT_TIMEOUT set "AGENT_TIMEOUT=300"
 REM ---- 7. Thiết lập bổ sung tập Công cụ ----
 
 REM [WORKSPACE], [EXTRA_ARGS]
-REM Khái niệm: Mở vùng hoạt động cho cấu hình Workspace bảo vệ và nhập mảng biến thông số (Args) ép lệnh chéo CLI.
+REM Khái niệm: Ấn định vùng thiết lập cho phép hộp làm Workspace bảo vệ phần lõi (Code ứng dụng, mã cá nhân).
 if not defined WORKSPACE set "WORKSPACE=%~dp0workspace"
 if not defined EXTRA_ARGS set "EXTRA_ARGS="
 
 REM [AGENTFORGE_BROWSER_HEADLESS] & [AGENTFORGE_DESKTOP_CONTROL]
-REM Khái niệm: Cài giá trị 0 = Cho khởi duyệt chương trình qua hiển thị tab windows xem. Bằng 1 = Hoạt động tiến trình trình duyệt ngầm xử lý (headless).
-REM Ảnh hưởng: Phương diện 0 để chạy quá trình xử lý bắt lỗi cấu trúc nhưng cheo màn hình hiển cửa sổ ngắt gián đoạn thao tác màn hình làm việc (window popping).
+REM Khái niệm: Tắt mở xem phần mềm xử quá trình công cụ (Browser).
+REM Ví dụ: 0 = Cho khởi duyệt chương trình qua hiển thị tab windows pop-up lên màn. 1 = Chạy dấu nhẹ cửa sổ dưới ngầm task cho bạn không thấy để không chiếm diện tích máy đang mở coi phim (Headless).
 if not defined AGENTFORGE_BROWSER_HEADLESS set "AGENTFORGE_BROWSER_HEADLESS=0"
 if not defined AGENTFORGE_DESKTOP_CONTROL set "AGENTFORGE_DESKTOP_CONTROL=1"
 
 REM [TOOL_TIMEOUT_*]
-REM Khái niệm: Ngưỡng ngắt tính theo MS/S chuyên về thiết bị nhóm trình duyệt, điều khiền cửa số ứng dung photoshop/shell.
-REM Ảnh hưởng: Tránh văng treo (froze lag) chương trình do mạng phản chờ duyệt không trả web hay phần mềm photoshop mất phản.
+REM Khái niệm: Mức hẹn đóng tính chặn Mili-giây (Ms)/ Giây(S). Các Tool khi gửi không truy tải được qua cấu hình.
+REM Tác động: AI chạy bộ ứng dụng duyệt tìm, Photoshop. Do web lỗi phản chậm sẽ không để chương trình đóng lag phanh vô cực phần mềm.
 if not defined TOOL_TIMEOUT_BROWSER_NAV_MS set "TOOL_TIMEOUT_BROWSER_NAV_MS=30000"
 if not defined TOOL_TIMEOUT_BROWSER_ACTION_MS set "TOOL_TIMEOUT_BROWSER_ACTION_MS=5000"
 if not defined TOOL_TIMEOUT_BROWSER_WAIT_MS set "TOOL_TIMEOUT_BROWSER_WAIT_MS=10000"
@@ -163,8 +189,10 @@ if not defined TOOL_TIMEOUT_PHOTOSHOP_S set "TOOL_TIMEOUT_PHOTOSHOP_S=30"
 if not defined TOOL_TIMEOUT_PROCESS_LIST_S set "TOOL_TIMEOUT_PROCESS_LIST_S=10"
 
 REM [SHELL_WORKSPACE_ONLY]
-REM Khái niệm: Bộ cách ly chạy ứng dụng dạng hộp cắt ứng với trình quản hệ command prompt (Terminal).
-REM Ảnh hưởng: Thao báo cấu 1/True (Mặc Định) là chỉ cho tệp tin/xoá đọc thông qua bộ lưu dữ liệu WORKSPACE. Tắt chỉ số 0 sẽ thông bộ cách hạn cấp đọc ghi từ mã code vào thẳng bất ổ cứng thiết bị nội hệ file C máy (Dành riêng cấu trúc uỷ quyền 100% PC cho Agent).
+REM Khái niệm: Lớp phân chốt ứng dụng hạn khóa đọc dòng thiết bị từ Command Line sang (Terminal).
+REM Ví dụ: 
+REM - SHELL_WORKSPACE_ONLY=1 (Mặc định): An tâm thả AI tạo, truy sửa tệp vì nó KHÔNG bị tràn file thoát khỏi hệ mục phân giới thư Workspace ứng dụng vào máy ổ bộ hệ gốc bạn.
+REM - SHELL_WORKSPACE_ONLY=0: Tắt khoá. Dành cho phép uỷ nhiệm, cho dòng AI nhảy thẳng toàn kho máy, hệ máy. (Phải cực am hiểm uỷ phần code chạy riêng nếu không banh ổ cứng bộ nhớ hệ).
 if not defined SHELL_WORKSPACE_ONLY set "SHELL_WORKSPACE_ONLY=1"
 
 REM Normalize quoted env inputs (support both: set VAR=value and set VAR="value")

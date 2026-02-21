@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent-01 Data Flow Diagram (Document Theme)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #f8fafc;
+            /* Nền sáng tài liệu */
+            --node-bg: #ffffff;
+            --node-border: #e2e8f0;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --primary: #3b82f6;
+            /* Xanh dương cho Core */
+            --success: #10b981;
+            /* Xanh lá cho Input/Output */
+            --warning: #f59e0b;
+            /* Vàng cho Storage/Mở rộng */
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            font-family: 'Inter', sans-serif;
+            color: var(--text-main);
+            overflow: auto;
+            /* Allow scrolling if needed */
+        }
+
+        .header {
+            text-align: center;
+            padding: 40px 20px 0;
+            margin-bottom: -20px;
+        }
+
+        .header h1 {
+            font-size: 2.2rem;
+            margin: 0 0 10px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .header p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.5;
+        }
+
+        .canvas-container {
+            position: relative;
+            width: 1200px;
+            height: 850px;
+            margin: 50px auto;
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.05);
+            /* Soft drop shadow for document feel */
+            border: 1px solid var(--node-border);
+            overflow: hidden;
+            /* Phối cảnh 3D nhẹ để làm nổi line khi có FX */
+            perspective: 2000px;
+        }
+
+        svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        /* 3D FX cho các đường dẫn dữ liệu */
+        .path-bg {
+            fill: none;
+            stroke: #f1f5f9;
+            stroke-width: 4;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .path-flow {
+            fill: none;
+            stroke: var(--primary);
+            stroke-width: 5;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            stroke-dasharray: 12 30;
+            /* Hiệu ứng đứt đoạn giống viên bi chạy */
+            animation: flow 1s linear infinite;
+            filter: drop-shadow(0 4px 6px rgba(59, 130, 246, 0.4));
+            /* 3D Glow / Bóng đổ */
+        }
+
+        .path-flow-success {
+            stroke: var(--success);
+            filter: drop-shadow(0 4px 6px rgba(16, 185, 129, 0.4));
+        }
+
+        .path-flow-warning {
+            stroke: var(--warning);
+            filter: drop-shadow(0 4px 6px rgba(245, 158, 11, 0.4));
+        }
+
+        .path-flow.reverse {
+            animation: flow-reverse 1s linear infinite;
+        }
+
+        @keyframes flow {
+            from {
+                stroke-dashoffset: 42;
+            }
+
+            to {
+                stroke-dashoffset: 0;
+            }
+        }
+
+        @keyframes flow-reverse {
+            from {
+                stroke-dashoffset: 0;
+            }
+
+            to {
+                stroke-dashoffset: 42;
+            }
+        }
+
+        /* Các khối Node tài liệu */
+        .layer-label {
+            position: absolute;
+            font-size: 13px;
+            font-weight: 600;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            left: 40px;
+            z-index: 0;
+            border-bottom: 2px solid #f1f5f9;
+            padding-bottom: 5px;
+            width: 1120px;
+        }
+
+        .node {
+            position: absolute;
+            width: 220px;
+            background: var(--node-bg);
+            border: 2px solid var(--node-border);
+            border-radius: 12px;
+            padding: 16px 20px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            z-index: 2;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            /* Transform 3D nhẹ (nổi lên mặt phẳng) */
+            transform: translateZ(20px);
+        }
+
+        .node:hover {
+            transform: translateZ(40px) translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            border-color: #cbd5e1;
+        }
+
+        .node .node-title {
+            font-weight: 700;
+            font-size: 16px;
+            margin-bottom: 6px;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+        }
+
+        .node .node-title::before {
+            content: '';
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .node-primary {
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+
+        .node-primary .node-title::before {
+            background-color: var(--primary);
+            box-shadow: 0 0 8px rgba(59, 130, 246, 0.6);
+        }
+
+        .node-success {
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+
+        .node-success .node-title::before {
+            background-color: var(--success);
+            box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+        }
+
+        .node-warning {
+            border-color: rgba(245, 158, 11, 0.3);
+        }
+
+        .node-warning .node-title::before {
+            background-color: var(--warning);
+            box-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
+        }
+
+        .node .node-desc {
+            font-size: 13px;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="header">
+        <h1>Agent-01 Data Flow</h1>
+        <p>Kiến trúc Runtime hiển thị trên mặt phẳng sáng (Document Theme).<br>Sử dụng CSS/SVG mô phỏng dòng chảy dữ
+            liệu (3D FX).</p>
+    </div>
+
+    <div class="canvas-container" id="canvas" style="height: 900px;">
+        <svg id="svg-layer"></svg>
+
+        <!-- Layer 1 -->
+        <div class="layer-label" style="top: 30px;">1. Giao diện & Môi trường</div>
+
+        <div class="node node-success" id="user_input" style="top: 70px; left: 80px;">
+            <div class="node-title">User Input</div>
+            <div class="node-desc">Nhận dữ liệu từ run.bat / cli_runtime.py</div>
+        </div>
+
+        <div class="node node-success" id="ui_output" style="top: 70px; left: 900px;">
+            <div class="node-title">Terminal UI</div>
+            <div class="node-desc">model_output_renderer.py kết xuất markdown/tree-lane.</div>
+        </div>
+
+        <!-- Layer 2 -->
+        <div class="layer-label" style="top: 220px;">2. Core Inference Engine (Agent.run)</div>
+
+        <div class="node node-primary" id="agent_core"
+            style="top: 260px; left: 490px; padding: 20px; box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.1);">
+            <div class="node-title" style="font-size: 18px;">Agent.run()</div>
+            <div class="node-desc">Vòng lặp điều phối chính, gọi LLM, kiểm tra lỗi và quản lý Tool Calls.</div>
+        </div>
+
+        <div class="node node-primary" id="ctx_builder" style="top: 260px; left: 80px;">
+            <div class="node-title">ContextBuilder</div>
+            <div class="node-desc">Lắp ráp system prompt + skills XLM</div>
+        </div>
+
+        <div class="node node-primary" id="prompt_builder" style="top: 400px; left: 80px;">
+            <div class="node-title">PromptBuilder</div>
+            <div class="node-desc">Xây dựng payload messages (OpenAI format)</div>
+        </div>
+
+        <div class="node node-primary" id="llm" style="top: 400px; left: 490px;">
+            <div class="node-title">LLM Inference</div>
+            <div class="node-desc">chat_completion (Gọi Local/Remote API)</div>
+        </div>
+
+        <div class="node node-primary" id="parser" style="top: 400px; left: 900px;">
+            <div class="node-title">Response Parser</div>
+            <div class="node-desc">Phân giải JSON/XML bù trừ khi fail.</div>
+        </div>
+
+        <div class="node node-warning" id="tool_loop" style="top: 550px; left: 490px;">
+            <div class="node-title">Tool Loop</div>
+            <div class="node-desc">Vòng lặp bảo vệ, check repeat/timeout.</div>
+        </div>
+
+        <div class="node node-warning" id="plugins" style="top: 550px; left: 900px;">
+            <div class="node-title">Tool Registry & Plugins</div>
+            <div class="node-desc">browser, sys_ops, file_ops...</div>
+        </div>
+
+        <!-- Layer 3 -->
+        <div class="layer-label" style="top: 710px;">3. Workspace & Data Persistence</div>
+
+        <div class="node node-warning" id="session" style="top: 750px; left: 490px;">
+            <div class="node-title">SessionManager</div>
+            <div class="node-desc">Lưu trữ Session JSON v3</div>
+        </div>
+
+        <div class="node node-warning" id="summarizer" style="top: 750px; left: 80px;">
+            <div class="node-title">Summarizer</div>
+            <div class="node-desc">Nén Context 3 tầng (chống tràn memory)</div>
+        </div>
+
+        <div class="node node-warning" id="static" style="top: 750px; left: 900px;">
+            <div class="node-title">Boot Files & Skills</div>
+            <div class="node-desc">IDENTITY.md, SOUL.md, SKILL.md tĩnh...</div>
+        </div>
+    </div>
+
+    <script>
+        // Vẽ các đường kết nối SVG cong và đẹp mắt
+        const svg = document.getElementById('svg-layer');
+
+        function drawCurve(id1, id2, type = 'primary', isReverse = false, config = {}) {
+            const el1 = document.getElementById(id1);
+            const el2 = document.getElementById(id2);
+            if (!el1 || !el2) return;
+
+            const rect1 = el1.getBoundingClientRect();
+            const rect2 = el2.getBoundingClientRect();
+            const canvasRect = document.getElementById('canvas').getBoundingClientRect();
+
+            // Tính tâm
+            const x1 = rect1.left - canvasRect.left + rect1.width / 2 + (config.offsetX1 || 0);
+            const y1 = rect1.top - canvasRect.top + rect1.height / 2 + (config.offsetY1 || 0);
+            const x2 = rect2.left - canvasRect.left + rect2.width / 2 + (config.offsetX2 || 0);
+            const y2 = rect2.top - canvasRect.top + rect2.height / 2 + (config.offsetY2 || 0);
+
+            // Sinh đường cong Bezier
+            let pathData = '';
+
+            // Mặc định là C-curve tạo khuỷu cong (orthogonal bend)
+            // Tìm điểm bẻ cong giữa 2 block
+            const midY = (y1 + y2) / 2;
+            const midX = (x1 + x2) / 2;
+
+            if (Math.abs(x1 - x2) < 20) {
+                // Thẳng đứng
+                pathData = `M ${x1} ${y1} L ${x2} ${y2}`;
+            } else if (Math.abs(y1 - y2) < 20) {
+                // Thẳng ngang
+                pathData = `M ${x1} ${y1} L ${x2} ${y2}`;
+            } else {
+                // Cong dạng ống (bẻ 1 góc)
+                // Ưu tiên đi dọc rồi đi ngang hoặc ngược lại tuỳ vị trí
+                if (config.orientation === 'h') {
+                    pathData = `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`;
+                } else if (config.orientation === 'v') {
+                    pathData = `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`;
+                } else {
+                    // Tự động
+                    if (Math.abs(x1 - x2) > Math.abs(y1 - y2)) {
+                        pathData = `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`;
+                    } else {
+                        pathData = `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`;
+                    }
+                }
+            }
+
+            // Vẽ path nền (đường mờ)
+            const pathBg = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            pathBg.setAttribute('d', pathData);
+            pathBg.setAttribute('class', 'path-bg');
+            svg.appendChild(pathBg);
+
+            // Vẽ path luồng dữ liệu (chạy đứt đoạn)
+            const pathFlow = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            pathFlow.setAttribute('d', pathData);
+            let classStr = `path-flow path-flow-${type}`;
+            if (isReverse) classStr += ' reverse';
+            pathFlow.setAttribute('class', classStr);
+            svg.appendChild(pathFlow);
+        }
+
+        // --- Liên kết dữ liệu --- //
+
+        // Input -> Core (Xanh lá -> Xanh Dương)
+        drawCurve('user_input', 'agent_core', 'success', false, { orientation: 'h' });
+
+        // Core -> Context -> Prompt
+        drawCurve('agent_core', 'ctx_builder', 'primary', true, { orientation: 'h' }); // Context trả dữ liệu cho Core check
+        drawCurve('agent_core', 'prompt_builder', 'primary', false, { orientation: 'v', offsetX1: -90 });
+
+        // Prompt -> LLM -> Parser
+        drawCurve('prompt_builder', 'llm', 'primary', false);
+        drawCurve('llm', 'parser', 'primary', false);
+
+        // Parser -> Terminal UI (Đầu ra thành công)
+        drawCurve('parser', 'ui_output', 'success', false, { orientation: 'v' });
+
+        // Parser -> Tool Loop (Nếu có tools)
+        drawCurve('parser', 'tool_loop', 'warning', false, { orientation: 'v', offsetX2: 100 });
+
+        // Tool Loop <-> Plugins
+        drawCurve('tool_loop', 'plugins', 'warning', false);
+        // Tool Loop -> trả dữ liệu về Core
+        drawCurve('tool_loop', 'agent_core', 'warning', true, { orientation: 'v', offsetX1: -100, offsetX2: -100 });
+
+        // Storage Connections
+        drawCurve('agent_core', 'session', 'warning', false, { orientation: 'v' });
+
+        // Summarizer loop
+        drawCurve('session', 'summarizer', 'warning', false, { offsetY1: 30, offsetY2: 30 }); // Gửi đi nén
+        drawCurve('summarizer', 'session', 'warning', true, { offsetY1: -30, offsetY2: -30 });  // Lưu lại bản nén
+
+        // Boot Files -> Context Builder
+        drawCurve('ctx_builder', 'static', 'warning', false, { orientation: 'h', offsetY1: -60, offsetY2: -60 });
+
+    </script>
+</body>
+
+</html>

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import time
 from dataclasses import dataclass
 from typing import Mapping, Optional
 
@@ -29,6 +30,11 @@ from rich.theme import Theme
 THEME_MODE_AUTO = "auto"
 THEME_MODE_DARK = "dark"
 THEME_MODE_LIGHT = "light"
+
+_LIVE_REFRESH_INTERVAL_SECONDS = 1 / 24
+_LIVE_PREVIEW_MAX_CHARS = 12_000
+_LIVE_PREVIEW_MIN_LINES = 8
+_LIVE_PREVIEW_MAX_LINES = 160
 
 
 def detect_theme_mode(env: Optional[Mapping[str, str]] = None) -> str:
@@ -354,6 +360,9 @@ class ModelOutputRenderer:
         self._plain_reasoning_col = 0
         self._plain_output_col = 0
 
+        self._last_live_refresh_at = 0.0
+        self._live_show_full_output = False
+
     @property
     def active(self) -> bool:
         return self._active
@@ -388,15 +397,17 @@ class ModelOutputRenderer:
         self._plain_output_line_open = False
         self._plain_reasoning_col = 0
         self._plain_output_col = 0
+        self._last_live_refresh_at = 0.0
+        self._live_show_full_output = False
         if self._use_rich:
             self._start_live()
-            self._refresh()
+            self._refresh(force=True)
 
     def set_processing(self) -> None:
         if not self._active:
             return
         self._status_state = "processing"
-        self._refresh()
+        self._refresh(force=True)
         if not self._use_rich and not self._plain_reasoning_started and not self._plain_output_started:
             self._plain_status("processing...", self._status_style())
 
@@ -449,7 +460,8 @@ class ModelOutputRenderer:
         if not self._active:
             return
         self._status_state = "success"
-        self._refresh()
+        self._live_show_full_output = True
+        self._refresh(force=True)
         self._stop_live()
         if not self._use_rich:
             if self._plain_reasoning_line_open or self._plain_output_line_open:
@@ -464,7 +476,8 @@ class ModelOutputRenderer:
             return
         self._status_state = "error"
         self._error_message = message.strip()
-        self._refresh()
+        self._live_show_full_output = True
+        self._refresh(force=True)
         self._stop_live()
         if not self._use_rich:
             if self._plain_reasoning_line_open or self._plain_output_line_open:
@@ -487,6 +500,8 @@ class ModelOutputRenderer:
         self._plain_output_line_open = False
         self._plain_reasoning_col = 0
         self._plain_output_col = 0
+        self._last_live_refresh_at = 0.0
+        self._live_show_full_output = False
 
     def _start_live(self) -> None:
         if self._live is not None or self._console is None:
@@ -497,6 +512,7 @@ class ModelOutputRenderer:
             refresh_per_second=20,
             transient=False,
             auto_refresh=False,
+            vertical_overflow="crop",
         )
         self._live.start()
 
@@ -506,10 +522,37 @@ class ModelOutputRenderer:
         self._live.stop()
         self._live = None
 
-    def _refresh(self) -> None:
+    def _refresh(self, *, force: bool = False) -> None:
         if not self._use_rich or self._live is None:
             return
+        now = time.perf_counter()
+        if not force and (now - self._last_live_refresh_at) < _LIVE_REFRESH_INTERVAL_SECONDS:
+            return
+        self._last_live_refresh_at = now
         self._live.update(self._build_renderable(), refresh=True)
+
+    def _live_preview_line_budget(self, reserve_lines: int) -> int:
+        available = max(_LIVE_PREVIEW_MIN_LINES, self._terminal_height() - reserve_lines)
+        return max(_LIVE_PREVIEW_MIN_LINES, min(_LIVE_PREVIEW_MAX_LINES, available))
+
+    def _live_preview_text(self, text: str, *, reserve_lines: int) -> str:
+        if self._live_show_full_output:
+            return text
+
+        preview = text
+        if len(preview) > _LIVE_PREVIEW_MAX_CHARS:
+            preview = preview[-_LIVE_PREVIEW_MAX_CHARS:]
+
+        max_lines = self._live_preview_line_budget(reserve_lines)
+        if max_lines <= 0:
+            return preview
+
+        lines = preview.splitlines()
+        if preview.endswith("\n"):
+            lines.append("")
+        if len(lines) <= max_lines:
+            return preview
+        return "\n".join(lines[-max_lines:])
 
     def _status_style(self) -> str:
         if self._status_state == "success":
@@ -562,7 +605,11 @@ class ModelOutputRenderer:
         ]
 
         if self._reasoning_buffer:
-            reasoning_text = Text(self._reasoning_buffer, overflow="fold")
+            reasoning_preview = self._live_preview_text(
+                self._reasoning_buffer,
+                reserve_lines=10,
+            )
+            reasoning_text = Text(reasoning_preview, overflow="fold")
             blocks.append(
                 LaneRenderable(
                     reasoning_text,
@@ -573,10 +620,14 @@ class ModelOutputRenderer:
             )
 
         if self._output_buffer:
+            output_preview = self._live_preview_text(
+                self._output_buffer,
+                reserve_lines=6,
+            )
             blocks.append(Text("├─ Agent-01", style=self._palette.assistant))
             blocks.append(
                 LaneRenderable(
-                    LaneMarkdown(self._output_buffer, self._palette),
+                    LaneMarkdown(output_preview, self._palette),
                     prefix="│ ",
                     prefix_style=self._palette.lane,
                     content_style=self._palette.text,
@@ -596,6 +647,14 @@ class ModelOutputRenderer:
 
     def _terminal_width(self) -> int:
         return max(40, shutil.get_terminal_size(fallback=(120, 20)).columns)
+
+    def _terminal_height(self) -> int:
+        if self._console is not None:
+            try:
+                return max(12, int(self._console.size.height))
+            except Exception:
+                pass
+        return max(12, shutil.get_terminal_size(fallback=(120, 20)).lines)
 
     def _plain_write_with_lane(
         self,

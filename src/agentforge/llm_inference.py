@@ -150,7 +150,6 @@ class LLMInference:
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
             )
         except Exception as e:
             logger.exception("[LLM] Failed to start server")
