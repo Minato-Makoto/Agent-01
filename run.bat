@@ -97,7 +97,7 @@ if not defined PROVIDER set "PROVIDER=local"
 
 REM ---- Local backend (required when PROVIDER=local) ----
 if not defined SERVER_EXE set "SERVER_EXE=%~dp0llama-b8069-bin-win-cuda-13.1-x64\llama-server.exe"
-if not defined MODEL_PATH set "MODEL_PATH=D:\Personal\MinatoZeroFace\AI Agent\model\Qwen3VL-Instruct\Qwen3VL-8B-Instruct-Q4_K_M.gguf"
+if not defined MODEL_PATH set "MODEL_PATH=D:\Personal\MinatoZeroFace\AI Agent\model\Qwen3VL-Instruct\Qwen3VL-4B-Instruct-Q4_K_M.gguf"
 
 REM ---- Remote backend (required when PROVIDER=openai_compatible) ----
 if not defined BASE_URL set "BASE_URL=http://127.0.0.1:8080"
