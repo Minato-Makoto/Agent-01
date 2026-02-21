@@ -1,6 +1,6 @@
 # BLUEPRINT — Agent-01 (AgentForge Runtime)
 
-> Version: **1.0.1** · Python 3.10+ · Windows-first · Single launcher: `run.bat`
+> Version: **1.1.0** · Python 3.10+ · Windows-first · Single launcher: `run.bat`
 
 ---
 
@@ -34,14 +34,14 @@ Agent-01/
 │   └── TUTORIAL.md             # Hướng dẫn chạy & tham số
 ├── src/
 │   ├── agentforge/             # Core runtime (23 files)
-│   ├── builtin_tools/          # Tool implementations (9 modules)
+│   ├── builtin_tools/          # Tool implementations (7 modules)
 │   └── tests/                  # Test suite (31 test files + conftest)
 ├── workspace/                  # Thư mục dữ liệu runtime
 │   ├── IDENTITY.md             # Danh tính agent (đọc vào system prompt)
 │   ├── SOUL.md                 # Tính cách, giá trị agent
 │   ├── AGENT.md                # Hướng dẫn & tool contract cho agent
 │   ├── USER.md                 # Thông tin/sở thích user
-│   ├── skills/                 # Các thư mục định nghĩa skill (8 skills)
+│   ├── skills/                 # Các thư mục định nghĩa skill
 │   ├── sessions/               # Session JSON files
 │   └── screenshots/            # Ảnh chụp màn hình browser
 ├── adb-mcp/                    # Tuỳ chọn: Tích hợp Photoshop/ADB
@@ -100,7 +100,7 @@ Final Assistant Text → UI Output
 
 | File | Dòng | Vai trò |
 |------|------|---------|
-| `__init__.py` | 6 | Package metadata (`__version__ = "1.0.1"`) |
+| `__init__.py` | 6 | Package metadata (`__version__ = "1.1.0"`) |
 | `cli.py` | 45 | Facade tương thích (`main`, `run_interactive`) |
 | `cli_args.py` | 184 | Parser + nạp env/config + mapping `InferenceConfig` |
 | `cli_runtime.py` | 326 | Vòng lặp REPL, wiring components, kết nối backend |
@@ -114,7 +114,7 @@ Final Assistant Text → UI Output
 | `tool_call_parser.py` | 195 | `ToolCallParser`: parser hai định dạng (JSON + XML) cho fallback |
 | `tool_id.py` | 58 | `sanitize_tool_call_id`, `remap_tool_call_ids`: chuẩn hoá ID cho các provider nghiêm ngặt |
 | `tool_mutation.py` | 77 | Heuristic phân loại tool call thay đổi dữ liệu (mutating) vs chỉ đọc (read-only) |
-| `session.py` | 355 | `SessionManager`: trạng thái hội thoại bền vững, schema v2, migration |
+| `session.py` | 355 | `SessionManager`: trạng thái hội thoại bền vững, schema v3, migration + lineage continuation |
 | `session_repair.py` | 131 | Sửa chữa transcript: chuẩn hoá tool_calls, ghép cặp tool results, chèn kết quả tổng hợp |
 | `schema_normalizer.py` | 351 | Chuẩn hoá JSON Schema cho tương thích provider (Gemini, Anthropic, OpenAI) |
 | `transcript_policy.py` | 250 | Làm sạch transcript theo provider, chuẩn hoá tool-call-id, sửa ghép cặp |
@@ -126,7 +126,7 @@ Final Assistant Text → UI Output
 
 ---
 
-## 5) Module map — `src/builtin_tools/` (8 modules)
+## 5) Module map — `src/builtin_tools/` (6 modules)
 
 | File | Dòng | Tên skill | Các tools |
 |------|------|-----------|-----------|
@@ -135,8 +135,6 @@ Final Assistant Text → UI Output
 | `web_ops.py` | 214 | Web Operations | `http_request`, `web_scrape` |
 | `web_search.py` | 142 | WebSearch | `web_search` (scraping HTML DuckDuckGo) |
 | `browser_tools.py` | 266 | Browser | `browser_navigate`, `browser_click`, `browser_type`, `browser_screenshot`, `browser_get_content`, `browser_evaluate`, `browser_wait`, `browser_scroll`, `browser_select`, `browser_close` |
-| `calculator.py` | 136 | Math | `calculate` (đánh giá AST an toàn) |
-| `message_tool.py` | 40 | Communication | `message` |
 | `photoshop_tools.py` | 182 | Photoshop | 53 tools qua Socket.IO → adb-mcp proxy → UXP Plugin |
 
 ### Bootstrap tools (được mã hoá cứng trong `agent_core.py`)
@@ -179,7 +177,7 @@ tools:
 # Hướng dẫn chi tiết cho LLM khi skill được kích hoạt
 ```
 
-### 6.4 Các skill hiện tại (8 skills)
+### 6.4 Các skill hiện tại (6 skills)
 
 | Thư mục skill | Tên skill | Module |
 |---------------|-----------|--------|
@@ -188,8 +186,6 @@ tools:
 | `system/` | System | `builtin_tools.sys_ops` |
 | `web_operations/` | Web Operations | `builtin_tools.web_ops` |
 | `web_search/` | WebSearch | `builtin_tools.web_search` |
-| `math/` | Math | `builtin_tools.calculator` |
-| `communication/` | Communication | `builtin_tools.message_tool` |
 | `photoshop/` | Photoshop | `builtin_tools.photoshop_tools` |
 
 ---
@@ -252,9 +248,10 @@ Số lần retry tối đa: `COMPAT_RETRY_LIMIT` (mặc định 8).
 
 ### 8.1 Session schema
 
-- **Schema version**: `2`
+- **Schema version**: `3`
 - **Vị trí**: `workspace/sessions/{session_id}.json`
-- **Tự động migration**: transcript cũ được migrate lên v2 khi load.
+- **Tự động migration**: transcript cũ được migrate lên v3 khi load.
+- **Lineage**: session continuation có thêm `previous_session_id`.
 - **Sửa chữa**: `session_repair.py` chuẩn hoá các khối tool_call, ghép cặp tool results, chèn kết quả tổng hợp cho tool calls mồ côi.
 
 ### 8.2 Luồng lưu trữ
@@ -294,7 +291,7 @@ Mẫu nén 3 tầng (PicoClaw + OpenClaw):
 | Tầng | Ngưỡng kích hoạt | Hành động |
 |------|-------------------|-----------|
 | 0.5 Soft-trim | 60% dung lượng | Cắt tỉa tool results dài (giữ đầu/cuối 500 ký tự, cắt giữa) |
-| 1 Graceful | 70% dung lượng | Tóm tắt bằng LLM (ưu tiên) hoặc nối text (fallback) |
+| 1 Graceful | 70% dung lượng | Tóm tắt bằng LLM (ưu tiên), rồi branch sang session mới và handoff ngay |
 | 2 Emergency | Lỗi tràn context | Giữ 2 messages gần nhất, bỏ toàn bộ cũ |
 
 Ngưỡng được tính theo `max_tokens × chars_per_token` (mặc định 4).
@@ -349,9 +346,9 @@ Ngưỡng được tính theo `max_tokens × chars_per_token` (mặc định 4).
 - **Không commit secrets**: `.env` bị gitignore, chỉ `.env.example` được theo dõi.
 - **Truy cập key gián tiếp**: API key đọc qua tên env (`API_KEY_ENV`), runtime phân giải `os.environ[key_env_name]`.
 
-### 12.4 Calculator (`calculator.py`)
+### 12.4 Tools bị loại bỏ ở v1.1
 
-- **Đánh giá an toàn dựa trên AST**: parse biểu thức với `ast.parse(mode="eval")`, chỉ cho phép hằng số, hàm an toàn (sqrt, sin, cos, v.v.), và toán tử an toàn.
+- Built-in `calculator` và `message` đã bị xóa khỏi runtime và skill inventory.
 
 ---
 
@@ -467,7 +464,7 @@ addopts = -q
 |------|---------|
 | `conftest.py` | Fixtures dùng chung |
 | `test_agent_fallback_parser_activation.py` | Kích hoạt fallback parser |
-| `test_calculator_safety.py` | Đánh giá an toàn calculator |
+| `test_agent_session_continuation.py` | Hydrate session + branch continuation sau summarization |
 | `test_cli_config_merge.py` | Logic gộp cấu hình CLI |
 | `test_cli_env_file.py` | Tải file .env |
 | `test_context_builder.py` | Lắp ráp ContextBuilder + xử lý lỗi đọc bootstrap |

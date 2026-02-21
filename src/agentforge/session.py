@@ -4,6 +4,8 @@ AgentForge — SessionManager for persistent conversation state.
 v1.0 adds:
 - schema_version
 - legacy transcript migration and repair
+v1.1 adds:
+- previous_session_id linkage for continuation branches
 """
 
 import json
@@ -23,7 +25,7 @@ from .session_repair import (
 )
 
 
-SESSION_SCHEMA_VERSION = 2
+SESSION_SCHEMA_VERSION = 3
 
 
 @dataclass
@@ -95,6 +97,7 @@ class SessionData:
     schema_version: int = SESSION_SCHEMA_VERSION
     messages: List[SessionMessage] = field(default_factory=list)
     summary: str = ""
+    previous_session_id: str = ""
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):
@@ -108,7 +111,7 @@ class SessionData:
 
 def migrate_session_payload(raw: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Migrate raw persisted payload to schema v2.
+    Migrate raw persisted payload to schema v3.
     """
     data = dict(raw)
     version = int(data.get("schema_version", 1))
@@ -119,16 +122,14 @@ def migrate_session_payload(raw: Dict[str, Any]) -> Dict[str, Any]:
     else:
         repaired = []
 
-    if version < 2:
-        data["messages"] = repaired
-        data["schema_version"] = 2
-    else:
-        # still run repair pass for safety
-        data["messages"] = repaired
-        data["schema_version"] = max(2, version)
+    # Always run transcript repair pass for safety.
+    data["messages"] = repaired
+    data["schema_version"] = 3 if version < 3 else max(3, version)
 
-    data.setdefault("metadata", {})
-    data.setdefault("summary", "")
+    metadata = data.get("metadata", {})
+    data["metadata"] = metadata if isinstance(metadata, dict) else {}
+    data["summary"] = str(data.get("summary", ""))
+    data["previous_session_id"] = str(data.get("previous_session_id", ""))
     data.setdefault("created_at", 0.0)
     data.setdefault("updated_at", 0.0)
     return data
@@ -171,6 +172,7 @@ class SessionManager:
                     schema_version=int(data.get("schema_version", SESSION_SCHEMA_VERSION)),
                     messages=messages,
                     summary=str(data.get("summary", "")),
+                    previous_session_id=str(data.get("previous_session_id", "")),
                     metadata=data.get("metadata", {}) if isinstance(data.get("metadata"), dict) else {},
                 )
                 # persist migrated structure if changed
@@ -178,6 +180,37 @@ class SessionManager:
                 return self._session
             except (json.JSONDecodeError, TypeError, ValueError):
                 return None
+
+    def branch_session(
+        self,
+        summary: str,
+        old_id: str,
+        continuation_messages: List[Dict[str, Any]],
+    ) -> SessionData:
+        """Create a continuation branch session linked to the previous session ID."""
+        source_id = str(old_id).strip()
+        if not source_id and self._session:
+            source_id = self._session.id
+
+        new_session = SessionData(
+            summary=str(summary or ""),
+            previous_session_id=source_id,
+        )
+        new_session.messages.append(
+            SessionMessage(
+                role="system",
+                content=self._build_continuation_message(source_id, summary),
+            )
+        )
+        for raw in continuation_messages:
+            msg = self._coerce_prompt_message(raw)
+            if msg is not None:
+                new_session.messages.append(msg)
+        new_session.updated_at = time.time()
+
+        self._session = new_session
+        self._save()
+        return new_session
 
     def load_latest(self) -> Optional[SessionData]:
         sessions = list(self._dir.glob("*.json"))
@@ -325,6 +358,7 @@ class SessionManager:
                         "created_at": data.get("created_at", 0),
                         "updated_at": data.get("updated_at", 0),
                         "schema_version": data.get("schema_version", 1),
+                        "previous_session_id": data.get("previous_session_id", ""),
                         "message_count": len(data.get("messages", [])),
                     }
                 )
@@ -344,11 +378,61 @@ class SessionManager:
                 "updated_at": self._session.updated_at,
                 "schema_version": self._session.schema_version,
                 "summary": self._session.summary,
+                "previous_session_id": self._session.previous_session_id,
                 "metadata": self._session.metadata,
                 "messages": [m.to_dict() for m in self._session.messages],
             }
             tmp_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
             tmp_path.replace(path)
+
+    def _build_continuation_message(self, source_id: str, summary: str) -> str:
+        source_path = self._dir / f"{source_id}.json" if source_id else None
+        safe_summary = str(summary or "").strip() or "(no summary generated)"
+        lines = [
+            "This is a continuation session after context summarization.",
+            f"previous_session_id: {source_id or '(unknown)'}",
+        ]
+        if source_path is not None:
+            lines.append(f"previous_session_path: {source_path.resolve()}")
+        lines.append("Use this summary as prior context for follow-up decisions.")
+        lines.append("summary:")
+        lines.append(safe_summary)
+        return "\n".join(lines)
+
+    @staticmethod
+    def _coerce_prompt_message(raw: Any) -> Optional[SessionMessage]:
+        if not isinstance(raw, dict):
+            return None
+        role = str(raw.get("role", "")).strip()
+        if role not in {"system", "user", "assistant", "tool"}:
+            return None
+
+        content_raw = raw.get("content", "")
+        if isinstance(content_raw, str):
+            content = content_raw
+        elif isinstance(content_raw, (dict, list)):
+            content = json.dumps(content_raw, ensure_ascii=False)
+        elif content_raw is None:
+            content = ""
+        else:
+            content = str(content_raw)
+
+        tool_calls = None
+        if role == "assistant":
+            tool_calls = normalize_tool_calls(raw.get("tool_calls"))
+
+        tool_call_id = str(raw.get("tool_call_id", "")).strip()
+        tool_name = str(raw.get("tool_name", raw.get("name", ""))).strip()
+        synthetic = bool(raw.get("synthetic", False))
+
+        return SessionMessage(
+            role=role,
+            content=content,
+            tool_call_id=tool_call_id,
+            tool_calls=tool_calls,
+            tool_name=tool_name,
+            synthetic=synthetic,
+        )
 
     @staticmethod
     def _coerce_session_message(raw: Any) -> Optional[SessionMessage]:

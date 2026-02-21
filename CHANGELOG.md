@@ -95,6 +95,35 @@
   - Reason: merged into `docs/BLUEPRINT.md` and `docs/TUTORIAL.md` to remove duplication.
   - Impact: docs links must point to the two new files.
 
+## [1.1.0] - 2026-02-21
+
+### Added
+- Session continuation lineage with `previous_session_id` in persisted session payloads.
+- `SessionManager.branch_session(...)` API to branch a continuation session with summary injection.
+- Agent startup context hydration from loaded session transcript.
+- Regression coverage for:
+  - startup hydration of loaded sessions
+  - graceful-summarization branch flow
+  - continuation system-message injection
+  - session schema migration v2 → v3.
+
+### Changed
+- Session schema bumped from v2 to v3.
+- Graceful summarization now uses `LLMInference.generate(...)` when available and falls back safely on failure.
+- Tier-1 context compression now branches to a new session and hands off immediately.
+- CLI session reporting now reflects active session dynamically and surfaces continuation transitions.
+- Core docs (`BLUEPRINT_EN.md`, `BLUEPRINT_VI.md`) updated for v1.1 behavior and inventory.
+
+### Removed
+- Built-in tools removed from codebase:
+  - `src/builtin_tools/calculator.py`
+  - `src/builtin_tools/message_tool.py`
+- Skill definitions removed:
+  - `workspace/skills/math/SKILL_MATH.md`
+  - `workspace/skills/communication/SKILL_COMMUNICATION.md`
+- Obsolete calculator-specific test removed:
+  - `src/tests/test_calculator_safety.py`
+
 ## [1.0.1] - 2026-02-17
 
 ### Added

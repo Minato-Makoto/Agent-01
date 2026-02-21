@@ -10,13 +10,13 @@ def test_context_builder_assembles_runtime_tools_and_skills(tmp_path):
     builder = ContextBuilder(str(tmp_path))
     prompt = builder.build_system_prompt(
         skills_xml="<available_skills></available_skills>",
-        tool_summaries=[("read_file", "Read a file"), ("calculate", "Evaluate math")],
+        tool_summaries=[("read_file", "Read a file"), ("list_directory", "List files")],
     )
 
     assert "## Runtime" in prompt
     assert "## Available Tools" in prompt
     assert "<available_skills></available_skills>" in prompt
-    assert "calculate" in prompt
+    assert "list_directory" in prompt
     assert builder.load_errors == []
 
 

@@ -7,10 +7,10 @@ def test_prompt_builder_builds_structured_tool_messages():
     prompt.set_system("system")
     prompt.add_user("user asks")
     prompt.add_assistant_tool_calls(
-        [ToolCall(id="call_1", name="calculate", arguments={"expression": "1+1"})],
+        [ToolCall(id="call_1", name="list_directory", arguments={"path": "workspace"})],
         content="",
     )
-    prompt.add_tool_result("call_1", "calculate", {"result": 2})
+    prompt.add_tool_result("call_1", "list_directory", {"items": ["a.txt"]})
     messages = prompt.build_messages(include_system=True)
 
     assert messages[0]["role"] == "system"

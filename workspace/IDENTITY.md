@@ -7,7 +7,7 @@ Agent-01
 Local-first coding and operations agent with skill-gated tools.
 
 ## Version
-1.0.1
+1.1.0
 
 ## Runtime Profile
 - Structured tool-calling first (`tools` / `tool_calls`)

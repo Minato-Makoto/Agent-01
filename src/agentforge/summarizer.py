@@ -114,15 +114,30 @@ class Summarizer:
         old_text = self._messages_to_text(old_messages)
 
         if llm_fn:
-            # Use LLM to generate a concise summary
-            prompt = f"""Summarize this conversation history concisely. Keep key facts, decisions, and context.
+            prompt = f"""You are Agent-01 preparing a continuation summary because context limit was reached.
+This summary will be injected into a NEW session that continues the same task.
+Be concise but decision-complete.
 
-Previous summary: {existing_summary or '(none)'}
+Output format (plain text headings):
+1) Goal
+2) Decisions made
+3) File/tool state
+4) Pending work
+5) Constraints and risks
+
+Rules:
+- Preserve concrete facts, paths, command outcomes, and tool outputs that affect next actions.
+- Keep unresolved blockers explicit.
+- Do not invent details.
+- Keep under 280 words.
+
+Previous summary:
+{existing_summary or '(none)'}
 
 New messages to summarize:
 {old_text}
 
-Write a concise summary (max 200 words):"""
+Write the continuation summary now."""
             try:
                 summary = llm_fn(prompt)
                 if summary:

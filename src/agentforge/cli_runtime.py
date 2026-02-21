@@ -156,7 +156,6 @@ def _handle_command(
     ui: Any,
     skill_loader: SkillLoader,
     session_mgr: SessionManager,
-    session_id: str,
 ) -> Optional[bool]:
     if cmd in {"exit", "quit"}:
         return False
@@ -175,7 +174,8 @@ def _handle_command(
         return True
 
     if cmd == "session":
-        ui.status(f"Session: {session_id}")
+        active_id = session_mgr.session.id if session_mgr.session else "(none)"
+        ui.status(f"Session: {active_id}")
         ui.status(f"Messages: {session_mgr.get_message_count()}")
         return True
 
@@ -288,7 +288,7 @@ def run_interactive(
         ui.welcome(
             llm.model_desc,
             tool_names,
-            session_id=session.id,
+            session_id=session_mgr.session.id if session_mgr.session else session.id,
             skill_count=skill_count,
             total_tool_count=discovered_tool_count,
             workspace=workspace_dir,
@@ -309,15 +309,20 @@ def run_interactive(
                 ui=ui,
                 skill_loader=skill_loader,
                 session_mgr=session_mgr,
-                session_id=session.id,
             )
             if command_result is False:
                 break
             if command_result is True:
                 continue
 
+            before_session_id = session_mgr.session.id if session_mgr.session else ""
             callbacks, stream_state = _build_callbacks(ui)
             result = agent.run(line, callbacks=callbacks)
+            after_session_id = session_mgr.session.id if session_mgr.session else ""
+            if after_session_id and after_session_id != before_session_id:
+                ui.status(
+                    f"Session continued: {before_session_id or '(none)'} -> {after_session_id}"
+                )
             _render_agent_result(ui, result, stream_state)
     finally:
         _cleanup_runtime_resources()

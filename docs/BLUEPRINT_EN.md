@@ -1,6 +1,6 @@
 # BLUEPRINT — Agent-01 (AgentForge Runtime)
 
-> Version: **1.0.1** · Python 3.10+ · Windows-first · Single launcher: `run.bat`
+> Version: **1.1.0** · Python 3.10+ · Windows-first · Single launcher: `run.bat`
 
 ---
 
@@ -34,14 +34,14 @@ Agent-01/
 │   └── TUTORIAL.md             # How to run & parameter reference
 ├── src/
 │   ├── agentforge/             # Core runtime (23 files)
-│   ├── builtin_tools/          # Tool implementations (9 modules)
+│   ├── builtin_tools/          # Tool implementations (7 modules)
 │   └── tests/                  # Test suite (31 test files + conftest)
 ├── workspace/                  # Runtime data directory
 │   ├── IDENTITY.md             # Agent identity (injected into system prompt)
 │   ├── SOUL.md                 # Agent personality/values
 │   ├── AGENT.md                # Agent instructions & tool contract
 │   ├── USER.md                 # User preferences
-│   ├── skills/                 # Skill definition folders (8 skills)
+│   ├── skills/                 # Skill definition folders
 │   ├── sessions/               # Session JSON files
 │   └── screenshots/            # Browser screenshots
 ├── adb-mcp/                    # Optional: Photoshop/ADB integration
@@ -100,7 +100,7 @@ Final Assistant Text → UI Output
 
 | File | Lines | Role |
 |------|-------|------|
-| `__init__.py` | 6 | Package metadata (`__version__ = "1.0.1"`) |
+| `__init__.py` | 6 | Package metadata (`__version__ = "1.1.0"`) |
 | `cli.py` | 45 | Compatibility facade entry point (`main`, `run_interactive`) |
 | `cli_args.py` | 184 | Parser + env/config loading + `InferenceConfig` mapping |
 | `cli_runtime.py` | 326 | REPL loop, component wiring, backend connect flow |
@@ -114,7 +114,7 @@ Final Assistant Text → UI Output
 | `tool_call_parser.py` | 195 | `ToolCallParser`: dual-format parser (JSON + XML) for fallback |
 | `tool_id.py` | 58 | `sanitize_tool_call_id`, `remap_tool_call_ids`: ID normalization for strict providers |
 | `tool_mutation.py` | 77 | Heuristic classifier for mutating vs read-only tool calls |
-| `session.py` | 355 | `SessionManager`: persistent conversation state, schema v2, migration |
+| `session.py` | 355 | `SessionManager`: persistent conversation state, schema v3, migration + continuation lineage |
 | `session_repair.py` | 131 | Transcript repair: normalize tool_calls, pair tool results, insert synthetic results |
 | `schema_normalizer.py` | 351 | JSON Schema normalization for provider compatibility (Gemini, Anthropic, OpenAI) |
 | `transcript_policy.py` | 250 | Provider-aware transcript sanitization, tool-call-id normalization, pairing repair |
@@ -126,7 +126,7 @@ Final Assistant Text → UI Output
 
 ---
 
-## 5) Module Map — `src/builtin_tools/` (8 modules)
+## 5) Module Map — `src/builtin_tools/` (6 modules)
 
 | File | Lines | Skill Name | Tools |
 |------|-------|------------|-------|
@@ -135,8 +135,6 @@ Final Assistant Text → UI Output
 | `web_ops.py` | 214 | Web Operations | `http_request`, `web_scrape` |
 | `web_search.py` | 142 | WebSearch | `web_search` (DuckDuckGo HTML scraping) |
 | `browser_tools.py` | 266 | Browser | `browser_navigate`, `browser_click`, `browser_type`, `browser_screenshot`, `browser_get_content`, `browser_evaluate`, `browser_wait`, `browser_scroll`, `browser_select`, `browser_close` |
-| `calculator.py` | 136 | Math | `calculate` (safe AST eval) |
-| `message_tool.py` | 40 | Communication | `message` |
 | `photoshop_tools.py` | 182 | Photoshop | 53 tools via Socket.IO → adb-mcp proxy → UXP Plugin |
 
 ### Bootstrap Tools (hardcoded in `agent_core.py`)
@@ -179,7 +177,7 @@ tools:
 # Detailed instructions for the LLM when the skill is activated
 ```
 
-### 6.4 Current Skills (8 skills)
+### 6.4 Current Skills (6 skills)
 
 | Skill Folder | Skill Name | Module |
 |-------------|-----------|--------|
@@ -188,8 +186,6 @@ tools:
 | `system/` | System | `builtin_tools.sys_ops` |
 | `web_operations/` | Web Operations | `builtin_tools.web_ops` |
 | `web_search/` | WebSearch | `builtin_tools.web_search` |
-| `math/` | Math | `builtin_tools.calculator` |
-| `communication/` | Communication | `builtin_tools.message_tool` |
 | `photoshop/` | Photoshop | `builtin_tools.photoshop_tools` |
 
 ---
@@ -252,9 +248,10 @@ Max retries: `COMPAT_RETRY_LIMIT` (default 8).
 
 ### 8.1 Session Schema
 
-- **Schema version**: `2`
+- **Schema version**: `3`
 - **Location**: `workspace/sessions/{session_id}.json`
-- **Auto-migration**: legacy transcripts are migrated to v2 on load.
+- **Auto-migration**: legacy transcripts are migrated to v3 on load.
+- **Lineage**: continuation sessions include `previous_session_id`.
 - **Repair**: `session_repair.py` normalizes tool_call blocks, pairs tool results, and inserts synthetic results for orphan tool calls.
 
 ### 8.2 Persistence Flow
@@ -294,7 +291,7 @@ Sections are joined by `\n\n---\n\n`.
 | Tier | Trigger | Action |
 |------|---------|--------|
 | 0.5 Soft-trim | 60% capacity | Prune long tool results (keep head/tail 500 chars, cut middle) |
-| 1 Graceful | 70% capacity | LLM-based summary (preferred) or text concatenation (fallback) |
+| 1 Graceful | 70% capacity | LLM-based summary (preferred) then branch to a new session with immediate handoff |
 | 2 Emergency | Context overflow error | Keep 2 most recent messages, drop everything else |
 
 Thresholds are computed as `max_tokens × chars_per_token` (default 4).
@@ -349,9 +346,9 @@ Thresholds are computed as `max_tokens × chars_per_token` (default 4).
 - **No committed secrets**: `.env` is gitignored; only `.env.example` is tracked.
 - **Indirect key access**: API keys are read via env name (`API_KEY_ENV`); runtime resolves `os.environ[key_env_name]`.
 
-### 12.4 Calculator (`calculator.py`)
+### 12.4 Removed Tools in v1.1
 
-- **AST-based safe eval**: parses expressions with `ast.parse(mode="eval")`; only allows numeric literals, safe functions (sqrt, sin, cos, etc.), and safe operators.
+- Built-in `calculator` and `message` tools were removed from runtime and skill inventory.
 
 ---
 
@@ -467,7 +464,7 @@ addopts = -q
 |------|-------|
 | `conftest.py` | Shared fixtures |
 | `test_agent_fallback_parser_activation.py` | Fallback parser triggers |
-| `test_calculator_safety.py` | Calculator safe eval |
+| `test_agent_session_continuation.py` | Session hydration + graceful-summary branching |
 | `test_cli_config_merge.py` | CLI arg merge logic |
 | `test_cli_env_file.py` | .env file loading |
 | `test_context_builder.py` | ContextBuilder bootstrap/runtime assembly + load error handling |

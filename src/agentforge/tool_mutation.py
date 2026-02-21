@@ -8,7 +8,6 @@ from typing import Any, Dict, Optional
 MUTATING_TOOL_NAMES = {
     "write_file",
     "shell_command",
-    "message",
     "ps_export_png",
     "ps_export_jpg",
     "ps_save_document",
@@ -19,7 +18,6 @@ READ_ONLY_TOOL_NAMES = {
     "list_directory",
     "search_files",
     "file_info",
-    "calculate",
     "web_search",
     "web_scrape",
     "http_request",
@@ -38,7 +36,6 @@ READ_ONLY_ACTIONS = {
 }
 
 PROCESS_MUTATING_ACTIONS = {"write", "send_keys", "submit", "paste", "kill"}
-MESSAGE_MUTATING_ACTIONS = {"send", "reply", "edit", "delete", "react", "pin", "unpin"}
 
 
 def _normalize_action(value: Any) -> Optional[str]:
@@ -63,8 +60,6 @@ def is_mutating_tool_call(tool_name: str, args: Dict[str, Any]) -> bool:
     action = _normalize_action(args.get("action")) if isinstance(args, dict) else None
     if normalized == "process":
         return action in PROCESS_MUTATING_ACTIONS
-    if normalized == "message":
-        return action in MESSAGE_MUTATING_ACTIONS or bool(args.get("content") or args.get("message"))
 
     if normalized.endswith("_actions"):
         return action is None or action not in READ_ONLY_ACTIONS

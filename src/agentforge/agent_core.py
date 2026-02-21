@@ -100,11 +100,29 @@ class Agent:
 
         self._register_bootstrap_tools()
         self._update_system_prompt()
+        if self.session_mgr and self.session_mgr.session and self.session_mgr.session.messages:
+            self._hydrate_prompt_from_session()
 
     def reset(self) -> None:
         """Reset transient prompt/tool-loop state."""
         self.prompt.clear()
         self.tool_loop.reset()
+
+    def _hydrate_prompt_from_session(self) -> None:
+        """Hydrate runtime prompt history from persisted session transcript."""
+        if not self.session_mgr or not self.session_mgr.session:
+            return
+        self.prompt.clear()
+        for msg in self.session_mgr.session.messages:
+            self.prompt.messages.append(
+                ChatMessage(
+                    role=msg.role,
+                    content=msg.content,
+                    tool_call_id=msg.tool_call_id,
+                    tool_calls=msg.tool_calls,
+                    tool_name=msg.tool_name,
+                )
+            )
 
     def run(self, user_input: str, callbacks: Optional[StreamCallbacks] = None) -> str:
         """Execute one user turn and return the final assistant text."""
@@ -260,7 +278,13 @@ class Agent:
             return
 
         message_dicts = [
-            {"role": msg.role, "content": msg.content, "tool_calls": msg.tool_calls}
+            {
+                "role": msg.role,
+                "content": msg.content,
+                "tool_calls": msg.tool_calls,
+                "tool_call_id": msg.tool_call_id,
+                "tool_name": msg.tool_name,
+            }
             for msg in self.prompt.messages
         ]
         message_dicts = self.summarizer.prune_tool_results(
@@ -274,12 +298,32 @@ class Agent:
         if self.session_mgr and self.session_mgr.session:
             existing_summary = self.session_mgr.session.summary
 
+        def _llm_summary_fn(summary_prompt: str) -> str:
+            generated = (self.llm.generate(prompt=summary_prompt, max_tokens=768) or "").strip()
+            if not generated or generated.startswith("[Error:"):
+                raise RuntimeError("llm summary generation failed")
+            return generated
+
         summary, remaining = self.summarizer.graceful_summarize(
             message_dicts,
             existing_summary,
+            llm_fn=_llm_summary_fn,
         )
-        if self.session_mgr:
+        did_compress = len(remaining) < len(message_dicts)
+        if self.session_mgr and self.session_mgr.session:
+            old_session_id = self.session_mgr.session.id
             self.session_mgr.set_summary(summary)
+            if did_compress:
+                try:
+                    self.session_mgr.branch_session(
+                        summary=summary,
+                        old_id=old_session_id,
+                        continuation_messages=remaining,
+                    )
+                    self._hydrate_prompt_from_session()
+                    return
+                except Exception:
+                    logger.exception("Session branching failed; falling back to in-memory summary mode.")
 
         self.prompt.clear()
         if summary:
@@ -292,7 +336,9 @@ class Agent:
                 ChatMessage(
                     role=msg.get("role", "user"),
                     content=msg.get("content", ""),
+                    tool_call_id=msg.get("tool_call_id", ""),
                     tool_calls=msg.get("tool_calls"),
+                    tool_name=msg.get("tool_name", ""),
                 )
             )
 
