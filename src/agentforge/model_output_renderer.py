@@ -355,6 +355,7 @@ class ModelOutputRenderer:
 
         self._plain_reasoning_started = False
         self._plain_output_started = False
+        self._plain_processing_emitted = False
         self._plain_reasoning_line_open = False
         self._plain_output_line_open = False
         self._plain_reasoning_col = 0
@@ -393,6 +394,7 @@ class ModelOutputRenderer:
         self._error_message = ""
         self._plain_reasoning_started = False
         self._plain_output_started = False
+        self._plain_processing_emitted = False
         self._plain_reasoning_line_open = False
         self._plain_output_line_open = False
         self._plain_reasoning_col = 0
@@ -406,10 +408,23 @@ class ModelOutputRenderer:
     def set_processing(self) -> None:
         if not self._active:
             return
+        if (
+            self._status_state == "processing"
+            and not self._reasoning_buffer
+            and not self._output_buffer
+            and not self._error_message
+        ):
+            # Skip no-op processing refreshes to avoid status-lane repaint artifacts
+            # on terminals that append Live frames while auto-scrolling.
+            if self._use_rich:
+                return
+            if self._plain_processing_emitted:
+                return
         self._status_state = "processing"
         self._refresh(force=True)
         if not self._use_rich and not self._plain_reasoning_started and not self._plain_output_started:
             self._plain_status("processing...", self._status_style())
+            self._plain_processing_emitted = True
 
     def append_reasoning(self, token: str) -> None:
         normalized = self._normalize_token(token)
@@ -419,6 +434,7 @@ class ModelOutputRenderer:
             self.begin_turn("")
         self._status_state = "thinking"
         self._reasoning_buffer += normalized
+        self._plain_processing_emitted = False
         self._refresh()
         if not self._use_rich:
             if not self._plain_reasoning_started:
@@ -439,6 +455,7 @@ class ModelOutputRenderer:
         if not self._active:
             self.begin_turn("")
         self._output_buffer += normalized
+        self._plain_processing_emitted = False
         self._refresh()
         if not self._use_rich:
             if not self._plain_output_started:
@@ -495,6 +512,14 @@ class ModelOutputRenderer:
         self._active = False
 
     def close(self) -> None:
+        if self._live is not None:
+            has_visible_content = bool(
+                self._reasoning_buffer.strip()
+                or self._output_buffer.strip()
+                or self._error_message.strip()
+            )
+            if not has_visible_content:
+                self._live.transient = True
         self._stop_live()
         self._active = False
         self._status_state = "idle"
@@ -503,6 +528,7 @@ class ModelOutputRenderer:
         self._error_message = ""
         self._plain_reasoning_started = False
         self._plain_output_started = False
+        self._plain_processing_emitted = False
         self._plain_reasoning_line_open = False
         self._plain_output_line_open = False
         self._plain_reasoning_col = 0

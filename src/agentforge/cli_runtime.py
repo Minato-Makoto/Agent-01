@@ -127,6 +127,16 @@ def _build_callbacks(ui: Any) -> tuple[StreamCallbacks, Dict[str, bool]]:
         stream_state["token_emitted"] = True
         ui.stream_token(token)
 
+    def on_thinking_start() -> None:
+        # Track token streaming per model iteration (agent may iterate multiple times per turn).
+        stream_state["token_emitted"] = False
+        ui.thinking_start()
+
+    def on_stream_end() -> None:
+        # Do not close blindly: non-stream final text is rendered by _render_agent_result().
+        if stream_state.get("token_emitted", False):
+            ui.stream_end()
+
     def on_skill_activated(name: str) -> None:
         ui.status(f"Skill activated: {name}")
 
@@ -151,8 +161,8 @@ def _build_callbacks(ui: Any) -> tuple[StreamCallbacks, Dict[str, bool]]:
         on_tool_call_end=on_tool_call_end,
         on_tool_result=ui.show_tool_result,
         on_stream_start=ui.stream_start,
-        on_stream_end=ui.stream_end,
-        on_thinking_start=ui.thinking_start,
+        on_stream_end=on_stream_end,
+        on_thinking_start=on_thinking_start,
         on_thinking_end=ui.thinking_stop,
         on_skill_activated=on_skill_activated,
         on_status=ui.status,
@@ -203,6 +213,9 @@ def _render_agent_result(ui: Any, result: str, stream_state: Dict[str, bool]) ->
     if result and not stream_state.get("token_emitted", False) and not result.startswith("["):
         ui.stream_start()
         ui.stream_token(result)
+        ui.stream_end()
+        return
+    if not stream_state.get("token_emitted", False):
         ui.stream_end()
 
 

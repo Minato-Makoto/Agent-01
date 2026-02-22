@@ -133,6 +133,59 @@ def test_finish_success_with_whitespace_only_marks_live_transient():
     assert live.stopped is True
 
 
+def test_close_with_processing_only_marks_live_transient():
+    renderer = ModelOutputRenderer(
+        console=None,
+        use_rich=True,
+        palette=build_palette("dark"),
+    )
+
+    class _LiveStub:
+        def __init__(self):
+            self.transient = False
+            self.stopped = False
+
+        def stop(self):
+            self.stopped = True
+
+    live = _LiveStub()
+    renderer._live = live
+    renderer._use_rich = True
+    renderer._active = True
+    renderer._status_state = "processing"
+
+    renderer.close()
+
+    assert live.transient is True
+    assert live.stopped is True
+
+
+def test_set_processing_skips_noop_refresh_in_rich_mode(monkeypatch):
+    renderer = ModelOutputRenderer(
+        console=None,
+        use_rich=True,
+        palette=build_palette("dark"),
+    )
+    renderer._active = True
+    renderer._use_rich = True
+    renderer._status_state = "processing"
+    renderer._reasoning_buffer = ""
+    renderer._output_buffer = ""
+    renderer._error_message = ""
+
+    calls = {"refresh": 0}
+
+    def _count_refresh(*, force=False):
+        del force
+        calls["refresh"] += 1
+
+    monkeypatch.setattr(renderer, "_refresh", _count_refresh)
+
+    renderer.set_processing()
+
+    assert calls["refresh"] == 0
+
+
 def test_lane_markdown_quote_codeblock_and_hr_rendering():
     palette = build_palette("dark")
     markdown = LaneMarkdown("> quoted line\n\n---\n\n```text\nprint('x')\n```", palette)
