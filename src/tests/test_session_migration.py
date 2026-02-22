@@ -77,3 +77,28 @@ def test_session_migration_v2_to_v3_adds_previous_session_id(tmp_path):
     persisted = json.loads(session_path.read_text(encoding="utf-8"))
     assert persisted["schema_version"] == 3
     assert persisted["previous_session_id"] == ""
+
+
+def test_replace_transcript_keeps_session_identity_and_updates_summary(tmp_path):
+    sessions_dir = tmp_path / "sessions"
+    sessions_dir.mkdir()
+    manager = SessionManager(str(sessions_dir))
+    session = manager.new_session()
+    old_id = session.id
+    manager.add_message("user", "before replace")
+
+    manager.replace_transcript(
+        messages=[
+            {"role": "system", "content": "Context memory note"},
+            {"role": "user", "content": "latest user"},
+            {"role": "assistant", "content": "latest assistant"},
+        ],
+        summary="updated summary",
+        metadata_update={"last_compaction": "graceful"},
+    )
+
+    assert manager.session is not None
+    assert manager.session.id == old_id
+    assert manager.session.summary == "updated summary"
+    assert manager.session.metadata.get("last_compaction") == "graceful"
+    assert [m.role for m in manager.session.messages] == ["system", "user", "assistant"]

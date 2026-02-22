@@ -27,7 +27,7 @@ from .model_output_renderer import (
 logger = logging.getLogger(__name__)
 
 try:
-    from rich.console import Console
+    from rich.console import Console, Group
     from rich.live import Live
     from rich.padding import Padding
     from rich.text import Text
@@ -46,10 +46,14 @@ _BANNER_LINES = r"""
       /____/                                /____/
 """
 
-_TOOL_CALL_LIVE_REFRESH_INTERVAL_SECONDS = 1 / 24
+_TOOL_CALL_LIVE_REFRESH_INTERVAL_SECONDS = 1 / 12
 _TOOL_CALL_LIVE_PREVIEW_MAX_CHARS = 12_000
 _TOOL_CALL_LIVE_PREVIEW_MIN_LINES = 8
 _TOOL_CALL_LIVE_PREVIEW_MAX_LINES = 160
+_TOOL_CALL_LIVE_MIN_DELTA_CHARS = 128
+_TOOL_CALL_LIVE_SINGLE_LINE_TAIL_STEP_CHARS = 64
+_TOOL_CALL_LIVE_PRETTY_MAX_CHARS = 200_000
+_TOOL_CALL_LIVE_ESCAPE_NEWLINE_THRESHOLD = 8
 
 def _render_payload(value: Any) -> str:
     if isinstance(value, str):
@@ -120,12 +124,16 @@ class ChatUI:
 
         self._encoding = self._detect_encoding()
         self._tool_call_stream_open = False
+        self._tool_call_stream_name = ""
         self._tool_call_stream_buffer = ""
         self._tool_call_stream_body_style = self.palette.tool_body
         self._tool_call_stream_prefix_style = self.palette.lane
         self._tool_call_stream_live = None
         self._tool_call_stream_last_refresh_at = 0.0
         self._tool_call_stream_live_show_full = False
+        self._tool_call_stream_dirty = False
+        self._tool_call_stream_last_rendered_len = 0
+        self._tool_call_stream_last_preview_hash = 0
 
     def welcome(
         self,
@@ -248,12 +256,15 @@ class ChatUI:
 
     def tool_call_stream_start(self, name: str) -> None:
         self._ensure_stream_closed()
-        self._emit_branch("├─ ", f"tool: {name}", message_style=self.palette.tool_title)
+        self._tool_call_stream_name = name
         self._tool_call_stream_open = True
         self._tool_call_stream_buffer = ""
-        self._tool_call_stream_prefix_style = self.palette.lane
+        self._tool_call_stream_prefix_style = self.palette.status_thinking
         self._tool_call_stream_last_refresh_at = 0.0
         self._tool_call_stream_live_show_full = False
+        self._tool_call_stream_dirty = False
+        self._tool_call_stream_last_rendered_len = 0
+        self._tool_call_stream_last_preview_hash = 0
         if self._use_rich and self.console is not None:
             self._tool_call_stream_body_style = (
                 f"{self.palette.markdown_code_text} {self.palette.markdown_code_background}".strip()
@@ -261,7 +272,18 @@ class ChatUI:
             self._start_tool_call_live()
         else:
             self._tool_call_stream_body_style = self.palette.tool_body
-            self._emit_branch("│   ", "```", message_style=self.palette.tool_body)
+            self._emit_branch(
+                "├─ ",
+                f"tool: {name}",
+                message_style=self.palette.tool_title,
+                prefix_style=self.palette.status_thinking,
+            )
+            self._emit_branch(
+                "│   ",
+                "```",
+                message_style=self.palette.tool_body,
+                prefix_style=self.palette.status_thinking,
+            )
 
     def tool_call_stream_token(self, token: str) -> None:
         if not token:
@@ -270,6 +292,7 @@ class ChatUI:
             self.tool_call_stream_start("tool")
         if self._tool_call_stream_live is not None:
             self._tool_call_stream_buffer += self._sanitize(token)
+            self._tool_call_stream_dirty = True
             self._refresh_tool_call_live()
             return
         self._emit_stream_lines_with_lane(
@@ -284,10 +307,15 @@ class ChatUI:
         if not self._tool_call_stream_open:
             return
         if self._tool_call_stream_live is not None:
+            # Stream phase is thinking (yellow); final persisted block settles to done (green).
+            self._tool_call_stream_prefix_style = self.palette.status_success
             self._tool_call_stream_live_show_full = True
+            self._tool_call_stream_dirty = True
             self._stop_tool_call_live()
             self._tool_call_stream_open = False
+            self._tool_call_stream_name = ""
             return
+        self._tool_call_stream_prefix_style = self.palette.status_success
         pending = self._format_tool_call_stream_content(str(self._tool_call_stream_buffer or ""))
         if pending:
             self._emit_branch(
@@ -304,6 +332,7 @@ class ChatUI:
             prefix_style=self._tool_call_stream_prefix_style,
         )
         self._tool_call_stream_open = False
+        self._tool_call_stream_name = ""
 
     def _start_tool_call_live(self) -> None:
         if self.console is None or self._tool_call_stream_live is not None:
@@ -317,16 +346,43 @@ class ChatUI:
             vertical_overflow="crop",
         )
         self._tool_call_stream_live.start()
+        self._tool_call_stream_dirty = True
         self._refresh_tool_call_live(force=True)
 
     def _refresh_tool_call_live(self, *, force: bool = False) -> None:
         if self._tool_call_stream_live is None:
             return
+        if not force and not self._tool_call_stream_dirty:
+            return
         now = time.perf_counter()
-        if not force and (now - self._tool_call_stream_last_refresh_at) < _TOOL_CALL_LIVE_REFRESH_INTERVAL_SECONDS:
+        buffer_len = len(self._tool_call_stream_buffer)
+        delta_chars = max(0, buffer_len - self._tool_call_stream_last_rendered_len)
+        elapsed = now - self._tool_call_stream_last_refresh_at
+        if (
+            not force
+            and delta_chars < _TOOL_CALL_LIVE_MIN_DELTA_CHARS
+            and elapsed < _TOOL_CALL_LIVE_REFRESH_INTERVAL_SECONDS
+        ):
+            return
+        content = self._tool_call_live_render_content()
+        preview_hash = hash(content)
+        if (
+            not force
+            and preview_hash == self._tool_call_stream_last_preview_hash
+            and delta_chars < (_TOOL_CALL_LIVE_MIN_DELTA_CHARS * 2)
+            and elapsed < (_TOOL_CALL_LIVE_REFRESH_INTERVAL_SECONDS * 2)
+        ):
+            self._tool_call_stream_dirty = False
+            self._tool_call_stream_last_rendered_len = buffer_len
             return
         self._tool_call_stream_last_refresh_at = now
-        self._tool_call_stream_live.update(self._build_tool_call_live_renderable(), refresh=True)
+        self._tool_call_stream_last_rendered_len = buffer_len
+        self._tool_call_stream_last_preview_hash = preview_hash
+        self._tool_call_stream_dirty = False
+        self._tool_call_stream_live.update(
+            self._build_tool_call_live_renderable(content),
+            refresh=True,
+        )
 
     def _stop_tool_call_live(self) -> None:
         if self._tool_call_stream_live is None:
@@ -335,28 +391,57 @@ class ChatUI:
         self._tool_call_stream_live.stop()
         self._tool_call_stream_live = None
         self._tool_call_stream_last_refresh_at = 0.0
+        self._tool_call_stream_dirty = False
+        self._tool_call_stream_last_rendered_len = 0
+        self._tool_call_stream_last_preview_hash = 0
 
-    def _build_tool_call_live_renderable(self):
+    def _tool_call_live_render_content(self) -> str:
         content = self._tool_call_stream_buffer if self._tool_call_stream_buffer else " "
         if self._tool_call_stream_live_show_full:
-            content = self._format_tool_call_stream_content(content)
-        else:
-            content = self._tool_call_live_preview_content(content)
+            return self._format_tool_call_stream_content(content)
+        preview = self._tool_call_live_preview_content(content)
+        if not any(marker in preview for marker in ("\\n", "\\r\\n", "\\\\n", "\\\\r\\\\n")):
+            return preview
+        normalized = self._normalize_tool_stream_display_content(preview, force=True)
+        if normalized == preview:
+            return preview
+        return self._tool_call_live_preview_content(normalized)
+
+    def _build_tool_call_live_renderable(self, content: Optional[str] = None):
+        if content is None:
+            content = self._tool_call_live_render_content()
+        title = Text()
+        title.append("├─ ", style=self._tool_call_stream_prefix_style)
+        title.append(f"tool: {self._tool_call_stream_name or 'tool'}", style=self.palette.tool_title)
         code_text = Text(
             content,
             style=self._tool_call_stream_body_style,
             no_wrap=False,
             overflow="fold",
         )
-        return LaneRenderable(
-            Padding(code_text, (0, 1), style=self.palette.markdown_code_background),
-            prefix="│   ",
-            prefix_style=self._tool_call_stream_prefix_style,
-            content_style=self._tool_call_stream_body_style,
+        return Group(
+            title,
+            LaneRenderable(
+                Padding(code_text, (0, 1), style=self.palette.markdown_code_background),
+                prefix="│   ",
+                prefix_style=self._tool_call_stream_prefix_style,
+                content_style=self._tool_call_stream_body_style,
+            ),
         )
 
     def _tool_call_live_preview_content(self, content: str) -> str:
         preview = content
+        if "\n" not in preview:
+            tail_chars = self._tool_call_live_single_line_char_budget(reserve_lines=4)
+            if len(preview) > tail_chars:
+                overflow = len(preview) - tail_chars
+                snapped = (overflow // _TOOL_CALL_LIVE_SINGLE_LINE_TAIL_STEP_CHARS) * (
+                    _TOOL_CALL_LIVE_SINGLE_LINE_TAIL_STEP_CHARS
+                )
+                start = max(0, min(snapped, len(preview) - tail_chars))
+                end = start + tail_chars
+                return preview[start:end]
+            return preview
         if len(preview) > _TOOL_CALL_LIVE_PREVIEW_MAX_CHARS:
             preview = preview[-_TOOL_CALL_LIVE_PREVIEW_MAX_CHARS:]
 
@@ -372,6 +457,18 @@ class ChatUI:
         available = max(_TOOL_CALL_LIVE_PREVIEW_MIN_LINES, self._terminal_height() - reserve_lines)
         return max(_TOOL_CALL_LIVE_PREVIEW_MIN_LINES, min(_TOOL_CALL_LIVE_PREVIEW_MAX_LINES, available))
 
+    def _tool_call_live_single_line_char_budget(self, reserve_lines: int) -> int:
+        max_lines = self._tool_call_live_preview_line_budget(reserve_lines)
+        # Keep under viewport to avoid Live auto-scroll jitter from expanding wrapped lines.
+        safe_lines = max(_TOOL_CALL_LIVE_PREVIEW_MIN_LINES, max_lines - 2)
+        wrap_width = self._tool_call_live_wrap_width()
+        budget = int(safe_lines * wrap_width * 0.85)
+        return max(512, min(_TOOL_CALL_LIVE_PREVIEW_MAX_CHARS, budget))
+
+    def _tool_call_live_wrap_width(self) -> int:
+        # Lane prefix "│   " + code padding consume a few columns.
+        return max(16, self._terminal_width() - 8)
+
     def _terminal_height(self) -> int:
         if self.console is not None:
             try:
@@ -380,10 +477,20 @@ class ChatUI:
                 pass
         return 24
 
+    def _terminal_width(self) -> int:
+        if self.console is not None:
+            try:
+                return max(40, int(self.console.size.width))
+            except Exception:
+                pass
+        return 120
+
     def _format_tool_call_stream_content(self, content: str) -> str:
         text = content or ""
         stripped = text.strip()
         if not stripped:
+            return text
+        if len(stripped) > _TOOL_CALL_LIVE_PRETTY_MAX_CHARS:
             return text
         if not (stripped.startswith("{") or stripped.startswith("[")):
             return text
@@ -394,9 +501,25 @@ class ChatUI:
         if not isinstance(parsed, (dict, list)):
             return text
         try:
-            return json.dumps(parsed, ensure_ascii=False, indent=2)
+            rendered = json.dumps(parsed, ensure_ascii=False, indent=2)
+            return self._normalize_tool_stream_display_content(rendered, force=True)
         except (TypeError, ValueError):
             return text
+
+    def _normalize_tool_stream_display_content(self, content: str, *, force: bool = False) -> str:
+        text = str(content or "")
+        if not force and text.count("\\n") < _TOOL_CALL_LIVE_ESCAPE_NEWLINE_THRESHOLD:
+            return text
+        normalized = text
+        normalized = normalized.replace("\\\\r\\\\n", "\n")
+        normalized = normalized.replace("\\\\n", "\n")
+        normalized = normalized.replace("\\r\\n", "\n")
+        normalized = normalized.replace("\\n", "\n")
+        normalized = normalized.replace("\\\\t", "    ")
+        normalized = normalized.replace("\\t", "    ")
+        while "\\\n" in normalized:
+            normalized = normalized.replace("\\\n", "\n")
+        return normalized
 
     def show_tool_result(self, name: str, result: Any) -> None:
         self._ensure_stream_closed()
@@ -429,12 +552,9 @@ class ChatUI:
         if self._tool_call_stream_open:
             self.tool_call_stream_end()
         if self._renderer.active:
-            # Preserve lifecycle color transitions for reasoning-only turns:
-            # settle to success before tool/result blocks instead of dropping state.
-            if self._renderer.reasoning_text and not self._renderer.output_text:
-                self._renderer.finish_success()
-            else:
-                self._renderer.close()
+            # Always close via lifecycle transition to avoid leaving stale
+            # processing/thinking snapshots on screen.
+            self._renderer.finish_success()
         self._phase = "idle"
         self._dim_active = False
         self._assistant_buffer = ""

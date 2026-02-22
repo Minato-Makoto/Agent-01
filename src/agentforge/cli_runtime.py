@@ -155,6 +155,7 @@ def _build_callbacks(ui: Any) -> tuple[StreamCallbacks, Dict[str, bool]]:
         on_thinking_start=ui.thinking_start,
         on_thinking_end=ui.thinking_stop,
         on_skill_activated=on_skill_activated,
+        on_status=ui.status,
     )
     return callbacks, stream_state
 

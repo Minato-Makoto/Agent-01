@@ -301,6 +301,33 @@ class SessionManager:
             self._session.updated_at = time.time()
             self._save()
 
+    def replace_transcript(
+        self,
+        messages: List[Dict[str, Any]],
+        summary: str = "",
+        metadata_update: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Replace transcript in-place while keeping the same session identity."""
+        if not self._session:
+            self.new_session()
+        if not self._session:
+            return
+
+        rewritten: List[SessionMessage] = []
+        for raw in messages:
+            msg = self._coerce_prompt_message(raw)
+            if msg is not None:
+                rewritten.append(msg)
+
+        self._session.messages = rewritten
+        self._session.summary = str(summary or "")
+        if isinstance(metadata_update, dict) and metadata_update:
+            merged = dict(self._session.metadata or {})
+            merged.update(metadata_update)
+            self._session.metadata = merged
+        self._session.updated_at = time.time()
+        self._save()
+
     def get_messages(self, limit: int = 0) -> List[SessionMessage]:
         if not self._session:
             return []

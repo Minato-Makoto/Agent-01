@@ -63,6 +63,7 @@ class StreamCallbacks:
     on_thinking_start: Optional[Callable[[], None]] = None
     on_thinking_end: Optional[Callable[[], None]] = None
     on_skill_activated: Optional[Callable[[str], None]] = None
+    on_status: Optional[Callable[[str], None]] = None
 
 
 class Agent:
@@ -132,10 +133,11 @@ class Agent:
         if self.session_mgr:
             self.session_mgr.add_message("user", user_input)
 
-        self._maybe_summarize_prompt_history()
+        self._maybe_summarize_prompt_history(cb)
 
         self.tool_loop.reset()
         start_time = time.time()
+        emergency_compact_attempted = False
 
         for iteration in range(self.config.max_iterations):
             can_continue, reason = self.tool_loop.should_continue(iteration, start_time)
@@ -145,7 +147,11 @@ class Agent:
 
             result = self._run_model_once(cb)
             if result.error:
-                if self._try_emergency_context_compress(result.error):
+                if (
+                    not emergency_compact_attempted
+                    and self._try_emergency_context_compress(result.error, cb)
+                ):
+                    emergency_compact_attempted = True
                     continue
                 return f"[LLM Error: {result.error}]"
 
@@ -256,7 +262,11 @@ class Agent:
         if skill and skill.active:
             self._safe_callback(cb.on_skill_activated, "on_skill_activated", skill.name)
 
-    def _try_emergency_context_compress(self, error_message: str) -> bool:
+    def _try_emergency_context_compress(
+        self,
+        error_message: str,
+        cb: Optional[StreamCallbacks] = None,
+    ) -> bool:
         if not self.summarizer:
             return False
         lowered = (error_message or "").lower()
@@ -264,16 +274,60 @@ class Agent:
             return False
 
         logger.warning("Context overflow detected. Triggering emergency compression.")
-        messages_dicts = [{"role": m.role, "content": m.content} for m in self.prompt.messages]
-        remaining = self.summarizer.emergency_compress(messages_dicts)
-        self.prompt.clear()
-        for msg in remaining:
-            self.prompt.messages.append(
-                ChatMessage(role=msg.get("role", "user"), content=msg.get("content", ""))
+        messages_dicts = [
+            {
+                "role": msg.role,
+                "content": msg.content,
+                "tool_calls": msg.tool_calls,
+                "tool_call_id": msg.tool_call_id,
+                "tool_name": msg.tool_name,
+            }
+            for msg in self.prompt.messages
+        ]
+        existing_summary = ""
+        if self.session_mgr and self.session_mgr.session:
+            existing_summary = self.session_mgr.session.summary
+
+        remaining, meta = self.summarizer.emergency_compress(
+            messages_dicts,
+            existing_summary=existing_summary,
+        )
+        if not remaining:
+            return False
+        self._rebuild_prompt_from_messages(remaining)
+
+        summary_hint = str(meta.get("summary_hint", "")).strip()
+        merged_summary = existing_summary.strip()
+        if summary_hint:
+            merged_summary = (
+                f"{merged_summary}\n\n{summary_hint}" if merged_summary else summary_hint
             )
+
+        if self.session_mgr and self.session_mgr.session:
+            self.session_mgr.replace_transcript(
+                remaining,
+                summary=merged_summary,
+                metadata_update={
+                    "last_compaction": "emergency",
+                    "dropped_count": int(meta.get("dropped_count", 0)),
+                    "kept_count": int(meta.get("kept_count", len(remaining))),
+                    "compacted_at": time.time(),
+                },
+            )
+
+        logger.info(
+            "Emergency compaction applied in-place: dropped=%s kept=%s",
+            int(meta.get("dropped_count", 0)),
+            int(meta.get("kept_count", len(remaining))),
+        )
+        self._safe_callback(
+            cb.on_status if cb else None,
+            "on_status",
+            "Context compacted in-place (emergency).",
+        )
         return True
 
-    def _maybe_summarize_prompt_history(self) -> None:
+    def _maybe_summarize_prompt_history(self, cb: Optional[StreamCallbacks] = None) -> None:
         if not self.summarizer:
             return
 
@@ -310,35 +364,68 @@ class Agent:
             llm_fn=_llm_summary_fn,
         )
         did_compress = len(remaining) < len(message_dicts)
-        if self.session_mgr and self.session_mgr.session:
-            old_session_id = self.session_mgr.session.id
-            self.session_mgr.set_summary(summary)
-            if did_compress:
-                try:
-                    self.session_mgr.branch_session(
-                        summary=summary,
-                        old_id=old_session_id,
-                        continuation_messages=remaining,
-                    )
-                    self._hydrate_prompt_from_session()
-                    return
-                except Exception:
-                    logger.exception("Session branching failed; falling back to in-memory summary mode.")
+        if not did_compress:
+            if self.session_mgr and self.session_mgr.session and summary:
+                self.session_mgr.set_summary(summary)
+            return
 
-        self.prompt.clear()
-        if summary:
-            self.prompt.add_user(f"[Previous conversation summary: {summary}]")
-            self.prompt.add_assistant(
-                "Understood. I have the context from our previous conversation."
+        note = self._build_context_memory_note(summary, reason="graceful")
+        compacted_messages: List[Dict[str, Any]] = []
+        if note:
+            compacted_messages.append({"role": "system", "content": note})
+        compacted_messages.extend(remaining)
+        self._rebuild_prompt_from_messages(compacted_messages)
+
+        if self.session_mgr and self.session_mgr.session:
+            self.session_mgr.replace_transcript(
+                compacted_messages,
+                summary=summary,
+                metadata_update={
+                    "last_compaction": "graceful",
+                    "dropped_count": len(message_dicts) - len(remaining),
+                    "kept_count": len(remaining),
+                    "compacted_at": time.time(),
+                },
             )
-        for msg in remaining:
+
+        logger.info(
+            "Graceful compaction applied in-place: dropped=%s kept=%s summary_chars=%s",
+            len(message_dicts) - len(remaining),
+            len(remaining),
+            len(summary or ""),
+        )
+        self._safe_callback(
+            cb.on_status if cb else None,
+            "on_status",
+            "Context compacted in-place (graceful).",
+        )
+
+    def _build_context_memory_note(self, summary: str, *, reason: str) -> str:
+        safe_summary = str(summary or "").strip()
+        if not safe_summary:
+            return (
+                f"Context memory note ({reason} compaction). "
+                "Continue the same task using recent messages."
+            )
+        return (
+            f"Context memory note ({reason} compaction). "
+            "Continue the same task using this summary and recent messages.\n"
+            f"summary:\n{safe_summary}"
+        )
+
+    def _rebuild_prompt_from_messages(self, messages: List[Dict[str, Any]]) -> None:
+        self.prompt.clear()
+        for msg in messages:
+            role = str(msg.get("role", "user"))
+            if role not in {"system", "user", "assistant", "tool"}:
+                role = "user"
             self.prompt.messages.append(
                 ChatMessage(
-                    role=msg.get("role", "user"),
-                    content=msg.get("content", ""),
-                    tool_call_id=msg.get("tool_call_id", ""),
+                    role=role,
+                    content=str(msg.get("content", "")),
+                    tool_call_id=str(msg.get("tool_call_id", "")),
                     tool_calls=msg.get("tool_calls"),
-                    tool_name=msg.get("tool_name", ""),
+                    tool_name=str(msg.get("tool_name", "")),
                 )
             )
 
@@ -433,7 +520,12 @@ class Agent:
         self.skill_loader.activate(skill.skill_id)
 
         if not skill.module:
-            logger.warning("Skill '%s' has no module in frontmatter; skipping tool load.", skill.name)
+            # Instruction-only skills are valid: they can update prompt context
+            # without contributing runtime tools.
+            logger.debug(
+                "Skill '%s' has no module in frontmatter; treating as instruction-only skill.",
+                skill.name,
+            )
             self._update_system_prompt()
             return
 

@@ -43,7 +43,7 @@ class _SummarizingLLM:
 
 def _seed_long_session(manager: SessionManager) -> str:
     session = manager.new_session()
-    for idx in range(4):
+    for idx in range(6):
         manager.add_message("user", f"user-{idx} " + ("x" * 80))
         manager.add_message("assistant", f"assistant-{idx} " + ("y" * 80))
     return session.id
@@ -79,7 +79,7 @@ def test_agent_hydrates_prompt_from_loaded_session(tmp_path):
     )
 
 
-def test_graceful_summary_branches_session_and_links_previous_id(tmp_path):
+def test_graceful_summary_keeps_same_session_id_and_compacts_in_place(tmp_path):
     sessions_dir = tmp_path / "sessions"
     sessions_dir.mkdir()
     session_mgr = SessionManager(str(sessions_dir))
@@ -98,15 +98,21 @@ def test_graceful_summary_branches_session_and_links_previous_id(tmp_path):
     assert result == "continued"
     assert llm.summary_prompts
     assert session_mgr.session is not None
-    assert session_mgr.session.id != old_id
-    assert session_mgr.session.previous_session_id == old_id
+    assert session_mgr.session.id == old_id
+    assert session_mgr.session.previous_session_id == ""
     assert (sessions_dir / f"{session_mgr.session.id}.json").exists()
+    assert any(
+        m.get("role") == "system" and "context memory note" in str(m.get("content", "")).lower()
+        for m in llm.last_messages
+    )
+    assert any(m.get("role") == "user" and m.get("content") == "trigger summarization" for m in llm.last_messages)
 
     old_payload = json.loads((sessions_dir / f"{old_id}.json").read_text(encoding="utf-8"))
     assert old_payload.get("summary", "").strip() != ""
+    assert old_payload.get("metadata", {}).get("last_compaction") == "graceful"
 
 
-def test_branch_injects_continuation_system_message(tmp_path):
+def test_graceful_compaction_injects_context_memory_system_message(tmp_path):
     sessions_dir = tmp_path / "sessions"
     sessions_dir.mkdir()
     session_mgr = SessionManager(str(sessions_dir))
@@ -124,5 +130,5 @@ def test_branch_injects_continuation_system_message(tmp_path):
     assert session_mgr.session is not None
     first_message = session_mgr.session.messages[0]
     assert first_message.role == "system"
-    assert old_id in first_message.content
-    assert "continuation" in first_message.content.lower()
+    assert "context memory note" in first_message.content.lower()
+    assert session_mgr.session.id == old_id

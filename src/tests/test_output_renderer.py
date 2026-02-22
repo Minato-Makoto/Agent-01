@@ -61,6 +61,78 @@ def test_reasoning_lane_prefix_switches_from_thinking_to_done():
     assert renderer._reasoning_prefix_style() == renderer._palette.lane
 
 
+def test_output_lane_stays_thinking_color_until_stream_end():
+    renderer = ModelOutputRenderer(
+        console=None,
+        use_rich=False,
+        palette=build_palette("dark"),
+    )
+    renderer.begin_turn("hello")
+    renderer.append_reasoning("plan")
+    renderer.append_output("partial")
+
+    assert renderer._model_turn_lane_style() == renderer._palette.status_thinking
+
+    renderer.finish_success()
+
+    assert renderer._model_turn_lane_style() == renderer._palette.status_success
+
+
+def test_finish_success_with_processing_only_marks_live_transient(monkeypatch):
+    renderer = ModelOutputRenderer(
+        console=None,
+        use_rich=True,
+        palette=build_palette("dark"),
+    )
+
+    class _LiveStub:
+        def __init__(self):
+            self.transient = False
+            self.stopped = False
+
+        def stop(self):
+            self.stopped = True
+
+    live = _LiveStub()
+    renderer._live = live
+    renderer._use_rich = True
+    renderer._active = True
+    renderer._status_state = "processing"
+
+    renderer.finish_success()
+
+    assert live.transient is True
+    assert live.stopped is True
+
+
+def test_finish_success_with_whitespace_only_marks_live_transient():
+    renderer = ModelOutputRenderer(
+        console=None,
+        use_rich=True,
+        palette=build_palette("dark"),
+    )
+
+    class _LiveStub:
+        def __init__(self):
+            self.transient = False
+            self.stopped = False
+
+        def stop(self):
+            self.stopped = True
+
+    live = _LiveStub()
+    renderer._live = live
+    renderer._use_rich = True
+    renderer._active = True
+    renderer._status_state = "processing"
+    renderer._output_buffer = "   \n\t  "
+
+    renderer.finish_success()
+
+    assert live.transient is True
+    assert live.stopped is True
+
+
 def test_lane_markdown_quote_codeblock_and_hr_rendering():
     palette = build_palette("dark")
     markdown = LaneMarkdown("> quoted line\n\n---\n\n```text\nprint('x')\n```", palette)

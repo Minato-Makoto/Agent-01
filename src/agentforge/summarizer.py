@@ -24,6 +24,10 @@ class Summarizer:
         self._summary_threshold = 0.7     # summarize at 70% capacity
         # Max length for a single tool result before pruning
         self._max_tool_result_chars = 2000
+        self._graceful_min_keep_messages = 8
+        self._graceful_max_keep_messages = 24
+        self._emergency_min_keep_messages = 6
+        self._emergency_max_keep_messages = 10
 
     @property
     def max_chars(self) -> int:
@@ -102,11 +106,16 @@ class Summarizer:
         
         Returns: (summary_text, remaining_messages)
         """
-        if len(messages) < 6:
+        if len(messages) < (self._graceful_min_keep_messages + 2):
             return existing_summary, messages
 
-        # Keep the most recent 4 messages (2 user-assistant pairs)
-        keep_count = 4
+        keep_count = self._dynamic_keep_count(
+            messages,
+            min_keep=self._graceful_min_keep_messages,
+            max_keep=self._graceful_max_keep_messages,
+            target_ratio=0.42,
+        )
+        keep_count = min(max(1, keep_count), max(1, len(messages) - 1))
         old_messages = messages[:-keep_count]
         recent_messages = messages[-keep_count:]
 
@@ -161,19 +170,96 @@ Write the continuation summary now."""
         summary = "\n".join(parts)
         return summary, recent_messages
 
-    def emergency_compress(self, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def emergency_compress(
+        self,
+        messages: List[Dict[str, Any]],
+        existing_summary: str = "",
+    ) -> tuple[List[Dict[str, Any]], Dict[str, Any]]:
         """
         Tier 2: Emergency compression.
-        
-        Aggressively removes old messages to fit within context window.
-        Keeps only the 2 most recent messages.
-        Pattern: PicoClaw loop.go:forceCompression (drop oldest 50%).
-        """
-        if len(messages) <= 2:
-            return messages
 
-        # Keep only the last 2 messages
-        return messages[-2:]
+        Aggressively shrinks context but keeps a broader recent tail and
+        injects a compact memory note instead of hard-resetting to 2 messages.
+        """
+        if len(messages) <= self._emergency_min_keep_messages:
+            return messages, {"dropped_count": 0, "summary_hint": ""}
+
+        keep_count = self._dynamic_keep_count(
+            messages,
+            min_keep=self._emergency_min_keep_messages,
+            max_keep=self._emergency_max_keep_messages,
+            target_ratio=0.28,
+        )
+        keep_count = min(max(1, keep_count), len(messages))
+
+        dropped_messages = messages[:-keep_count]
+        recent_messages = messages[-keep_count:]
+        summary_hint = self._build_emergency_summary(dropped_messages, existing_summary)
+
+        compacted: List[Dict[str, Any]] = []
+        if summary_hint:
+            compacted.append({"role": "system", "content": summary_hint})
+        compacted.extend(recent_messages)
+        return compacted, {
+            "dropped_count": len(dropped_messages),
+            "kept_count": len(recent_messages),
+            "summary_hint": summary_hint,
+        }
+
+    def _dynamic_keep_count(
+        self,
+        messages: List[Dict[str, Any]],
+        *,
+        min_keep: int,
+        max_keep: int,
+        target_ratio: float,
+    ) -> int:
+        if not messages:
+            return 0
+        upper = max(1, min(int(max_keep), len(messages)))
+        lower = max(1, min(int(min_keep), upper))
+        target_chars = max(256, int(self.max_chars * float(target_ratio)))
+        kept_chars = 0
+        kept_count = 0
+
+        for msg in reversed(messages):
+            msg_chars = self._estimate_message_chars(msg)
+            if kept_count >= lower and (kept_chars + msg_chars) > target_chars:
+                break
+            kept_chars += msg_chars
+            kept_count += 1
+            if kept_count >= upper:
+                break
+
+        return max(lower, kept_count)
+
+    def _estimate_message_chars(self, msg: Dict[str, Any]) -> int:
+        role = str(msg.get("role", ""))
+        content = str(msg.get("content", ""))
+        tool_calls = msg.get("tool_calls")
+        extra = len(json.dumps(tool_calls, ensure_ascii=False)) if tool_calls else 0
+        return len(role) + len(content) + extra + 24
+
+    def _build_emergency_summary(self, dropped: List[Dict[str, Any]], existing_summary: str) -> str:
+        parts: List[str] = []
+        if existing_summary.strip():
+            parts.append(f"existing_summary: {existing_summary.strip()[:800]}")
+        if dropped:
+            parts.append(f"dropped_messages: {len(dropped)}")
+            for msg in dropped[-6:]:
+                role = str(msg.get("role", "unknown"))
+                content = " ".join(str(msg.get("content", "")).split())
+                if content:
+                    parts.append(f"- {role}: {content[:160]}")
+        summary_body = "\n".join(parts).strip()
+        if not summary_body:
+            return ""
+        summary = (
+            "Context memory note (emergency compaction). "
+            "Use this as prior context for continuity.\n"
+            f"{summary_body}"
+        )
+        return summary[:1600]
 
     def _messages_to_text(self, messages: List[Dict[str, Any]]) -> str:
         """Convert messages to readable text for summarization."""
@@ -184,4 +270,3 @@ Write the continuation summary now."""
             if content.strip():
                 lines.append(f"{role}: {content}")
         return "\n".join(lines)
-

@@ -1,6 +1,7 @@
 import sys
 
 import agentforge.ui as ui_module
+from rich.console import Console
 from agentforge.ui import ChatUI
 
 
@@ -134,6 +135,26 @@ def test_tool_call_live_uses_crop_vertical_overflow(monkeypatch):
 
     assert captured["started"] == 1
     assert captured["kwargs"]["vertical_overflow"] == "crop"
+    assert ui._tool_call_stream_prefix_style == ui.palette.status_thinking
+
+
+def test_tool_call_stream_start_styles_title_lane_as_thinking(monkeypatch):
+    ui = ChatUI(verbose=False)
+    emitted = []
+
+    monkeypatch.setattr(
+        ui,
+        "_emit_branch",
+        lambda prefix, message, **kwargs: emitted.append((prefix, message, kwargs)),
+    )
+
+    ui.tool_call_stream_start("write_file")
+
+    assert emitted
+    prefix, message, kwargs = emitted[0]
+    assert prefix == "├─ "
+    assert message == "tool: write_file"
+    assert kwargs.get("prefix_style") == ui.palette.status_thinking
 
 
 def test_tool_call_live_preview_tracks_tail_lines():
@@ -175,8 +196,136 @@ def test_tool_call_live_refresh_throttles_rapid_updates(monkeypatch):
     ticks = iter([10.0, 10.001, 10.2])
     monkeypatch.setattr("agentforge.ui.time.perf_counter", lambda: next(ticks))
 
+    ui._tool_call_stream_dirty = True
     ui._refresh_tool_call_live()
+    ui._tool_call_stream_dirty = True
     ui._refresh_tool_call_live()
+    ui._tool_call_stream_dirty = True
     ui._refresh_tool_call_live()
 
     assert live.calls == 2
+
+
+def test_tool_call_live_tail_for_single_line_payload():
+    ui = ChatUI(verbose=False)
+
+    class _FakeConsole:
+        class _Size:
+            width = 80
+            height = 20
+
+        size = _Size()
+
+    ui.console = _FakeConsole()
+    long_line = "".join(f"{i:04d}" for i in range(2000))
+
+    preview = ui._tool_call_live_preview_content(long_line)
+    budget = ui._tool_call_live_single_line_char_budget(reserve_lines=4)
+
+    assert len(preview) == budget
+    expected_start = ((len(long_line) - budget) // 64) * 64
+    assert preview == long_line[expected_start : expected_start + budget]
+
+
+def test_tool_call_stream_end_transitions_prefix_to_success(monkeypatch):
+    ui = ChatUI(verbose=False)
+    ui._tool_call_stream_open = True
+    ui._tool_call_stream_live = object()
+    captured = {"stopped": False}
+
+    monkeypatch.setattr(
+        ui,
+        "_stop_tool_call_live",
+        lambda: captured.__setitem__("stopped", True),
+    )
+
+    ui.tool_call_stream_end()
+
+    assert captured["stopped"] is True
+    assert ui._tool_call_stream_prefix_style == ui.palette.status_success
+
+
+def test_tool_call_live_final_flush_renders_full_block_once():
+    ui = ChatUI(verbose=False)
+    ui._tool_call_stream_buffer = '{"path":"workspace/AGENT.md"}'
+    ui._tool_call_stream_live_show_full = True
+    ui._tool_call_stream_dirty = True
+
+    class _LiveStub:
+        def __init__(self):
+            self.updates = []
+            self.stopped = False
+
+        def update(self, renderable, refresh):
+            self.updates.append((renderable, refresh))
+
+        def stop(self):
+            self.stopped = True
+
+    live = _LiveStub()
+    ui._tool_call_stream_live = live
+    ui._stop_tool_call_live()
+
+    assert live.stopped is True
+    assert live.updates
+
+    renderable, refresh = live.updates[-1]
+    assert refresh is True
+
+    console = Console(record=True, width=120)
+    console.print(renderable)
+    text = console.export_text()
+    assert '"path": "workspace/AGENT.md"' in text
+
+
+def test_tool_call_display_normalizes_escaped_newlines():
+    ui = ChatUI(verbose=False)
+    raw = '{"content":"line1\\\\nline2\\\\nline3\\\\nline4\\\\nline5\\\\nline6\\\\nline7\\\\nline8\\\\nline9"}'
+
+    out = ui._normalize_tool_stream_display_content(raw)
+
+    assert "line1\nline2" in out
+
+
+def test_tool_call_display_normalizes_doubly_escaped_newlines():
+    ui = ChatUI(verbose=False)
+    raw = (
+        '{"content":"line1\\\\\\\\nline2\\\\\\\\nline3\\\\\\\\nline4\\\\\\\\nline5\\\\\\\\n'
+        'line6\\\\\\\\nline7\\\\\\\\nline8\\\\\\\\nline9"}'
+    )
+
+    out = ui._normalize_tool_stream_display_content(raw)
+
+    assert "line1\nline2" in out
+    assert "\\\n" not in out
+
+
+def test_tool_call_live_preview_normalizes_escaped_newlines_for_display():
+    ui = ChatUI(verbose=False)
+    ui._tool_call_stream_buffer = '{"content":"line1\\\\nline2\\\\nline3"}'
+
+    out = ui._tool_call_live_render_content()
+
+    assert "line1\nline2" in out
+
+
+def test_ensure_stream_closed_uses_finish_success_not_close(monkeypatch):
+    ui = ChatUI(verbose=False)
+    ui._renderer._active = True
+    calls = {"finish": 0, "close": 0}
+
+    monkeypatch.setattr(
+        ui._renderer,
+        "finish_success",
+        lambda: calls.__setitem__("finish", calls["finish"] + 1),
+    )
+    monkeypatch.setattr(
+        ui._renderer,
+        "close",
+        lambda: calls.__setitem__("close", calls["close"] + 1),
+    )
+
+    ui._ensure_stream_closed()
+
+    assert calls["finish"] == 1
+    assert calls["close"] == 0

@@ -459,16 +459,23 @@ class ModelOutputRenderer:
     def finish_success(self) -> None:
         if not self._active:
             return
+        had_visible_content = bool(self._reasoning_buffer.strip() or self._output_buffer.strip())
         self._status_state = "success"
-        self._live_show_full_output = True
-        self._refresh(force=True)
+        self._live_show_full_output = had_visible_content
+        if had_visible_content:
+            self._refresh(force=True)
+        elif self._live is not None:
+            # Avoid leaving repeated static `processing...` lines when turns
+            # contain no streamed reasoning/output content.
+            self._live.transient = True
         self._stop_live()
         if not self._use_rich:
             if self._plain_reasoning_line_open or self._plain_output_line_open:
                 print("", flush=True)
                 self._plain_reasoning_line_open = False
                 self._plain_output_line_open = False
-            self._plain_status("completed.", self._status_style())
+            if had_visible_content:
+                self._plain_status("completed.", self._status_style())
         self._active = False
 
     def finish_error(self, message: str) -> None:
@@ -599,6 +606,15 @@ class ModelOutputRenderer:
             return self._palette.status_success
         return self._palette.lane
 
+    def _model_turn_lane_style(self) -> str:
+        if self._status_state == "error":
+            return self._palette.status_error
+        if self._status_state == "success":
+            return self._palette.status_success
+        if self._active:
+            return self._palette.status_thinking
+        return self._palette.lane
+
     def _build_renderable(self) -> RenderableType:
         blocks: list[RenderableType] = [
             self._status_renderable(),
@@ -624,12 +640,12 @@ class ModelOutputRenderer:
                 self._output_buffer,
                 reserve_lines=6,
             )
-            blocks.append(Text("├─ Agent-01", style=self._palette.assistant))
+            blocks.append(Text("├─ Agent-01", style=self._model_turn_lane_style()))
             blocks.append(
                 LaneRenderable(
                     LaneMarkdown(output_preview, self._palette),
                     prefix="│ ",
-                    prefix_style=self._palette.lane,
+                    prefix_style=self._model_turn_lane_style(),
                     content_style=self._palette.text,
                 )
             )
