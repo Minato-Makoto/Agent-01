@@ -300,15 +300,6 @@ def test_tool_call_display_normalizes_doubly_escaped_newlines():
     assert "\\\n" not in out
 
 
-def test_tool_call_live_preview_normalizes_escaped_newlines_for_display():
-    ui = ChatUI(verbose=False)
-    ui._tool_call_stream_buffer = '{"content":"line1\\\\nline2\\\\nline3"}'
-
-    out = ui._tool_call_live_render_content()
-
-    assert "line1\nline2" in out
-
-
 def test_ensure_stream_closed_uses_finish_success_not_close(monkeypatch):
     ui = ChatUI(verbose=False)
     ui._renderer._active = True

@@ -124,7 +124,7 @@ class Summarizer:
 
         if llm_fn:
             prompt = f"""You are Agent-01 preparing a continuation summary because context limit was reached.
-This summary will be injected into a NEW session that continues the same task.
+This summary will be injected back into the SAME session transcript to continue the same task.
 Be concise but decision-complete.
 
 Output format (plain text headings):

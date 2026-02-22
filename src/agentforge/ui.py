@@ -399,13 +399,7 @@ class ChatUI:
         content = self._tool_call_stream_buffer if self._tool_call_stream_buffer else " "
         if self._tool_call_stream_live_show_full:
             return self._format_tool_call_stream_content(content)
-        preview = self._tool_call_live_preview_content(content)
-        if not any(marker in preview for marker in ("\\n", "\\r\\n", "\\\\n", "\\\\r\\\\n")):
-            return preview
-        normalized = self._normalize_tool_stream_display_content(preview, force=True)
-        if normalized == preview:
-            return preview
-        return self._tool_call_live_preview_content(normalized)
+        return self._tool_call_live_preview_content(content)
 
     def _build_tool_call_live_renderable(self, content: Optional[str] = None):
         if content is None:
@@ -463,7 +457,7 @@ class ChatUI:
         safe_lines = max(_TOOL_CALL_LIVE_PREVIEW_MIN_LINES, max_lines - 2)
         wrap_width = self._tool_call_live_wrap_width()
         budget = int(safe_lines * wrap_width * 0.85)
-        return max(512, min(_TOOL_CALL_LIVE_PREVIEW_MAX_CHARS, budget))
+        return max(256, min(_TOOL_CALL_LIVE_PREVIEW_MAX_CHARS, budget))
 
     def _tool_call_live_wrap_width(self) -> int:
         # Lane prefix "│   " + code padding consume a few columns.

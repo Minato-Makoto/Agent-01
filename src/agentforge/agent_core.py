@@ -353,10 +353,39 @@ class Agent:
             existing_summary = self.session_mgr.session.summary
 
         def _llm_summary_fn(summary_prompt: str) -> str:
-            generated = (self.llm.generate(prompt=summary_prompt, max_tokens=768) or "").strip()
-            if not generated or generated.startswith("[Error:"):
-                raise RuntimeError("llm summary generation failed")
-            return generated
+            completion_generated = (self.llm.generate(prompt=summary_prompt, max_tokens=768) or "").strip()
+            if completion_generated and not completion_generated.startswith("[Error:"):
+                return completion_generated
+
+            completion_error = completion_generated or "empty completion summary output"
+            fallback_messages = [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are Agent-01. Produce a concise continuation summary for the same ongoing task."
+                    ),
+                },
+                {"role": "user", "content": summary_prompt},
+            ]
+            fallback = self.llm.chat_completion(
+                messages=fallback_messages,
+                tools=[],
+                tool_choice="none",
+                parallel_tool_calls=False,
+                stop=self._DEFAULT_STOP,
+                max_tokens=768,
+            )
+            if fallback.error:
+                raise RuntimeError(
+                    f"llm summary generation failed: completion={completion_error}; chat={fallback.error}"
+                )
+
+            chat_generated = (fallback.content or "").strip()
+            if not chat_generated:
+                raise RuntimeError(
+                    f"llm summary generation failed: completion={completion_error}; chat=empty output"
+                )
+            return chat_generated
 
         summary, remaining = self.summarizer.graceful_summarize(
             message_dicts,

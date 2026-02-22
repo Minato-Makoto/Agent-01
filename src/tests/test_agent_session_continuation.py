@@ -41,6 +41,39 @@ class _SummarizingLLM:
         return ChatCompletionResult(content="continued")
 
 
+class _SummaryCompletionFallbackLLM:
+    def __init__(self):
+        self.capabilities = type("Caps", (), {"supports_tools": True})()
+        self.last_messages = []
+        self.generate_prompts = []
+        self.summary_chat_calls = 0
+
+    def generate(self, prompt, **kwargs):
+        del kwargs
+        self.generate_prompts.append(prompt)
+        return "[Error: completion endpoint unavailable]"
+
+    def chat_completion(self, messages, **kwargs):
+        del kwargs
+        self.last_messages = list(messages)
+        if (
+            len(messages) == 2
+            and str(messages[0].get("role", "")) == "system"
+            and "continuation summary" in str(messages[0].get("content", "")).lower()
+        ):
+            self.summary_chat_calls += 1
+            return ChatCompletionResult(
+                content=(
+                    "Goal: continue current task.\n"
+                    "Decisions made: keep same session continuity.\n"
+                    "File/tool state: files already generated.\n"
+                    "Pending work: process latest user turn.\n"
+                    "Constraints and risks: preserve transcript linkage."
+                )
+            )
+        return ChatCompletionResult(content="continued")
+
+
 def _seed_long_session(manager: SessionManager) -> str:
     session = manager.new_session()
     for idx in range(6):
@@ -132,3 +165,27 @@ def test_graceful_compaction_injects_context_memory_system_message(tmp_path):
     assert first_message.role == "system"
     assert "context memory note" in first_message.content.lower()
     assert session_mgr.session.id == old_id
+
+
+def test_graceful_summary_uses_chat_fallback_when_completion_summary_fails(tmp_path):
+    sessions_dir = tmp_path / "sessions"
+    sessions_dir.mkdir()
+    session_mgr = SessionManager(str(sessions_dir))
+    _seed_long_session(session_mgr)
+
+    llm = _SummaryCompletionFallbackLLM()
+    agent = Agent(
+        config=AgentConfig(max_iterations=2, max_repeats=2, timeout=30.0, workspace_dir=str(tmp_path)),
+        llm=llm,
+        tools=ToolRegistry(),
+        session_mgr=session_mgr,
+        summarizer=Summarizer(max_tokens=64),
+    )
+
+    result = agent.run("trigger summarization")
+    assert result == "continued"
+    assert llm.generate_prompts
+    assert llm.summary_chat_calls == 1
+    assert session_mgr.session is not None
+    assert "Goal: continue current task." in session_mgr.session.summary
+    assert "[Compressed" not in session_mgr.session.summary
