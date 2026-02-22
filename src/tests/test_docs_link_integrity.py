@@ -14,9 +14,10 @@ def _iter_markdown_files(root: Path):
         yield path, rel
 
 
-def test_openclaw_docs_routes_do_not_use_known_bad_paths():
+def test_docs_do_not_contain_stale_external_links():
+    """Ensure no stale external documentation links remain."""
     root = Path(__file__).resolve().parents[2]
-    bad_routes = (
+    stale_routes = (
         "https://docs.openclaw.ai/platform/model-providers",
         "https://docs.openclaw.ai/ai-agents/model-failover",
     )
@@ -24,19 +25,9 @@ def test_openclaw_docs_routes_do_not_use_known_bad_paths():
     offenders = []
     for path, rel in _iter_markdown_files(root):
         text = path.read_text(encoding="utf-8", errors="ignore")
-        for route in bad_routes:
+        for route in stale_routes:
             if route in text:
                 offenders.append((rel, route))
 
     assert offenders == []
 
-
-def test_core_docs_use_current_openclaw_concepts_routes():
-    root = Path(__file__).resolve().parents[2]
-    blueprint_en = (root / "docs" / "BLUEPRINT_EN.md").read_text(encoding="utf-8")
-    blueprint_vi = (root / "docs" / "BLUEPRINT_VI.md").read_text(encoding="utf-8")
-
-    assert "https://docs.openclaw.ai/concepts/model-providers" in blueprint_en
-    assert "https://docs.openclaw.ai/concepts/model-failover" in blueprint_en
-    assert "https://docs.openclaw.ai/concepts/model-providers" in blueprint_vi
-    assert "https://docs.openclaw.ai/concepts/model-failover" in blueprint_vi

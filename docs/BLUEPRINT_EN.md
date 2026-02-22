@@ -293,7 +293,7 @@ Sections are joined by `\n\n---\n\n`.
 
 ## 10) Context Window Management (Summarizer)
 
-3-tier compression pattern (PicoClaw + OpenClaw):
+3-tier compression pattern:
 
 | Tier | Trigger | Action |
 |------|---------|--------|
@@ -589,7 +589,7 @@ jobs:
 
 - **OpenAI message contract**: The entire runtime uses OpenAI Chat Completions `messages` format.
 - **Structured-first, fallback-second**: Prefers structured `tool_calls`; falls back to ToolCallParser when provider doesn't support it.
-- **PicoClaw/OpenClaw patterns**: Many modules reference patterns from PicoClaw (Go) and OpenClaw (TypeScript).
+- **Dual-output pattern**: Many modules use the dual-output pattern for tool results.
 - **Dual-output ToolResult**: `for_llm` (context for LLM) and `for_user` (display for user) separate content.
 - **Atomic file I/O**: Session persistence uses atomic writes (write .tmp, then rename).
 
@@ -622,6 +622,3 @@ jobs:
 - GitHub Actions Python: https://docs.github.com/en/actions/tutorials/build-and-test-code/python
 - OpenAI Chat Completions: https://platform.openai.com/docs/api-reference/chat
 - OpenAI migrate to Responses: https://platform.openai.com/docs/guides/migrate-to-responses
-- OpenClaw concepts:
-  - https://docs.openclaw.ai/concepts/model-providers
-  - https://docs.openclaw.ai/concepts/model-failover

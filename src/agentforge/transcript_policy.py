@@ -1,7 +1,7 @@
 """
 Provider-aware transcript policy and sanitization.
 
-This is a compact adaptation of OpenClaw transcript-policy patterns:
+Capabilities:
 - provider-specific turn sanitization
 - optional tool-call-id normalization
 - tool-use/result pairing repair for strict providers

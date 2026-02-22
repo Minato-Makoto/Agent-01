@@ -64,7 +64,7 @@ def _resolve_tool_return(value: Any) -> Any:
 class ToolResult:
     """Structured result from a tool execution.
     
-    PicoClaw-inspired dual-output pattern:
+    Dual-output pattern:
     - for_llm: Content for LLM context (if set, overrides output in to_string)
     - for_user: Content shown to user (empty = no user display)
     - silent: Suppress user display even if for_user is set
@@ -74,7 +74,7 @@ class ToolResult:
     output: Any
     error: str = ""
     execution_time: float = 0.0
-    # Dual-output fields (PicoClaw result.go pattern)
+    # Dual-output fields
     for_llm: str = ""
     for_user: str = ""
     silent: bool = False

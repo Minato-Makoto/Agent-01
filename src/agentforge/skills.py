@@ -28,7 +28,7 @@ _MAX_SKILL_DESC_LEN = 1024
 
 
 def _escape_xml(s: str) -> str:
-    """Escape XML special characters (PicoClaw loader.go:324)."""
+    """Escape XML special characters."""
     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
@@ -118,7 +118,7 @@ class SkillLoader:
         return list(self._skills.values())
 
     def build_skills_xml(self) -> str:
-        """Generate XML skills summary for system prompt (PicoClaw/OpenClaw pattern).
+        """Generate XML skills summary for system prompt.
         
         IMPORTANT: Inactive skills do NOT list their tool names — this prevents
         the LLM from trying to call tools before activating the skill.
@@ -201,7 +201,7 @@ class SkillLoader:
             tools = [str(t) for t in frontmatter.get("tools", []) if isinstance(t, str)]
             module = str(frontmatter.get("module", "")).strip()
 
-            # Validate skill name (PicoClaw loader.go:14,33)
+            # Validate skill name
             if not _SKILL_NAME_RE.match(name):
                 return None  # Invalid name format
             if len(name) > _MAX_SKILL_NAME_LEN:

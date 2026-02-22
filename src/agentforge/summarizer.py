@@ -1,7 +1,7 @@
 """
 AgentForge — Context Window Summarizer.
 
-3-tier compression (PicoClaw loop.go + OpenClaw pruner.ts):
+3-tier compression:
 1. Soft trim: Prune long tool results (keep head/tail, replace middle)
 2. Graceful summarization: LLM-based summary of old messages
 3. Emergency compression: aggressive truncation when context overflows
@@ -65,7 +65,7 @@ class Summarizer:
         
         When total context exceeds soft_trim_threshold, replace long tool
         outputs with head/tail excerpts. Preserves recent messages.
-        Pattern: OpenClaw pruner.ts soft-trim.
+        Soft-trim pattern.
         """
         total_chars = len(system_prompt)
         for msg in messages:

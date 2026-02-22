@@ -2,7 +2,6 @@
 AgentForge — Web Search tool (DuckDuckGo HTML scraping).
 
 Zero-dependency web search via DuckDuckGo HTML.
-Pattern: PicoClaw web.go (SearchProvider + DuckDuckGo fallback)
 """
 
 import re
@@ -85,10 +84,7 @@ def _web_search(args: Dict[str, Any]) -> ToolResult:
 
 
 def _search_duckduckgo(query: str, count: int = 5) -> List[Dict[str, str]]:
-    """Search DuckDuckGo HTML and extract results (zero dependency).
-    
-    Pattern: PicoClaw web.go:_searchDuckDuckGo
-    """
+    """Search DuckDuckGo HTML and extract results (zero dependency)."""
     encoded = urllib.parse.quote_plus(query)
     url = f"https://html.duckduckgo.com/html/?q={encoded}"
 

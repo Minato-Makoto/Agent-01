@@ -292,7 +292,7 @@ Các phần được nối bởi `\n\n---\n\n`.
 
 ## 10) Quản lý context window (Summarizer)
 
-Mẫu nén 3 tầng (PicoClaw + OpenClaw):
+Mẫu nén 3 tầng:
 
 | Tầng | Ngưỡng kích hoạt | Hành động |
 |------|-------------------|-----------|
@@ -588,7 +588,7 @@ jobs:
 
 - **Hợp đồng message OpenAI**: Toàn bộ runtime dùng định dạng `messages` của OpenAI Chat Completions.
 - **Structured-first, fallback-second**: Ưu tiên `tool_calls` có cấu trúc, fallback sang ToolCallParser khi provider không hỗ trợ.
-- **Patterns PicoClaw/OpenClaw**: Nhiều module tham khảo patterns từ PicoClaw (Go) và OpenClaw (TypeScript).
+- **Dual-output pattern**: Nhiều module sử dụng mẫu thiết kế dual-output cho kết quả công cụ.
 - **ToolResult đầu ra kép**: `for_llm` (context cho LLM) và `for_user` (hiển thị cho user) phân biệt nội dung.
 - **I/O file nguyên tử**: Session dùng ghi nguyên tử (ghi .tmp, rồi rename).
 
@@ -621,6 +621,3 @@ jobs:
 - GitHub Actions Python: https://docs.github.com/en/actions/tutorials/build-and-test-code/python
 - OpenAI Chat Completions: https://platform.openai.com/docs/api-reference/chat
 - OpenAI migrate to Responses: https://platform.openai.com/docs/guides/migrate-to-responses
-- OpenClaw concepts:
-  - https://docs.openclaw.ai/concepts/model-providers
-  - https://docs.openclaw.ai/concepts/model-failover

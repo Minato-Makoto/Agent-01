@@ -50,5 +50,34 @@ $env:PYTHONPATH='src'; python -m agentforge.cli --help
 
 - [Blueprint (EN)](docs/BLUEPRINT_EN.md)
 - [Blueprint (VI)](docs/BLUEPRINT_VI.md)
-- [Tutorial](docs/TUTORIAL.md)
+- [Tutorial (EN)](docs/TUTORIAL_EN.md)
+- [Tutorial (VI)](docs/TUTORIAL_VI.md)
 - [Changelog](CHANGELOG.md)
+
+---
+
+## Credits & Special Thanks
+
+Agent-01 would not exist without the following tools, platforms, and AI systems that contributed to its development:
+
+### Design Pattern References
+- **PicoClaw** (Go) — Dual-output tool result pattern, web search provider pattern, skill loader validation, agent loop compression.
+- **OpenClaw** (TypeScript) — Context window pruner pattern, transcript policy sanitization.
+
+### AI Development Partners
+- **Google Gemini 3 & 3.1** — Core codebase architecture, module design, and iterative development.
+- **Anthropic Claude Opus 4.6** — Code review, security hardening, and documentation refinement.
+- **OpenAI Codex 5.3** — Automated code generation, batch implementation, and upgrade auditing.
+
+### Development Environment
+- **Visual Studio Code** — Primary IDE.
+- **Antigravity by Google DeepMind** — AI-assisted pair programming agent.
+- **llama.cpp** — Local inference engine powering the `PROVIDER=local` mode.
+
+### Third-Party Modules
+- **adb-mcp** by Mike Chambers (MIT License) — Adobe Creative Suite MCP integration (Photoshop, Premiere Pro, After Effects, InDesign, Illustrator).
+
+### Open-Source Community
+- The broader open-source AI agent community whose collective research, experiments, and shared knowledge made projects like Agent-01 possible.
+
+> Without these building blocks, there is no Agent-01.
