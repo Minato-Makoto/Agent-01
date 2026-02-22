@@ -31,11 +31,12 @@ Agent-01/
 ├── docs/
 │   ├── BLUEPRINT_EN.md         # Tài liệu kiến trúc đầy đủ (English)
 │   ├── BLUEPRINT_VI.md         # (file này) Tài liệu kiến trúc đầy đủ (Tiếng Việt)
-│   └── TUTORIAL.md             # Hướng dẫn chạy & tham số
+│   ├── TUTORIAL_EN.md          # Hướng dẫn chạy & tham số (English)
+│   └── TUTORIAL_VI.md          # Hướng dẫn chạy & tham số (Tiếng Việt)
 ├── src/
 │   ├── agentforge/             # Core runtime (23 files)
-│   ├── builtin_tools/          # Tool implementations (7 modules)
-│   └── tests/                  # Test suite (31 test files + conftest)
+│   ├── builtin_tools/          # Tool implementations (8 files: 7 modules + __init__)
+│   └── tests/                  # Test suite (38 test files + conftest)
 ├── workspace/                  # Thư mục dữ liệu runtime
 │   ├── IDENTITY.md             # Danh tính agent (đọc vào system prompt)
 │   ├── SOUL.md                 # Tính cách, giá trị agent
@@ -100,42 +101,43 @@ Final Assistant Text → UI Output
 
 | File | Dòng | Vai trò |
 |------|------|---------|
-| `__init__.py` | 6 | Package metadata (`__version__ = "1.1.1"`) |
-| `cli.py` | 45 | Facade tương thích (`main`, `run_interactive`) |
-| `cli_args.py` | 184 | Parser + nạp env/config + mapping `InferenceConfig` |
-| `cli_runtime.py` | 326 | Vòng lặp REPL, wiring components, kết nối backend |
-| `agent_core.py` | 424 | Class `Agent`: vòng lặp điều phối, thực thi tool, kích hoạt skill |
-| `llm_inference.py` | 871 | Class `LLMInference`: transport local/remote, streaming, compat fallback |
-| `contracts.py` | 101 | Dataclasses chung: `ToolCall`, `AssistantMessage`, `ToolMessage`, `ChatCompletionResult`, `ProviderCapabilities` |
-| `prompting.py` | 121 | `PromptBuilder`: xây dựng structured messages cho chat-completions API |
-| `runtime_config.py` | 110 | Parse cấu hình runtime từ ENV, clamp giá trị timeout/chính sách shell |
-| `tools.py` | 258 | `Tool`, `ToolResult`, `ToolRegistry`: định nghĩa tool + xuất schema tương thích OpenAI |
-| `tool_loop.py` | 208 | `ToolLoop`: các bộ bảo vệ chống lặp (repeat, no-progress, ping-pong, global circuit breaker) |
-| `tool_call_parser.py` | 195 | `ToolCallParser`: parser hai định dạng (JSON + XML) cho fallback |
-| `tool_id.py` | 58 | `sanitize_tool_call_id`, `remap_tool_call_ids`: chuẩn hoá ID cho các provider nghiêm ngặt |
-| `tool_mutation.py` | 77 | Heuristic phân loại tool call thay đổi dữ liệu (mutating) vs chỉ đọc (read-only) |
-| `session.py` | 355 | `SessionManager`: trạng thái hội thoại bền vững, schema v3, migration + lineage continuation |
-| `session_repair.py` | 131 | Sửa chữa transcript: chuẩn hoá tool_calls, ghép cặp tool results, chèn kết quả tổng hợp |
-| `schema_normalizer.py` | 351 | Chuẩn hoá JSON Schema cho tương thích provider (Gemini, Anthropic, OpenAI) |
-| `transcript_policy.py` | 250 | Làm sạch transcript theo provider, chuẩn hoá tool-call-id, sửa ghép cặp |
-| `skills.py` | 204 | `SkillLoader`: khám phá skill 3 tầng (workspace > user_config > builtin), kích hoạt/huỷ kích hoạt |
-| `context.py` | 129 | `ContextBuilder`: lắp ráp system prompt động từ workspace .md + trạng thái runtime |
-| `summarizer.py` | 172 | `Summarizer`: nén context 3 tầng (soft-trim → graceful → emergency) |
-| `model_output_renderer.py` | 629 | Renderer realtime tree-lane, style markdown, tự nhận diện light/dark |
-| `ui.py` | 498 | `ChatUI`: lớp giao diện terminal bọc renderer, cầu nối callback stream, hiển thị tool/status |
+| `__init__.py` | 4 | Package metadata (`__version__ = "1.1.1"`) |
+| `cli.py` | 33 | Facade tương thích (`main`, `run_interactive`) |
+| `cli_args.py` | 157 | Parser + nạp env/config + mapping `InferenceConfig` |
+| `cli_runtime.py` | 303 | Vòng lặp REPL, wiring components, kết nối backend |
+| `agent_core.py` | 510 | Class `Agent`: vòng lặp điều phối, thực thi tool, kích hoạt skill |
+| `llm_inference.py` | 779 | Class `LLMInference`: transport local/remote, streaming, compat fallback |
+| `contracts.py` | 77 | Dataclasses chung: `ToolCall`, `AssistantMessage`, `ToolMessage`, `ChatCompletionResult`, `ProviderCapabilities` |
+| `prompting.py` | 96 | `PromptBuilder`: xây dựng structured messages cho chat-completions API |
+| `runtime_config.py` | 97 | Parse cấu hình runtime từ ENV, clamp giá trị timeout/chính sách shell |
+| `tools.py` | 215 | `Tool`, `ToolResult`, `ToolRegistry`: định nghĩa tool + xuất schema tương thích OpenAI |
+| `tool_loop.py` | 181 | `ToolLoop`: các bộ bảo vệ chống lặp (repeat, no-progress, ping-pong, global circuit breaker) |
+| `tool_call_parser.py` | 168 | `ToolCallParser`: parser hai định dạng (JSON + XML) cho fallback |
+| `tool_id.py` | 47 | `sanitize_tool_call_id`, `remap_tool_call_ids`: chuẩn hoá ID cho các provider nghiêm ngặt |
+| `tool_mutation.py` | 69 | Heuristic phân loại tool call thay đổi dữ liệu (mutating) vs chỉ đọc (read-only) |
+| `session.py` | 411 | `SessionManager`: trạng thái hội thoại bền vững, schema v3, migration + lineage continuation |
+| `session_repair.py` | 113 | Sửa chữa transcript: chuẩn hoá tool_calls, ghép cặp tool results, chèn kết quả tổng hợp |
+| `schema_normalizer.py` | 310 | Chuẩn hoá JSON Schema cho tương thích provider (Gemini, Anthropic, OpenAI) |
+| `transcript_policy.py` | 218 | Làm sạch transcript theo provider, chuẩn hoá tool-call-id, sửa ghép cặp |
+| `skills.py` | 188 | `SkillLoader`: khám phá skill 3 tầng (workspace > user_config > builtin), kích hoạt/huỷ kích hoạt |
+| `context.py` | 103 | `ContextBuilder`: lắp ráp system prompt động từ workspace .md + trạng thái runtime |
+| `summarizer.py` | 234 | `Summarizer`: nén context 3 tầng (soft-trim → graceful → emergency) |
+| `model_output_renderer.py` | 641 | Renderer realtime tree-lane, style markdown, tự nhận diện light/dark |
+| `ui.py` | 595 | `ChatUI`: lớp giao diện terminal bọc renderer, cầu nối callback stream, hiển thị tool/status |
 
 ---
 
-## 5) Module map — `src/builtin_tools/` (6 modules)
+## 5) Module map — `src/builtin_tools/` (7 modules)
 
 | File | Dòng | Tên skill | Các tools |
 |------|------|-----------|-----------|
-| `file_ops.py` | 204 | File Operations | `write_file`, `list_directory`, `search_files`, `file_info` |
-| `sys_ops.py` | 583 | System | `shell_command`, `process_list` |
-| `web_ops.py` | 214 | Web Operations | `http_request`, `web_scrape` |
-| `web_search.py` | 142 | WebSearch | `web_search` (scraping HTML DuckDuckGo) |
-| `browser_tools.py` | 266 | Browser | `browser_navigate`, `browser_click`, `browser_type`, `browser_screenshot`, `browser_get_content`, `browser_evaluate`, `browser_wait`, `browser_scroll`, `browser_select`, `browser_close` |
-| `photoshop_tools.py` | 182 | Photoshop | 53 tools qua Socket.IO → adb-mcp proxy → UXP Plugin |
+| `file_ops.py` | 394 | File Operations | `write_file`, `list_directory`, `search_files`, `file_info`, `move_file`, `copy_file`, `rename_path`, `make_directory`, `find_duplicates` |
+| `sys_ops.py` | 514 | System | `shell_command`, `process_list` |
+| `web_ops.py` | 179 | Web Operations | `http_request`, `web_scrape` |
+| `web_search.py` | 113 | WebSearch | `web_search` (scraping HTML DuckDuckGo) |
+| `browser_tools.py` | 365 | Browser | `browser_navigate`, `browser_click`, `browser_type`, `browser_screenshot`, `browser_get_content`, `browser_evaluate`, `browser_wait`, `browser_scroll`, `browser_select`, `browser_reset_context`, `browser_close` |
+| `computer_use_tools.py` | 275 | Computer Use Agents | `desktop_screenshot`, `desktop_move_mouse`, `desktop_click`, `desktop_type`, `desktop_key`, `desktop_scroll` |
+| `photoshop_tools.py` | 159 | Photoshop | 53 tools qua Socket.IO → adb-mcp proxy → UXP Plugin |
 
 ### Bootstrap tools (được mã hoá cứng trong `agent_core.py`)
 
@@ -149,9 +151,10 @@ Final Assistant Text → UI Output
 
 1. Khi khởi động, agent chỉ có 1 bootstrap tool: `read_file`.
 2. `SkillLoader` quét `workspace/skills/` để tìm các thư mục chứa `SKILL.md`.
-3. System prompt chứa XML `<available_skills>` liệt kê các skill và trạng thái.
-4. Agent muốn dùng tool của 1 skill → gọi `read_file` trên `SKILL.md` → `agent_core` phát hiện và tự động kích hoạt skill, đăng ký tools vào `ToolRegistry`.
-5. Skill chưa kích hoạt **không liệt kê tên tool** trong system prompt (ngăn agent gọi tools chưa activate).
+3. `skill_id` chuẩn hoá theo tên thư mục skill (định danh runtime ổn định).
+4. System prompt chứa XML `<available_skills>` liệt kê các skill và trạng thái.
+5. Agent muốn dùng tool của 1 skill → gọi `read_file` trên `SKILL.md` → `agent_core` phát hiện và tự động kích hoạt skill, đăng ký tools vào `ToolRegistry`.
+6. Skill chưa kích hoạt **không liệt kê tên tool** trong system prompt (ngăn agent gọi tools chưa activate).
 
 ### 6.1.1 Model biết skill/tool qua đâu?
 
@@ -183,7 +186,7 @@ tools:
 # Hướng dẫn chi tiết cho LLM khi skill được kích hoạt
 ```
 
-### 6.4 Các skill hiện tại (6 skills)
+### 6.4 Các skill hiện tại (7 skills)
 
 | Thư mục skill | Tên skill | Module |
 |---------------|-----------|--------|
@@ -192,6 +195,7 @@ tools:
 | `system/` | System | `builtin_tools.sys_ops` |
 | `web_operations/` | Web Operations | `builtin_tools.web_ops` |
 | `web_search/` | WebSearch | `builtin_tools.web_search` |
+| `computer-use-agents/` | Computer Use Agents | `builtin_tools.computer_use_tools` |
 | `photoshop/` | Photoshop | `builtin_tools.photoshop_tools` |
 
 ---
@@ -297,8 +301,8 @@ Mẫu nén 3 tầng:
 | Tầng | Ngưỡng kích hoạt | Hành động |
 |------|-------------------|-----------|
 | 0.5 Soft-trim | 60% dung lượng | Cắt tỉa tool results dài (giữ đầu/cuối 500 ký tự, cắt giữa) |
-| 1 Graceful | 70% dung lượng | Tóm tắt bằng LLM (ưu tiên), rồi branch sang session mới và handoff ngay |
-| 2 Emergency | Lỗi tràn context | Giữ 2 messages gần nhất, bỏ toàn bộ cũ |
+| 1 Graceful | 70% dung lượng | Tóm tắt bằng LLM (ưu tiên), rồi nén transcript in-place và chèn context memory note |
+| 2 Emergency | Lỗi tràn context | Giữ phần đuôi gần nhất theo ngưỡng động (thường 6–10 messages) + memory note |
 
 Ngưỡng được tính theo `max_tokens × chars_per_token` (mặc định 4).
 
@@ -311,7 +315,7 @@ Ngưỡng được tính theo `max_tokens × chars_per_token` (mặc định 4).
 | Phát hiện lặp chung | `max_repeats` (mặc định 3) | Chặn tool call trùng arguments |
 | Chuỗi không tiến triển | `global_threshold` (mặc định 30) | Circuit breaker khi kết quả giống nhau |
 | Ping-pong | `warning_threshold` (mặc định 10) | Phát hiện mẫu A→B→A→B |
-| Giới hạn vòng lặp | `max_iterations` (mặc định 25) | Dừng vòng lặp |
+| Giới hạn vòng lặp | `max_iterations` (mặc định từ launcher: 60) | Dừng vòng lặp |
 | Timeout | `timeout` (mặc định 60s) | Dừng vòng lặp |
 
 ---
@@ -330,9 +334,9 @@ Ngưỡng được tính theo `max_tokens × chars_per_token` (mặc định 4).
 
 ### 12.5 Ghi file (`file_ops.py`)
 
-- `write_file` bị sandbox vào workspace (`AGENTFORGE_WORKSPACE`).
+- `write_file`, `move_file`, `copy_file`, `rename_path`, `make_directory`, `find_duplicates` đều bị giới hạn trong workspace.
 - Path tương đối sẽ được resolve bên trong workspace.
-- Path tuyệt đối nằm ngoài workspace sẽ bị chặn với lỗi `SECURITY[WRITE_OUTSIDE_WORKSPACE]`.
+- Path tuyệt đối nằm ngoài workspace sẽ bị chặn bằng lỗi `SECURITY[...]` (ví dụ `WRITE_OUTSIDE_WORKSPACE`).
 
 ### 12.6 Giới hạn tốc độ request LLM (`llm_inference.py`)
 
@@ -436,15 +440,18 @@ Bypass: gọi trực tiếp `python -m agentforge.cli --flag value` sẽ ghi đ�
 | `SHUTDOWN_TIMEOUT` | `--shutdown-timeout` | `5` | Timeout dừng local process (giây) |
 | `COMPAT_RETRY_LIMIT` | `--compat-retry-limit` | `8` | Giới hạn retry tương thích |
 | `MAX_REQUESTS_PER_MINUTE` | `--max-requests-per-minute` | `60` | Trần số request LLM mỗi phút |
-| `MAX_ITERATIONS` | `--max-iterations` | `25` | Giới hạn vòng lặp agent mỗi lượt |
+| `MAX_ITERATIONS` | `--max-iterations` | `60` | Giới hạn vòng lặp agent mỗi lượt |
 | `MAX_REPEATS` | `--max-repeats` | `3` | Giới hạn lặp tool call cùng tham số |
 | `AGENT_TIMEOUT` | `--agent-timeout` | `300` | Timeout vòng lặp agent (giây) |
 | `WORKSPACE` | `--workspace` | `./workspace` | Thư mục dữ liệu runtime |
 | `AGENTFORGE_UI_THEME` | chỉ env | `auto` | Chế độ màu UI: `auto` / `dark` / `light` |
 | `AGENTFORGE_BROWSER_HEADLESS` | chỉ env | `0` | `0`=hiển thị, `1`=ẩn |
+| `AGENTFORGE_DESKTOP_CONTROL` | chỉ env | `1` | `1` bật desktop tools, `0` tắt |
 | `TOOL_TIMEOUT_BROWSER_NAV_MS` | chỉ env | `30000` | Timeout `browser_navigate` (ms) |
 | `TOOL_TIMEOUT_BROWSER_ACTION_MS` | chỉ env | `5000` | Timeout click/type/select/get_content (ms) |
 | `TOOL_TIMEOUT_BROWSER_WAIT_MS` | chỉ env | `10000` | Timeout `browser_wait` (ms) |
+| `TOOL_TIMEOUT_DESKTOP_ACTION_MS` | chỉ env | `5000` | Ngưỡng timeout thao tác desktop (ms) |
+| `TOOL_TIMEOUT_DESKTOP_SCREENSHOT_S` | chỉ env | `15` | Ngưỡng timeout chụp desktop (giây) |
 | `TOOL_TIMEOUT_WEB_REQUEST_S` | chỉ env | `30` | Timeout `http_request`/`web_scrape` (giây) |
 | `TOOL_TIMEOUT_WEB_SEARCH_S` | chỉ env | `15` | Timeout `web_search` (giây) |
 | `TOOL_TIMEOUT_PHOTOSHOP_S` | chỉ env | `30` | Timeout tool Photoshop (giây) |
@@ -464,37 +471,47 @@ pythonpath = src
 addopts = -q
 ```
 
-### 15.2 Các file test (30 files)
+### 15.2 Các file test (39 files = 38 tests + `conftest.py`)
 
 | File | Phạm vi |
 |------|---------|
 | `conftest.py` | Fixtures dùng chung |
 | `test_agent_fallback_parser_activation.py` | Kích hoạt fallback parser |
-| `test_agent_session_continuation.py` | Hydrate session + branch continuation sau summarization |
+| `test_agent_session_continuation.py` | Hydrate session + đảm bảo graceful compaction in-place |
+| `test_bootstrap_tools.py` | Đăng ký bootstrap tool (`read_file`) |
+| `test_browser_locators_and_reset.py` | Locator browser + tool reset context |
 | `test_cli_config_merge.py` | Logic gộp cấu hình CLI |
-| `test_cli_env_file.py` | Tải file .env |
+| `test_cli_env_file.py` | Tải file `.env` |
+| `test_cli_required_loop_args.py` | Ràng buộc loop args bắt buộc (`max_iterations`, `max_repeats`, `agent_timeout`) |
+| `test_cli_runtime_stream_lifecycle.py` | Vòng đời stream start/end trong runtime |
+| `test_computer_use_tools.py` | Desktop tools (`desktop_*`) |
 | `test_context_builder.py` | Lắp ráp ContextBuilder + xử lý lỗi đọc bootstrap |
 | `test_contracts_and_registry.py` | Hợp đồng ToolCall, ToolRegistry |
 | `test_docs_link_integrity.py` | Tính hợp lệ link tài liệu |
-| `test_file_ops_security.py` | Cưỡng chế sandbox workspace cho `write_file` |
+| `test_file_ops_organizer_tools.py` | Nhóm tool tổ chức file (`move/copy/rename/mkdir/duplicates`) |
+| `test_file_ops_security.py` | Cưỡng chế sandbox workspace cho file ops |
 | `test_integration_mock_provider.py` | Tích hợp đầy đủ với mock LLM |
 | `test_llm_fallback.py` | Fallback tương thích LLM |
+| `test_llm_local_process_spawn.py` | Spawn/quản lý vòng đời llama-server local |
 | `test_llm_rate_limit.py` | Guard giới hạn request LLM/phút |
+| `test_output_renderer.py` | Hành vi renderer đầu ra model |
 | `test_prompting_builder.py` | Dựng/truncate structured messages trong PromptBuilder |
 | `test_regression_callbacks_streaming.py` | Hồi quy callback streaming |
 | `test_schema_provider_compat.py` | Chuẩn hoá schema theo provider |
 | `test_security_tools.py` | Bảo mật shell/web |
-| `test_tool_timeout_env_mapping.py` | Mapping timeout env cho browser/web/photoshop/sys |
 | `test_session_append_guard.py` | Bảo vệ append session |
 | `test_session_migration.py` | Migration schema session |
 | `test_session_repair_helpers.py` | Tiện ích sửa chữa session |
 | `test_skill_activation.py` | Luồng kích hoạt skill |
+| `test_skill_loader_skill_md.py` | Parse/validate skill frontmatter |
+| `test_skills_xml_payload.py` | Tính đúng đắn payload Skills XML |
 | `test_smoke_modes.py` | Smoke tests chế độ local/remote |
 | `test_summarizer_resilience.py` | Các trường hợp biên summarizer |
-| `test_tool_call_parser_fallback.py` | Parser tool call |
+| `test_tool_async_execution.py` | Thực thi async tool trong runtime sync |
+| `test_tool_call_parser_fallback.py` | Parser fallback tool call |
 | `test_tool_loop_safety.py` | Bộ bảo vệ tool loop |
 | `test_tool_mutation_policy.py` | Phân loại mutation |
-| `test_tool_async_execution.py` | Thực thi async tool trong runtime sync |
+| `test_tool_timeout_env_mapping.py` | Mapping timeout env cho browser/web/photoshop/desktop/sys |
 | `test_transcript_policy.py` | Làm sạch transcript |
 | `test_ui_safety.py` | An toàn UI |
 
@@ -504,6 +521,7 @@ addopts = -q
 python -m pytest -q
 python -m compileall -q src
 $env:PYTHONPATH='src'; python -m agentforge.cli --help
+cmd /c "set \"PROVIDER=openai_compatible\" && set \"BASE_URL=http://127.0.0.1:8080\" && set \"MODEL_ID=local\" && set \"EXTRA_ARGS=--help\" && run.bat"
 ```
 
 ---
@@ -517,6 +535,7 @@ $env:PYTHONPATH='src'; python -m agentforge.cli --help
 | `rich` | Định dạng terminal (có sẵn fallback tuỳ chọn) |
 | `beautifulsoup4` | Scraping web |
 | `playwright` | Tự động hoá trình duyệt |
+| `pyautogui` | Desktop control tools (`desktop_*`) |
 | `python-socketio` | Tools Photoshop (Socket.IO client) |
 | `websocket-client` | Transport WebSocket cho socketio |
 | `pyyaml` | Phân tích metadata skill |
@@ -555,29 +574,61 @@ Các file này là **nội dung tĩnh** — AI model/developer có thể tuỳ c
 
 ---
 
-## 19) Bản thiết kế CI (đề xuất)
+## 19) CI workflow (hiện tại)
 
-### Windows CI workflow
+### Windows CI
 
 ```yaml
 # .github/workflows/ci.yml
-name: CI
-on: [push, pull_request]
+name: ci
+
+on:
+  push:
+  pull_request:
+
 jobs:
-  test:
+  windows-quality:
     runs-on: windows-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
-      - run: pip install -r requirements.txt
-      - run: pip install pytest ruff
-      - run: python -m pytest -q
-      - run: python -m compileall -q src
-      - run: |
-          $env:PYTHONPATH='src'
+          python-version: "3.10"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install ruff
+
+      - name: Lint
+        run: python -m ruff check src
+
+      - name: Tests
+        run: python -m pytest -q
+
+      - name: Build check
+        run: python -m compileall -q src
+
+      - name: CLI smoke
+        shell: pwsh
+        run: |
+          $env:PYTHONPATH = "src"
           python -m agentforge.cli --help
+
+      - name: Launcher smoke
+        shell: cmd
+        run: |
+          set PROVIDER=openai_compatible
+          set BASE_URL=http://127.0.0.1:8080
+          set MODEL_ID=local
+          set EXTRA_ARGS=--help
+          call run.bat
 ```
 
 ---
@@ -604,7 +655,7 @@ jobs:
 
 ## 21) Lưu ý cho AI model/developer
 
-1. **Khi sửa `run.bat`** phải chạy smoke `cmd /c run.bat` với `PROVIDER=openai_compatible` + `EXTRA_ARGS=--help` để xác nhận launcher còn hoạt động.
+1. **Khi sửa `run.bat`** phải chạy launcher smoke `cmd /c "set \"PROVIDER=openai_compatible\" && set \"BASE_URL=http://127.0.0.1:8080\" && set \"MODEL_ID=local\" && set \"EXTRA_ARGS=--help\" && run.bat"` để xác nhận launcher còn hoạt động.
 2. **Mỗi tool mới** phải có: định nghĩa trong `builtin_tools/`, file skill `SKILL.md` trong `workspace/skills/`, và hàm `register()`.
 3. **Test trước khi merge** — mọi thay đổi cần chạy `python -m pytest -q`.
 4. **Không mã hoá cứng secrets** — dùng biến env.

@@ -31,11 +31,12 @@ Agent-01/
 ├── docs/
 │   ├── BLUEPRINT_EN.md         # (this file) Full architecture docs
 │   ├── BLUEPRINT_VI.md         # Vietnamese version
-│   └── TUTORIAL.md             # How to run & parameter reference
+│   ├── TUTORIAL_EN.md          # How to run & parameter reference (English)
+│   └── TUTORIAL_VI.md          # How to run & parameter reference (Vietnamese)
 ├── src/
 │   ├── agentforge/             # Core runtime (23 files)
-│   ├── builtin_tools/          # Tool implementations (7 modules)
-│   └── tests/                  # Test suite (31 test files + conftest)
+│   ├── builtin_tools/          # Tool implementations (8 files: 7 modules + __init__)
+│   └── tests/                  # Test suite (38 test files + conftest)
 ├── workspace/                  # Runtime data directory
 │   ├── IDENTITY.md             # Agent identity (injected into system prompt)
 │   ├── SOUL.md                 # Agent personality/values
@@ -100,42 +101,43 @@ Final Assistant Text → UI Output
 
 | File | Lines | Role |
 |------|-------|------|
-| `__init__.py` | 6 | Package metadata (`__version__ = "1.1.1"`) |
-| `cli.py` | 45 | Compatibility facade entry point (`main`, `run_interactive`) |
-| `cli_args.py` | 184 | Parser + env/config loading + `InferenceConfig` mapping |
-| `cli_runtime.py` | 326 | REPL loop, component wiring, backend connect flow |
-| `agent_core.py` | 424 | `Agent` class: orchestration loop, tool execution, skill activation |
-| `llm_inference.py` | 871 | `LLMInference` class: local/remote transport, streaming, compat fallback |
-| `contracts.py` | 101 | Shared dataclasses: `ToolCall`, `AssistantMessage`, `ToolMessage`, `ChatCompletionResult`, `ProviderCapabilities` |
-| `prompting.py` | 121 | `PromptBuilder`: structured message builder for chat-completions API |
-| `runtime_config.py` | 110 | Env-driven runtime config parsing and clamped defaults for tool/shell policies |
-| `tools.py` | 258 | `Tool`, `ToolResult`, `ToolRegistry`: tool definition + OpenAI-compatible schema export |
-| `tool_loop.py` | 208 | `ToolLoop`: anti-loop guards (repeat, no-progress, ping-pong, global circuit breaker) |
-| `tool_call_parser.py` | 195 | `ToolCallParser`: dual-format parser (JSON + XML) for fallback |
-| `tool_id.py` | 58 | `sanitize_tool_call_id`, `remap_tool_call_ids`: ID normalization for strict providers |
-| `tool_mutation.py` | 77 | Heuristic classifier for mutating vs read-only tool calls |
-| `session.py` | 355 | `SessionManager`: persistent conversation state, schema v3, migration + continuation lineage |
-| `session_repair.py` | 131 | Transcript repair: normalize tool_calls, pair tool results, insert synthetic results |
-| `schema_normalizer.py` | 351 | JSON Schema normalization for provider compatibility (Gemini, Anthropic, OpenAI) |
-| `transcript_policy.py` | 250 | Provider-aware transcript sanitization, tool-call-id normalization, pairing repair |
-| `skills.py` | 204 | `SkillLoader`: 3-tier skill discovery (workspace > user_config > builtin), activation/deactivation |
-| `context.py` | 129 | `ContextBuilder`: dynamic system prompt assembly from workspace .md + runtime state |
-| `summarizer.py` | 172 | `Summarizer`: 3-tier context compression (soft-trim → graceful → emergency) |
-| `model_output_renderer.py` | 629 | Tree-lane realtime output renderer, markdown styling, adaptive theme detection |
-| `ui.py` | 498 | `ChatUI`: terminal shell wrapper around renderer, stream callback bridge, tool/status display |
+| `__init__.py` | 4 | Package metadata (`__version__ = "1.1.1"`) |
+| `cli.py` | 33 | Compatibility facade entry point (`main`, `run_interactive`) |
+| `cli_args.py` | 157 | Parser + env/config loading + `InferenceConfig` mapping |
+| `cli_runtime.py` | 303 | REPL loop, component wiring, backend connect flow |
+| `agent_core.py` | 510 | `Agent` class: orchestration loop, tool execution, skill activation |
+| `llm_inference.py` | 779 | `LLMInference` class: local/remote transport, streaming, compat fallback |
+| `contracts.py` | 77 | Shared dataclasses: `ToolCall`, `AssistantMessage`, `ToolMessage`, `ChatCompletionResult`, `ProviderCapabilities` |
+| `prompting.py` | 96 | `PromptBuilder`: structured message builder for chat-completions API |
+| `runtime_config.py` | 97 | Env-driven runtime config parsing and clamped defaults for tool/shell policies |
+| `tools.py` | 215 | `Tool`, `ToolResult`, `ToolRegistry`: tool definition + OpenAI-compatible schema export |
+| `tool_loop.py` | 181 | `ToolLoop`: anti-loop guards (repeat, no-progress, ping-pong, global circuit breaker) |
+| `tool_call_parser.py` | 168 | `ToolCallParser`: dual-format parser (JSON + XML) for fallback |
+| `tool_id.py` | 47 | `sanitize_tool_call_id`, `remap_tool_call_ids`: ID normalization for strict providers |
+| `tool_mutation.py` | 69 | Heuristic classifier for mutating vs read-only tool calls |
+| `session.py` | 411 | `SessionManager`: persistent conversation state, schema v3, migration + continuation lineage |
+| `session_repair.py` | 113 | Transcript repair: normalize tool_calls, pair tool results, insert synthetic results |
+| `schema_normalizer.py` | 310 | JSON Schema normalization for provider compatibility (Gemini, Anthropic, OpenAI) |
+| `transcript_policy.py` | 218 | Provider-aware transcript sanitization, tool-call-id normalization, pairing repair |
+| `skills.py` | 188 | `SkillLoader`: 3-tier skill discovery (workspace > user_config > builtin), activation/deactivation |
+| `context.py` | 103 | `ContextBuilder`: dynamic system prompt assembly from workspace .md + runtime state |
+| `summarizer.py` | 234 | `Summarizer`: 3-tier context compression (soft-trim → graceful → emergency) |
+| `model_output_renderer.py` | 641 | Tree-lane realtime output renderer, markdown styling, adaptive theme detection |
+| `ui.py` | 595 | `ChatUI`: terminal shell wrapper around renderer, stream callback bridge, tool/status display |
 
 ---
 
-## 5) Module Map — `src/builtin_tools/` (6 modules)
+## 5) Module Map — `src/builtin_tools/` (7 modules)
 
 | File | Lines | Skill Name | Tools |
 |------|-------|------------|-------|
-| `file_ops.py` | 204 | File Operations | `write_file`, `list_directory`, `search_files`, `file_info` |
-| `sys_ops.py` | 583 | System | `shell_command`, `process_list` |
-| `web_ops.py` | 214 | Web Operations | `http_request`, `web_scrape` |
-| `web_search.py` | 142 | WebSearch | `web_search` (DuckDuckGo HTML scraping) |
-| `browser_tools.py` | 266 | Browser | `browser_navigate`, `browser_click`, `browser_type`, `browser_screenshot`, `browser_get_content`, `browser_evaluate`, `browser_wait`, `browser_scroll`, `browser_select`, `browser_close` |
-| `photoshop_tools.py` | 182 | Photoshop | 53 tools via Socket.IO → adb-mcp proxy → UXP Plugin |
+| `file_ops.py` | 394 | File Operations | `write_file`, `list_directory`, `search_files`, `file_info`, `move_file`, `copy_file`, `rename_path`, `make_directory`, `find_duplicates` |
+| `sys_ops.py` | 514 | System | `shell_command`, `process_list` |
+| `web_ops.py` | 179 | Web Operations | `http_request`, `web_scrape` |
+| `web_search.py` | 113 | WebSearch | `web_search` (DuckDuckGo HTML scraping) |
+| `browser_tools.py` | 365 | Browser | `browser_navigate`, `browser_click`, `browser_type`, `browser_screenshot`, `browser_get_content`, `browser_evaluate`, `browser_wait`, `browser_scroll`, `browser_select`, `browser_reset_context`, `browser_close` |
+| `computer_use_tools.py` | 275 | Computer Use Agents | `desktop_screenshot`, `desktop_move_mouse`, `desktop_click`, `desktop_type`, `desktop_key`, `desktop_scroll` |
+| `photoshop_tools.py` | 159 | Photoshop | 53 tools via Socket.IO → adb-mcp proxy → UXP Plugin |
 
 ### Bootstrap Tools (hardcoded in `agent_core.py`)
 
@@ -150,9 +152,9 @@ Final Assistant Text → UI Output
 1. On startup, the agent has only 1 bootstrap tool: `read_file`.
 2. `SkillLoader` scans `workspace/skills/` for folders containing `SKILL.md`.
 3. Canonical `skill_id` is the folder name (stable runtime identity).
-3. The system prompt includes XML `<available_skills>` listing skills and their status.
-4. When the agent wants to use a skill's tools → calls `read_file` on `SKILL.md` → `agent_core` detects this and auto-activates the skill, registering tools into `ToolRegistry`.
-5. Inactive skills **do not list tool names** in the system prompt (prevents the agent from calling unactivated tools).
+4. The system prompt includes XML `<available_skills>` listing skills and their status.
+5. When the agent wants to use a skill's tools → calls `read_file` on `SKILL.md` → `agent_core` detects this and auto-activates the skill, registering tools into `ToolRegistry`.
+6. Inactive skills **do not list tool names** in the system prompt (prevents the agent from calling unactivated tools).
 
 ### 6.1.1 How the model knows skills/tools
 
@@ -184,7 +186,7 @@ tools:
 # Detailed instructions for the LLM when the skill is activated
 ```
 
-### 6.4 Current Skills (6 skills)
+### 6.4 Current Skills (7 skills)
 
 | Skill Folder | Skill Name | Module |
 |-------------|-----------|--------|
@@ -193,6 +195,7 @@ tools:
 | `system/` | System | `builtin_tools.sys_ops` |
 | `web_operations/` | Web Operations | `builtin_tools.web_ops` |
 | `web_search/` | WebSearch | `builtin_tools.web_search` |
+| `computer-use-agents/` | Computer Use Agents | `builtin_tools.computer_use_tools` |
 | `photoshop/` | Photoshop | `builtin_tools.photoshop_tools` |
 
 ---
@@ -298,8 +301,8 @@ Sections are joined by `\n\n---\n\n`.
 | Tier | Trigger | Action |
 |------|---------|--------|
 | 0.5 Soft-trim | 60% capacity | Prune long tool results (keep head/tail 500 chars, cut middle) |
-| 1 Graceful | 70% capacity | LLM-based summary (preferred) then branch to a new session with immediate handoff |
-| 2 Emergency | Context overflow error | Keep 2 most recent messages, drop everything else |
+| 1 Graceful | 70% capacity | LLM-based summary (preferred), then compact transcript in-place and inject a context memory note |
+| 2 Emergency | Context overflow error | Keep a dynamic recent tail (typically 6–10 messages) + compact memory note |
 
 Thresholds are computed as `max_tokens × chars_per_token` (default 4).
 
@@ -312,7 +315,7 @@ Thresholds are computed as `max_tokens × chars_per_token` (default 4).
 | Generic repeat | `max_repeats` (default 3) | Block tool call with duplicate args |
 | No-progress streak | `global_threshold` (default 30) | Circuit breaker when results are identical |
 | Ping-pong | `warning_threshold` (default 10) | Detect A→B→A→B pattern |
-| Iteration limit | `max_iterations` (default 25) | Stop loop |
+| Iteration limit | `max_iterations` (launcher default 60) | Stop loop |
 | Timeout | `timeout` (default 60s) | Stop loop |
 
 ---
@@ -331,9 +334,9 @@ Thresholds are computed as `max_tokens × chars_per_token` (default 4).
 
 ### 12.5 File writes (`file_ops.py`)
 
-- `write_file` is sandboxed to workspace (`AGENTFORGE_WORKSPACE`).
+- `write_file`, `move_file`, `copy_file`, `rename_path`, `make_directory`, and `find_duplicates` are workspace-scoped.
 - Relative paths are resolved under workspace.
-- Absolute paths outside workspace are rejected with `SECURITY[WRITE_OUTSIDE_WORKSPACE]`.
+- Absolute paths outside workspace are rejected with `SECURITY[...]` errors (for example `WRITE_OUTSIDE_WORKSPACE`).
 
 ### 12.6 LLM request rate limiting (`llm_inference.py`)
 
@@ -437,15 +440,18 @@ Bypass: calling `python -m agentforge.cli --flag value` directly overrides every
 | `SHUTDOWN_TIMEOUT` | `--shutdown-timeout` | `5` | Local process shutdown timeout (s) |
 | `COMPAT_RETRY_LIMIT` | `--compat-retry-limit` | `8` | Compatibility retry limit |
 | `MAX_REQUESTS_PER_MINUTE` | `--max-requests-per-minute` | `60` | LLM requests per minute hard cap |
-| `MAX_ITERATIONS` | `--max-iterations` | `25` | Agent loop limit per user turn |
+| `MAX_ITERATIONS` | `--max-iterations` | `60` | Agent loop limit per user turn |
 | `MAX_REPEATS` | `--max-repeats` | `3` | Duplicate tool-call repeat guard |
 | `AGENT_TIMEOUT` | `--agent-timeout` | `300` | Agent loop timeout (s) |
 | `WORKSPACE` | `--workspace` | `./workspace` | Runtime data dir |
 | `AGENTFORGE_UI_THEME` | env only | `auto` | UI palette mode: `auto` / `dark` / `light` |
 | `AGENTFORGE_BROWSER_HEADLESS` | env only | `0` | `0`=visible, `1`=headless |
+| `AGENTFORGE_DESKTOP_CONTROL` | env only | `1` | `1` enables desktop control tools, `0` disables them |
 | `TOOL_TIMEOUT_BROWSER_NAV_MS` | env only | `30000` | `browser_navigate` timeout (ms) |
 | `TOOL_TIMEOUT_BROWSER_ACTION_MS` | env only | `5000` | click/type/select/get_content timeout (ms) |
 | `TOOL_TIMEOUT_BROWSER_WAIT_MS` | env only | `10000` | `browser_wait` timeout (ms) |
+| `TOOL_TIMEOUT_DESKTOP_ACTION_MS` | env only | `5000` | desktop mouse/keyboard action timeout baseline (ms) |
+| `TOOL_TIMEOUT_DESKTOP_SCREENSHOT_S` | env only | `15` | desktop screenshot timeout baseline (s) |
 | `TOOL_TIMEOUT_WEB_REQUEST_S` | env only | `30` | `http_request`/`web_scrape` timeout (s) |
 | `TOOL_TIMEOUT_WEB_SEARCH_S` | env only | `15` | `web_search` timeout (s) |
 | `TOOL_TIMEOUT_PHOTOSHOP_S` | env only | `30` | Photoshop tool timeout (s) |
@@ -465,37 +471,47 @@ pythonpath = src
 addopts = -q
 ```
 
-### 15.2 Test Files (30 files)
+### 15.2 Test Files (39 files = 38 tests + `conftest.py`)
 
 | File | Scope |
 |------|-------|
 | `conftest.py` | Shared fixtures |
 | `test_agent_fallback_parser_activation.py` | Fallback parser triggers |
-| `test_agent_session_continuation.py` | Session hydration + graceful-summary branching |
+| `test_agent_session_continuation.py` | Session hydration + in-place graceful compaction continuity |
+| `test_bootstrap_tools.py` | Bootstrap tool registration (`read_file`) |
+| `test_browser_locators_and_reset.py` | Browser locator behavior + context reset tool |
 | `test_cli_config_merge.py` | CLI arg merge logic |
-| `test_cli_env_file.py` | .env file loading |
+| `test_cli_env_file.py` | `.env` file loading |
+| `test_cli_required_loop_args.py` | Required loop arg wiring (`max_iterations`, `max_repeats`, `agent_timeout`) |
+| `test_cli_runtime_stream_lifecycle.py` | Stream start/end lifecycle in runtime loop |
+| `test_computer_use_tools.py` | Desktop control tools (`desktop_*`) |
 | `test_context_builder.py` | ContextBuilder bootstrap/runtime assembly + load error handling |
-| `test_contracts_and_registry.py` | ToolCall, ToolRegistry contracts |
+| `test_contracts_and_registry.py` | ToolCall and ToolRegistry contracts |
 | `test_docs_link_integrity.py` | Doc link validity |
-| `test_file_ops_security.py` | Workspace sandbox enforcement for `write_file` |
+| `test_file_ops_organizer_tools.py` | File organizer tools (`move/copy/rename/mkdir/duplicates`) |
+| `test_file_ops_security.py` | Workspace sandbox enforcement for file ops |
 | `test_integration_mock_provider.py` | Full integration with mock LLM |
 | `test_llm_fallback.py` | LLM compatibility fallback |
+| `test_llm_local_process_spawn.py` | Local llama-server process spawn lifecycle |
 | `test_llm_rate_limit.py` | LLM request-per-minute guard |
+| `test_output_renderer.py` | Model output renderer behavior |
 | `test_prompting_builder.py` | PromptBuilder structured message construction/truncation |
 | `test_regression_callbacks_streaming.py` | Streaming callback regression |
 | `test_schema_provider_compat.py` | Schema normalization per provider |
 | `test_security_tools.py` | Shell/web security |
-| `test_tool_timeout_env_mapping.py` | Env timeout mapping for browser/web/photoshop/sys tools |
 | `test_session_append_guard.py` | Session append guards |
 | `test_session_migration.py` | Session schema migration |
 | `test_session_repair_helpers.py` | Session repair utilities |
 | `test_skill_activation.py` | Skill activation flow |
-| `test_smoke_modes.py` | Smoke tests local/remote modes |
+| `test_skill_loader_skill_md.py` | Skill frontmatter parsing and validation |
+| `test_skills_xml_payload.py` | Skills XML payload correctness |
+| `test_smoke_modes.py` | Smoke tests for local/remote modes |
 | `test_summarizer_resilience.py` | Summarizer edge cases |
-| `test_tool_call_parser_fallback.py` | Tool call parser |
+| `test_tool_async_execution.py` | Async tool execution in sync runtime |
+| `test_tool_call_parser_fallback.py` | Tool call parser fallback |
 | `test_tool_loop_safety.py` | Tool loop guards |
 | `test_tool_mutation_policy.py` | Mutation classification |
-| `test_tool_async_execution.py` | Async tool execution in sync runtime |
+| `test_tool_timeout_env_mapping.py` | Env timeout mapping for browser/web/photoshop/desktop/sys tools |
 | `test_transcript_policy.py` | Transcript sanitization |
 | `test_ui_safety.py` | UI safety |
 
@@ -505,6 +521,7 @@ addopts = -q
 python -m pytest -q
 python -m compileall -q src
 $env:PYTHONPATH='src'; python -m agentforge.cli --help
+cmd /c "set \"PROVIDER=openai_compatible\" && set \"BASE_URL=http://127.0.0.1:8080\" && set \"MODEL_ID=local\" && set \"EXTRA_ARGS=--help\" && run.bat"
 ```
 
 ---
@@ -518,6 +535,7 @@ $env:PYTHONPATH='src'; python -m agentforge.cli --help
 | `rich` | Terminal formatting (optional fallback available) |
 | `beautifulsoup4` | Web scraping |
 | `playwright` | Browser automation |
+| `pyautogui` | Desktop control tools (`desktop_*`) |
 | `python-socketio` | Photoshop tools (Socket.IO client) |
 | `websocket-client` | WebSocket transport for socketio |
 | `pyyaml` | Skill metadata parsing |
@@ -556,29 +574,61 @@ These files are **static content** — AI models/developers can customize them.
 
 ---
 
-## 19) CI Blueprint (proposed)
+## 19) CI Workflow (current)
 
-### Windows CI Workflow
+### Windows CI
 
 ```yaml
 # .github/workflows/ci.yml
-name: CI
-on: [push, pull_request]
+name: ci
+
+on:
+  push:
+  pull_request:
+
 jobs:
-  test:
+  windows-quality:
     runs-on: windows-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
-      - run: pip install -r requirements.txt
-      - run: pip install pytest ruff
-      - run: python -m pytest -q
-      - run: python -m compileall -q src
-      - run: |
-          $env:PYTHONPATH='src'
+          python-version: "3.10"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install ruff
+
+      - name: Lint
+        run: python -m ruff check src
+
+      - name: Tests
+        run: python -m pytest -q
+
+      - name: Build check
+        run: python -m compileall -q src
+
+      - name: CLI smoke
+        shell: pwsh
+        run: |
+          $env:PYTHONPATH = "src"
           python -m agentforge.cli --help
+
+      - name: Launcher smoke
+        shell: cmd
+        run: |
+          set PROVIDER=openai_compatible
+          set BASE_URL=http://127.0.0.1:8080
+          set MODEL_ID=local
+          set EXTRA_ARGS=--help
+          call run.bat
 ```
 
 ---
@@ -605,7 +655,7 @@ jobs:
 
 ## 21) Notes for AI Models/Developers
 
-1. **When changing `run.bat`**, always run launcher smoke (`cmd /c run.bat` with `PROVIDER=openai_compatible` and `EXTRA_ARGS=--help`) before merge.
+1. **When changing `run.bat`**, always run launcher smoke (`cmd /c "set \"PROVIDER=openai_compatible\" && set \"BASE_URL=http://127.0.0.1:8080\" && set \"MODEL_ID=local\" && set \"EXTRA_ARGS=--help\" && run.bat"`) before merge.
 2. **Each new tool** must have: a definition in `builtin_tools/`, a skill file `SKILL.md` in `workspace/skills/`, and a `register()` function.
 3. **Test before merging** — all changes should pass `python -m pytest -q`.
 4. **Do not hardcode secrets** — use env vars.

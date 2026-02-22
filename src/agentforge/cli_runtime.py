@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import atexit
 import logging
 import os
+import signal
 import sys
 from typing import Any, Callable, Dict, Optional
 
@@ -231,7 +233,38 @@ def _cleanup_runtime_resources() -> None:
 
         BrowserManager.close()
     except Exception:
-        logger.debug("Best-effort runtime cleanup failed.", exc_info=True)
+        logger.debug("Browser cleanup failed (best-effort).", exc_info=True)
+
+    try:
+        from builtin_tools.photoshop_tools import PhotoshopClient
+
+        PhotoshopClient.disconnect()
+    except Exception:
+        logger.debug("Photoshop cleanup failed (best-effort).", exc_info=True)
+
+
+def _install_shutdown_signal_handlers(handler: Callable[[int, Any], None]) -> Dict[Any, Any]:
+    """Install best-effort signal handlers for graceful shutdown."""
+    installed: Dict[Any, Any] = {}
+    for name in ("SIGINT", "SIGTERM", "SIGBREAK", "SIGHUP"):
+        sig = getattr(signal, name, None)
+        if sig is None:
+            continue
+        try:
+            installed[sig] = signal.getsignal(sig)
+            signal.signal(sig, handler)
+        except (ValueError, OSError, RuntimeError):
+            logger.debug("Could not install signal handler for %s", name, exc_info=True)
+    return installed
+
+
+def _restore_shutdown_signal_handlers(installed: Dict[Any, Any]) -> None:
+    """Restore previous signal handlers."""
+    for sig, previous in installed.items():
+        try:
+            signal.signal(sig, previous)
+        except (ValueError, OSError, RuntimeError):
+            logger.debug("Could not restore signal handler for %s", sig, exc_info=True)
 
 
 def run_interactive(
@@ -311,6 +344,25 @@ def run_interactive(
 
     provider = str(get_arg(args, "provider", "local"))
 
+    shutdown_state = {"done": False}
+
+    def _shutdown_runtime() -> None:
+        if shutdown_state["done"]:
+            return
+        shutdown_state["done"] = True
+        _cleanup_runtime_resources()
+        llm.unload()
+
+    def _handle_shutdown_signal(signum: int, _frame: Any) -> None:
+        try:
+            ui.status(f"Received signal {signum}. Shutting down...")
+        except Exception:
+            logger.debug("Signal status update failed.", exc_info=True)
+        raise KeyboardInterrupt
+
+    installed_signal_handlers = _install_shutdown_signal_handlers(_handle_shutdown_signal)
+    atexit.register(_shutdown_runtime)
+
     try:
         tool_names = [tool.name for tool in tools.get_all()]
         ui.welcome(
@@ -353,7 +405,11 @@ def run_interactive(
                 )
             _render_agent_result(ui, result, stream_state)
     finally:
-        _cleanup_runtime_resources()
+        _restore_shutdown_signal_handlers(installed_signal_handlers)
+        try:
+            atexit.unregister(_shutdown_runtime)
+        except Exception:
+            logger.debug("Could not unregister shutdown hook.", exc_info=True)
+        _shutdown_runtime()
         ui.goodbye()
-        llm.unload()
     return 0

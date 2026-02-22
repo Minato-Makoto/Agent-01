@@ -231,6 +231,19 @@ if errorlevel 1 (
     )
 )
 
+REM Ensure Playwright browser runtime for browser skill (best effort).
+REM If this step fails, core runtime still works, but browser tools may fail.
+python -c "from playwright.sync_api import sync_playwright; p=sync_playwright().start(); b=p.chromium.launch(headless=True); b.close(); p.stop()" >nul 2>&1
+if errorlevel 1 (
+    echo Installing Playwright Chromium runtime...
+    python -m playwright install chromium >nul 2>&1
+    if errorlevel 1 (
+        echo WARNING: Could not auto-install Playwright Chromium runtime.
+        echo WARNING: Browser skill may fail until you run:
+        echo WARNING:   python -m playwright install chromium
+    )
+)
+
 if /I "%PROVIDER%"=="local" (
     if "%MODEL_PATH%"=="" (
         echo ERROR: MODEL_PATH is required when PROVIDER=local.
@@ -322,6 +335,13 @@ goto :end
 
 :fail
 set "EXIT_CODE=1"
+if not defined CI (
+    if /I not "%AGENTFORGE_NO_PAUSE_ON_FAIL%"=="1" (
+        echo.
+        echo Startup failed. Press any key to close this window...
+        pause >nul
+    )
+)
 
 :end
 popd
