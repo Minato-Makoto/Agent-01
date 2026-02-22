@@ -116,7 +116,6 @@ Explore the documentation for configuration and architectural deep dives:
 
 *   [Tutorial User Guide (EN)](docs/TUTORIAL_EN.md) | [Hướng dẫn Sử dụng (VI)](docs/TUTORIAL_VI.md)
 *   [Blueprint Architecture (EN)](docs/BLUEPRINT_EN.md) | [Kiến trúc Hệ thống (VI)](docs/BLUEPRINT_VI.md)
-*   [Changelog](CHANGELOG.md)
 
 ---
 

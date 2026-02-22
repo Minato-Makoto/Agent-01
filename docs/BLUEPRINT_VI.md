@@ -28,7 +28,6 @@ Agent-01/
 ├── .env.example                # Env variable template
 ├── .gitignore                  # Ignore rules
 ├── README.md                   # Quick start
-├── CHANGELOG.md                # Version history
 ├── docs/
 │   ├── BLUEPRINT_EN.md         # Tài liệu kiến trúc đầy đủ (English)
 │   ├── BLUEPRINT_VI.md         # (file này) Tài liệu kiến trúc đầy đủ (Tiếng Việt)
