@@ -46,7 +46,7 @@ Agent-01/
 │   ├── sessions/               # Session JSON files
 │   └── screenshots/            # Ảnh chụp màn hình browser
 ├── adb-mcp/                    # Tuỳ chọn: Tích hợp Photoshop/ADB
-└── llama-b8069-bin-win-cuda-*/ # Binary llama-server local (gitignored)
+└── llama-server/               # Thư mục trống để giải nén file llama-server (chỉ track folder)
 ```
 
 ---

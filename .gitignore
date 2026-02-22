@@ -19,7 +19,8 @@ workspace/logs/
 *.log
 
 # Local runtime binaries/models
-llama-server/
+llama-server/*
+!llama-server/.gitkeep
 *.gguf
 
 # Local env files

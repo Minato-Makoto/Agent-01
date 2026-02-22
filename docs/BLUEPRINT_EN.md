@@ -46,7 +46,7 @@ Agent-01/
 │   ├── sessions/               # Session JSON files
 │   └── screenshots/            # Browser screenshots
 ├── adb-mcp/                    # Optional: Photoshop/ADB integration
-└── llama-b8069-bin-win-cuda-*/ # Local llama-server binary (gitignored)
+└── llama-server/               # Empty directory for extracting llama-server binaries (folder tracked only)
 ```
 
 ---
