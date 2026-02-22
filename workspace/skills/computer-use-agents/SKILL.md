@@ -311,7 +311,7 @@ class AnthropicComputerUse:
             
 ```
 
-## ⚠️ Sharp Edges
+## [!] Sharp Edges
 
 | Issue | Severity | Solution |
 |-------|----------|----------|

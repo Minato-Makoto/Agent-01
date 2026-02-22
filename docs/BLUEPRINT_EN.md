@@ -6,13 +6,14 @@
 
 ## 1) Project Overview
 
-Agent-01 is a Windows-first AI agent runtime supporting structured tool-calling over Chat Completions-compatible endpoints. Core design principles:
+Agent-01 is an **Offline AI Agent** designed to run **100% offline** directly on your Windows PC, empowering your computer with an LLM. Core design principles:
 
-- **Windows-first**: all entry points and scripts target Windows.
-- **Single launcher**: `run.bat` is the only user entry point.
-- **Provider-agnostic**: runs with a local llama-server (GGUF) or a remote OpenAI-compatible endpoint.
-- **Skill-gated tools**: tools are locked behind a skill system; they are only activated when the agent reads a `SKILL.md` file.
-- **3-tier context compression**: automatic context window management via soft-trim, graceful summarization, and emergency compression.
+- **100% Offline / Privacy-First**: Runs directly on your device's hardware using a local `llama-server` and open-source GGUF models. No internet connection required.
+- **Empowering PC for LLM**: Communicates via natural language, allowing the LLM to use web browsers, the Adobe Suite, execute system commands, and manage files.
+- **Single Launcher**: Easy to start and flexible to configure via a single `run.bat` file.
+- **Dual Modes**: Seamlessly supports **Offline mode** (default) or **Online mode** (via external APIs).
+- **Skill-gated Tools**: Tools are locked behind a skill system; they are only activated when the agent reads a `SKILL.md` file.
+- **3-tier Context Compression**: Automatic context window management via soft-trim, graceful summarization, and emergency compression.
 
 ---
 
@@ -419,7 +420,7 @@ Bypass: calling `python -m agentforge.cli --flag value` directly overrides every
 | `PROVIDER` | `--provider` | `local` | `local` / `openai_compatible` |
 | `SERVER_EXE` | `--server-exe` | (in run.bat) | Path to llama-server.exe |
 | `MODEL_PATH` | positional | (in run.bat) | Path to .gguf model |
-| `BASE_URL` | `--base-url` | `http://127.0.0.1:8080` | Remote endpoint |
+| `BASE_URL` | `--base-url` | `http://127.0.0.1:8080` | Local llama-server URL or Remote API endpoint |
 | `MODEL_ID` | `--model-id` | `local` | Model identifier |
 | `API_KEY_ENV` | `--api-key-env` | `OPENAI_API_KEY` | Env var name holding the key |
 | `CTX_SIZE` | `--ctx-size` | `16384` | Context window size |
@@ -434,10 +435,10 @@ Bypass: calling `python -m agentforge.cli --flag value` directly overrides every
 | `MAX_TOKENS` | `--max-tokens` | `8192` | Max output tokens |
 | `HOST` | `--host` | `127.0.0.1` | Backend bind address |
 | `PORT` | `--port` | `8080` | Backend port |
-| `BOOT_TIMEOUT` | `--boot-timeout` | `120` | Server boot timeout (s) |
+| `BOOT_TIMEOUT` | `--boot-timeout` | `120` | Wait for local server to boot (s) |
 | `HEALTH_TIMEOUT` | `--health-timeout` | `2` | Health check timeout (s) |
 | `REQUEST_TIMEOUT` | `--request-timeout` | `300` | Request timeout (s) |
-| `SHUTDOWN_TIMEOUT` | `--shutdown-timeout` | `5` | Local process shutdown timeout (s) |
+| `SHUTDOWN_TIMEOUT` | `--shutdown-timeout` | `5` | Wait for local process to shutdown (s) |
 | `COMPAT_RETRY_LIMIT` | `--compat-retry-limit` | `8` | Compatibility retry limit |
 | `MAX_REQUESTS_PER_MINUTE` | `--max-requests-per-minute` | `60` | LLM requests per minute hard cap |
 | `MAX_ITERATIONS` | `--max-iterations` | `60` | Agent loop limit per user turn |

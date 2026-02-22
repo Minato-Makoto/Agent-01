@@ -6,13 +6,14 @@
 
 ## 1) Tổng quan dự án
 
-Agent-01 là một AI agent runtime chạy trên Windows, hỗ trợ tool-calling có cấu trúc (structured) trên endpoint Chat Completions-compatible. Điểm thiết kế cốt lõi:
+Agent-01 là một **Offline AI Agent** được thiết kế để chạy **100% offline** ngay trên máy tính Windows, trao quyền sử dụng PC cho LLM. Điểm thiết kế cốt lõi:
 
-- **Windows-first**: mọi entry point và script đều target Windows.
-- **Single launcher**: `run.bat` là điểm vào duy nhất cho user.
-- **Provider-agnostic**: chạy với local llama-server (GGUF) hoặc remote OpenAI-compatible endpoint.
-- **Skill-gated tools**: tools được khoá sau hệ thống skill, chỉ được kích hoạt khi agent đọc file `SKILL.md`.
-- **3-tier context compression**: tự động quản lý context window qua soft-trim, graceful summarization, và emergency compression.
+- **100% Offline / Privacy-First**: Ứng dụng chạy trực tiếp bằng phần cứng thiết bị thông qua local `llama-server` và các model GGUF mã nguồn mở. Không yêu cầu internet.
+- **Empowering PC for LLM**: Agent có khả năng sử dụng trình duyệt web, Adobe Suite, thực thi lệnh hệ thống, và quản lý tập tin cục bộ thông qua giao tiếp bằng ngôn ngữ tự nhiên.
+- **Single Launcher**: Khởi chạy dễ dàng và cấu hình thông số linh hoạt trên duy nhất một file `run.bat`.
+- **Dual Modes**: Hỗ trợ linh hoạt **Offline mode** (mặc định) hoặc **Online mode** (thông qua API bên ngoài).
+- **Skill-gated Tools**: Tools được khoá sau hệ thống skill, chỉ được kích hoạt khi agent đọc file `SKILL.md`.
+- **3-tier Context Compression**: Tự động quản lý bộ nhớ qua soft-trim, graceful summarization, và emergency compression.
 
 ---
 
@@ -202,12 +203,12 @@ tools:
 
 ## 7) Chiến lược provider và tương thích
 
-### 7.1 Hai chế độ
+### 7.1 Hai chế độ (Provider)
 
 | Chế độ | Kích hoạt | Backend |
 |--------|-----------|---------|
-| `local` | `PROVIDER=local` | Agent tự khởi động `llama-server.exe` với model GGUF |
-| `openai_compatible` | `PROVIDER=openai_compatible` | Kết nối tới endpoint remote có sẵn |
+| **Offline mode** | `PROVIDER=local` | Chạy 100% offline trên máy cá nhân bằng `llama-server.exe` với model GGUF. |
+| **Online mode** | `PROVIDER=openai_compatible` | Dùng sức mạnh đám mây để gọi LLM qua endpoint API (ví dụ OpenAI, Anthropic, Google). |
 
 ### 7.2 Hợp đồng request chính
 
@@ -416,34 +417,34 @@ Bypass: gọi trực tiếp `python -m agentforge.cli --flag value` sẽ ghi đ�
 
 | Tham số | Cờ CLI | Mặc định | Mô tả |
 |---------|--------|----------|-------|
-| `PROVIDER` | `--provider` | `local` | `local` / `openai_compatible` |
+| `PROVIDER` | `--provider` | `local` | **Offline mode** (`local`) / **Online mode** (`openai_compatible`) |
 | `SERVER_EXE` | `--server-exe` | (trong run.bat) | Đường dẫn llama-server.exe |
 | `MODEL_PATH` | positional | (trong run.bat) | Đường dẫn model .gguf |
-| `BASE_URL` | `--base-url` | `http://127.0.0.1:8080` | Endpoint remote |
-| `MODEL_ID` | `--model-id` | `local` | Định danh model |
-| `API_KEY_ENV` | `--api-key-env` | `OPENAI_API_KEY` | Tên biến env chứa key |
-| `CTX_SIZE` | `--ctx-size` | `16384` | Kích thước context window |
-| `GPU_LAYERS` | `--gpu-layers` | `-1` | Số layer GPU (`-1` = tối đa) |
-| `THREADS` | `--threads` | `0` | Luồng CPU (`0` = tự động) |
-| `TEMPERATURE` | `--temp` | `0.1` | Nhiệt độ lấy mẫu |
+| `BASE_URL` | `--base-url` | `http://127.0.0.1:8080` | URL cho llama-server (local) hoặc Địa chỉ endpoint chat-completions compatible |
+| `MODEL_ID` | `--model-id` | `local` | Định danh model mà nhà cung cấp yêu cầu |
+| `API_KEY_ENV` | `--api-key-env` | `OPENAI_API_KEY` | Tên biến môi trường chứa API key |
+| `CTX_SIZE` | `--ctx-size` | `16384` | Kích thước context window (token) |
+| `GPU_LAYERS` | `--gpu-layers` | `-1` | Đẩy tối đa qua GPU (`-1` = tối đa) |
+| `THREADS` | `--threads` | `0` | Hệ thống tự chọn số lượng CPU thread |
+| `TEMPERATURE` | `--temp` | `0.1` | Độ ngẫu nhiên/sáng tạo của output |
 | `TOP_P` | `--top-p` | `0.9` | Nucleus sampling |
-| `TOP_K` | `--top-k` | `40` | Top-K sampling |
+| `TOP_K` | `--top-k` | `40` | Giới hạn tập token được xem mỗi bước |
 | `REPEAT_PENALTY` | `--repeat-penalty` | `1.1` | Phạt lặp token |
-| `SEED` | `--seed` | `-1` | Seed ngẫu nhiên |
-| `REASONING_EFFORT` | `--reasoning-effort` | `low` | Mức reasoning thống nhất: `low` / `medium` / `high` / `extra_high` |
-| `MAX_TOKENS` | `--max-tokens` | `8192` | Token đầu ra tối đa |
+| `SEED` | `--seed` | `-1` | Ngẫu nhiên mỗi lần (`-1`), hoặc số để tái lập |
+| `REASONING_EFFORT` | `--reasoning-effort` | `low` | Mức reasoning: `low` / `medium` / `high` / `extra_high` |
+| `MAX_TOKENS` | `--max-tokens` | `8192` | Giới hạn độ dài tối đa mỗi lần model trả lời |
 | `HOST` | `--host` | `127.0.0.1` | Địa chỉ bind backend |
 | `PORT` | `--port` | `8080` | Cổng backend |
-| `BOOT_TIMEOUT` | `--boot-timeout` | `120` | Timeout khởi động server (giây) |
-| `HEALTH_TIMEOUT` | `--health-timeout` | `2` | Timeout health check (giây) |
-| `REQUEST_TIMEOUT` | `--request-timeout` | `300` | Timeout request (giây) |
-| `SHUTDOWN_TIMEOUT` | `--shutdown-timeout` | `5` | Timeout dừng local process (giây) |
-| `COMPAT_RETRY_LIMIT` | `--compat-retry-limit` | `8` | Giới hạn retry tương thích |
-| `MAX_REQUESTS_PER_MINUTE` | `--max-requests-per-minute` | `60` | Trần số request LLM mỗi phút |
-| `MAX_ITERATIONS` | `--max-iterations` | `60` | Giới hạn vòng lặp agent mỗi lượt |
-| `MAX_REPEATS` | `--max-repeats` | `3` | Giới hạn lặp tool call cùng tham số |
-| `AGENT_TIMEOUT` | `--agent-timeout` | `300` | Timeout vòng lặp agent (giây) |
-| `WORKSPACE` | `--workspace` | `./workspace` | Thư mục dữ liệu runtime |
+| `BOOT_TIMEOUT` | `--boot-timeout` | `120` | Chờ server local khởi động (giây) |
+| `HEALTH_TIMEOUT` | `--health-timeout` | `2` | Timeout từng lần health check (giây) |
+| `REQUEST_TIMEOUT` | `--request-timeout` | `300` | Timeout mỗi request model (giây) |
+| `SHUTDOWN_TIMEOUT` | `--shutdown-timeout` | `5` | Chờ local process tắt (giây) |
+| `COMPAT_RETRY_LIMIT` | `--compat-retry-limit` | `8` | Số lần thử lại khi provider không hợp payload |
+| `MAX_REQUESTS_PER_MINUTE` | `--max-requests-per-minute` | `60` | Chặn request storm |
+| `MAX_ITERATIONS` | `--max-iterations` | `60` | Giới hạn số vòng tool-call mỗi lượt |
+| `MAX_REPEATS` | `--max-repeats` | `3` | Giới hạn lặp tool với cùng tham số |
+| `AGENT_TIMEOUT` | `--agent-timeout` | `300` | Timeout tổng mỗi lượt (giây) |
+| `WORKSPACE` | `--workspace` | `./workspace` | Thư mục làm việc của Agent |
 | `AGENTFORGE_UI_THEME` | chỉ env | `auto` | Chế độ màu UI: `auto` / `dark` / `light` |
 | `AGENTFORGE_BROWSER_HEADLESS` | chỉ env | `0` | `0`=hiển thị, `1`=ẩn |
 | `AGENTFORGE_DESKTOP_CONTROL` | chỉ env | `1` | `1` bật desktop tools, `0` tắt |

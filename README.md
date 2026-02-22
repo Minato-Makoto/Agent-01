@@ -1,44 +1,126 @@
-# Agent-01 (AgentForge Runtime)
+# [■] Agent-01: Offline Agent Runtime
 
-Windows-first AI agent runtime. Entry duy nhat cho user: `run.bat`.
+Agent-01 is a Windows-first AI agent runtime designed to be **100% offline** and privacy-focused, empowering your personal computer with Large Language Models (LLMs).
 
-v1.1.1 highlights:
-- Skill manifests standardized to `workspace/skills/<skill_id>/SKILL.md`
-- Skill ID is canonical by folder name
-- Native desktop control tools (`desktop_*`) via `computer-use-agents` skill
-- Strict loop args wiring from launcher (`MAX_ITERATIONS`, `MAX_REPEATS`, `AGENT_TIMEOUT`)
+> **Version:** 1.1.1 · Python 3.10+ · Windows-first · Single launcher: `run.bat`
 
-## Quick start
+## [■] Ready to be Re-built
 
-1. Cai Python 3.10+.
-2. Mo terminal tai root repo.
-3. Chay:
+**This is not just a software application; it's a modular toy designed for the AI era.** 
+Agent-01 was 100% generated, designed, and maintained by AI. The codebase is deliberately structured to be "AI-friendly." We encourage you to open this project in modern AI IDEs (like VSCode + Antigravity, Cursor, Windsurf, etc.) and ask the AI to read, understand, expand, or completely rewrite any module you want. You are holding a framework—a skeleton. It is up to you and your AI to give it flesh and blood.
 
-```bat
-run.bat
+---
+
+## [■] System Requirements
+
+*Tested and optimized for mid-range gaming and productivity rigs:*
+
+*   **OS**: Windows 11
+*   **CPU**: Intel Core i7 10th Gen (or AMD equivalent)
+*   **RAM**: 32GB
+*   **GPU**: NVIDIA RTX 3070 Ti (or equivalent with sufficient VRAM for GGUF models)
+*   **Storage**: Fast NVMe SSD recommended
+
+---
+
+## [+] Quick Start
+
+1. Install **Python 3.10+** (Node.js optional).
+2. Download **llama-server.exe** at: https://github.com/ggml-org/llama.cpp/releases and extract it to the `llama-server` directory of the project.
+3. Configure the environment following the [Tutorial](TUTORIAL_EN.md/TUTORIAL_VI.md).
+4. Double-click `run.bat`.
+
+> **Note:** `run.bat` is the single entry point. It automatically checks and installs dependencies, loads environment parameters, and launches the runtime.
+
+---
+
+## [*] Architecture & Data Flow
+
+```mermaid
+graph TD
+    %% Theme Settings
+    classDef primary fill:#f8fafc,stroke:#3b82f6,stroke-width:2px,color:#0f172a;
+    classDef success fill:#f0fdf4,stroke:#10b981,stroke-width:2px,color:#0f172a;
+    classDef warning fill:#fffbeb,stroke:#f59e0b,stroke-width:2px,color:#0f172a;
+    classDef core fill:#eff6ff,stroke:#2563eb,stroke-width:3px,color:#0f172a,font-weight:bold;
+
+    %% Layer 1
+    subgraph L1 [1. Interface & Environment]
+        direction LR
+        ui_in(["[+] User Input<br/>(run.bat)"]):::success
+        ui_out(["[■] Terminal UI<br/>(Output Stream)"]):::success
+    end
+
+    %% Layer 2
+    subgraph L2 [2. Core Inference Engine]
+        direction TB
+        core(("Agent.run()")):::core
+        ctx["ContextBuilder"]:::primary
+        prompt["PromptBuilder"]:::primary
+        llm{"LLM Inference"}:::primary
+        parser["Response Parser"]:::primary
+        tools["Tool Loop"]:::warning
+        registry[/"Tool Plugins"\]:::warning
+    end
+
+    %% Layer 3
+    subgraph L3 [3. Workspace & Persistence]
+        direction LR
+        sess[("Session<br/>JSON v3")]:::warning
+        sum["Summarizer<br/>(3-tier)"]:::warning
+        static[("Boot Files<br/>& Skills")]:::warning
+    end
+
+    %% Data Flow Connections
+    ui_in -->|Input| core
+    
+    core -->|1. Setup Context| ctx
+    ctx -->|Read| static
+    ctx -.->|System Prompt| core
+    
+    core -->|2. Format| prompt
+    prompt -->|3. Query| llm
+    llm -->|4. Response| parser
+    
+    parser -->|Text| ui_out
+    parser -->|Tool_calls| tools
+    
+    tools <-->|Execute| registry
+    tools -.->|Results| core
+    
+    core -->|Save| sess
+    sess -->|Check Limit| sum
+    sum -.->|Compress| sess
 ```
 
-`run.bat` la launcher 1-file: tu kiem tra/install dependency, nhan tham so qua env, va chay `agentforge.cli`.
+---
 
-## Provider modes
+## [*] Two Modes (Provider)
 
-- `PROVIDER=local`:
-  - can `SERVER_EXE` (llama-server.exe)
-  - can `MODEL_PATH` (.gguf)
-- `PROVIDER=openai_compatible`:
-  - can `BASE_URL`, `MODEL_ID`, `API_KEY_ENV`
+*   **Offline mode** (`set PROVIDER=local`): Default. Runs 100% offline directly on your hardware using `llama-server.exe` with a GGUF model.
+*   **Online mode** (`set PROVIDER=openai_compatible`): Uses external cloud compute to call LLMs via APIs (e.g., OpenAI, Anthropic, Google).
 
-## Browser visibility
+---
 
-- Hien browser de user view:
-  - `set AGENTFORGE_BROWSER_HEADLESS=0`
+## [!] Security & Sandbox
 
-## Desktop control
+*   **Default sandbox (`SHELL_WORKSPACE_ONLY=1`)**: The agent is locked in the `./workspace` directory. Modifying files outside this directory is strictly blocked.
+*   **Desktop control (`AGENTFORGE_DESKTOP_CONTROL=1`)**: Native desktop control tools (`desktop_*`) via the `computer-use-agents` skill are enabled by default for maximum PC capability.
+*   **Anti-loop Guards**: Strict tool execution loops (`MAX_ITERATIONS`, `MAX_REPEATS`, `AGENT_TIMEOUT`) are wired directly from the launcher to prevent runaways.
 
-- Bat/tat desktop tools:
-  - `set AGENTFORGE_DESKTOP_CONTROL=1` (default on)
+---
 
-## Quality checks
+## [>] Documentation
+
+Explore the documentation for configuration and architectural deep dives:
+
+*   [Tutorial User Guide (EN)](docs/TUTORIAL_EN.md) | [Hướng dẫn Sử dụng (VI)](docs/TUTORIAL_VI.md)
+*   [Blueprint Architecture (EN)](docs/BLUEPRINT_EN.md) | [Kiến trúc Hệ thống (VI)](docs/BLUEPRINT_VI.md)
+*   [Changelog](CHANGELOG.md)
+
+---
+
+## [>] Quality Checks & Tests
 
 ```powershell
 python -m pytest -q
@@ -46,38 +128,27 @@ python -m compileall -q src
 $env:PYTHONPATH='src'; python -m agentforge.cli --help
 ```
 
-## Docs
+---
 
-- [Blueprint (EN)](docs/BLUEPRINT_EN.md)
-- [Blueprint (VI)](docs/BLUEPRINT_VI.md)
-- [Tutorial (EN)](docs/TUTORIAL_EN.md)
-- [Tutorial (VI)](docs/TUTORIAL_VI.md)
-- [Changelog](CHANGELOG.md)
+## [>] Roadmap (Future Versions)
+
+*   **1.2** - Complete Photoshop utilization capabilities.
+*   **1.3** - Complete session management features.
+*   **1.4** - Add image generation module (dual config online & offline).
+*   **2.0** - Add skills to operate other Adobe Suite applications.
+*   **2.1** - Upgrade long-term memory.
+*   **2.2** - Complete utilization capabilities across all Adobe software.
 
 ---
 
-## Credits & Special Thanks
+## [Ω] Credits & Special Thanks
 
-Agent-01 would not exist without the following tools, platforms, and AI systems that contributed to its development:
+Agent-01 would not exist without the following tools, platforms, and AI systems:
 
-### Design Pattern References
-- **PicoClaw** (Go) — Dual-output tool result pattern, web search provider pattern, skill loader validation, agent loop compression.
-- **OpenClaw** (TypeScript) — Context window pruner pattern, transcript policy sanitization.
+*   **Design Pattern References**: PicoClaw (Go) & OpenClaw (TypeScript).
+*   **AI Development Partners**: Google Gemini 3 & 3.1, Anthropic Claude Opus 4.6, OpenAI Codex 5.3.
+*   **Development Environment**: Visual Studio Code, Antigravity by Google DeepMind.
+*   **Third-Party Modules**: adb-mcp by Mike Chambers (MIT License), `llama.cpp` by Georgi Gerganov, and open-source models by Meta (Llama).
+*   **Open-Source Community**: The broader open-source AI agent community.
 
-### AI Development Partners
-- **Google Gemini 3 & 3.1** — Core codebase architecture, module design, and iterative development.
-- **Anthropic Claude Opus 4.6** — Code review, security hardening, and documentation refinement.
-- **OpenAI Codex 5.3** — Automated code generation, batch implementation, and upgrade auditing.
-
-### Development Environment
-- **Visual Studio Code** — Primary IDE.
-- **Antigravity by Google DeepMind** — AI-assisted pair programming agent.
-- **llama.cpp** — Local inference engine powering the `PROVIDER=local` mode.
-
-### Third-Party Modules
-- **adb-mcp** by Mike Chambers (MIT License) — Adobe Creative Suite MCP integration (Photoshop, Premiere Pro, After Effects, InDesign, Illustrator).
-
-### Open-Source Community
-- The broader open-source AI agent community whose collective research, experiments, and shared knowledge made projects like Agent-01 possible.
-
-> Without these building blocks, there is no Agent-01.
+> *A completely modular project, 100% generated and maintained by AI.*

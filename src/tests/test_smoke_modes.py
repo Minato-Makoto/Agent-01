@@ -77,6 +77,7 @@ def test_run_bat_smoke_openai_compatible_help():
     env["BASE_URL"] = "http://127.0.0.1:8080"
     env["MODEL_ID"] = "local"
     env["EXTRA_ARGS"] = "--help"
+    env["AGENTFORGE_NO_PAUSE_ON_FAIL"] = "1"
 
     proc = subprocess.run(
         ["cmd", "/c", "run.bat"],
@@ -98,9 +99,10 @@ def test_run_bat_local_help_accepts_quoted_model_path():
 
     env = os.environ.copy()
     env["PROVIDER"] = "local"
-    env["SERVER_EXE"] = str(root / "llama-b8069-bin-win-cuda-13.1-x64" / "llama-server.exe")
+    env["SERVER_EXE"] = str(root / "llama-server" / "llama-server.exe")
     env["MODEL_PATH"] = f"\"{model_file}\""
     env["EXTRA_ARGS"] = "--help"
+    env["AGENTFORGE_NO_PAUSE_ON_FAIL"] = "1"
 
     try:
         proc = subprocess.run(
@@ -125,9 +127,10 @@ def test_run_bat_local_help_accepts_unquoted_model_path_with_spaces():
 
     env = os.environ.copy()
     env["PROVIDER"] = "local"
-    env["SERVER_EXE"] = str(root / "llama-b8069-bin-win-cuda-13.1-x64" / "llama-server.exe")
+    env["SERVER_EXE"] = str(root / "llama-server" / "llama-server.exe")
     env["MODEL_PATH"] = str(model_file)
     env["EXTRA_ARGS"] = "--help"
+    env["AGENTFORGE_NO_PAUSE_ON_FAIL"] = "1"
 
     try:
         proc = subprocess.run(

@@ -19,7 +19,7 @@ workspace/logs/
 *.log
 
 # Local runtime binaries/models
-llama-b*-win-cuda-*/
+llama-server/
 *.gguf
 
 # Local env files
@@ -39,3 +39,13 @@ skills ref/
 # OS files
 Thumbs.db
 .DS_Store
+
+# Unused/Dummy Development Files
+dfd_flat.html
+.ui_dummy_preview
+ui_dummy_preview
+ui_dummy_preview.bat
+simulate_context.bat
+simulate_context.py
+root-agents.md
+CHANGELOG.md

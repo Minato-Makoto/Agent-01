@@ -1,85 +1,95 @@
-# [■] AGENT-01: HƯỚNG DẪN SỬ DỤNG PHẦN MỀM
+# [■] Agent-01: Hướng Dẫn Sử Dụng Offline Agent
 
-Chào mừng bạn đến với Hướng dẫn Sử dụng Agent-01. Tài liệu này cung cấp các hướng dẫn kỹ thuật để cài đặt và thiết lập một Open-source AI Agent. Agent-01 là một phần mềm mã nguồn mở hoạt động trực tiếp trên máy tính cá nhân, trao quyền cho các nhà phát triển và người dùng tự động hóa trình duyệt web, thực thi lệnh terminal, quản lý tập tin cục bộ, và xử lý các yêu cầu phức tạp thành các bước tuần tự cụ thể.
+Chào mừng bạn đến với Hướng dẫn Sử dụng Agent-01! Tài liệu này sẽ giúp bạn cài đặt, thiết lập và sử dụng Offline AI Agent của riêng mình.
 
-Tập tin khởi chạy chính để ứng dụng hoạt động trên hệ điều hành Windows là: `run.bat`.
-
----
-
-## [►] PHẦN 1: KHỞI ĐỘNG HỆ THỐNG
-
-Để bắt đầu sử dụng phần mềm, vui lòng thực hiện theo các bước sau:
-
-1. Mở cửa sổ dòng lệnh `cmd` hoặc `PowerShell` tại thư mục gốc chứa mã nguồn của ứng dụng.
-2. Khởi chạy bằng lệnh sau:
-   ```cmd
-   run.bat
-   ```
-   
-**Quy trình Phân tích Khởi động:**
-- Ứng dụng sẽ tự động tạo một không gian làm việc an toàn mang tên `workspace`.
-- Hệ thống kiểm tra và tự động cài đặt các thư viện Python yêu cầu nếu phát hiện thiếu sót.
-- Khởi động máy chủ cục bộ `llama-server` (khi sử dụng tập tin mô hình `.gguf`), hoặc tiến hành kết nối chuẩn xác với dịch vụ API từ xa đã cấu hình.
-- Ứng dụng vào trạng thái chờ trực tuyến, sẵn sàng tiếp nhận yêu cầu từ bạn.
+Agent-01 là một dự án được thiết kế để chạy **100% offline** ngay trên máy tính Windows, trao quyền sử dụng PC cho LLM, ví dụ như: sử dụng trình duyệt web, Adobe Suite, thực thi lệnh hệ thống, quản lý file và xử lý các yêu cầu của bạn thông qua giao tiếp bằng ngôn ngữ tự nhiên,v.v.v... mà không cần kết nối internet!
+Ứng dụng hoạt động trên hệ điều hành Windows bằng cách chạy file `run.bat`.
 
 ---
 
-## [►] PHẦN 2: THIẾT LẬP THÔNG SỐ CẤU HÌNH
+## [+] Phần 1: Khởi Động Hệ Thống
 
-Tùy vào nhu cầu sử dụng, bạn có thể thiết lập các tùy chọn tương ứng. Tập tin `run.bat` đóng vai trò là nơi lưu trữ cấu hình chính. Bạn có thể chỉnh sửa trực tiếp bên trong tập tin này bằng công cụ soạn thảo văn bản (như Notepad), hoặc ghi đè thông số trực tiếp từ dòng lệnh:
+Download **llama-server.exe** tại: https://github.com/ggml-org/llama.cpp/releases và giải nén vào thư mục `llama-server` của dự án.
+Cài đặt các thông số cần thiết trong file `run.bat` bằng Notepad hoặc các phần mềm tương tự, save lại và double click file `run.bat` để khởi động.
+Hệ thống sẽ tự động kiểm tra và cài đặt các thư viện cần thiết nếu máy bạn chưa có (Đoạn duy nhất cần internet).
+
+---
+
+## [*] Phần 2: Thiết Lập Cấu Hình
+
+Bạn có thể dễ dàng tùy chỉnh Agent-01 để phù hợp với nhu cầu sử dụng. Tập tin `run.bat` là nơi lưu trữ các cấu hình chính. Bạn có thể mở và sửa file này bằng các trình soạn thảo mã (như Notepad), hoặc ghi đè tạm thời các thông số ngay khi gõ lệnh trên terminal, ví dụ:
 
 `set MAX_TOKENS=8192 && run.bat`
 
-### 2.1 Môi trường Xử lý (`PROVIDER`)
-Phân bổ luồng xử lý mô hình ngôn ngữ dựa trên thiết bị máy tính cá nhân hoặc dịch vụ đám mây.
+Trong file `run.bat` có các chú thích và ví dụ cho từng thông số để bạn có thể tùy chỉnh phù hợp với cấu hình máy tính của mình.
 
-*   **CHẾ ĐỘ CỤC BỘ (Mặc định):**
-    *   **Thiết lập:** `set PROVIDER=local`
-    *   **Đặc điểm:** Tối ưu hóa tính toàn vẹn dữ liệu bằng cách sử dụng sức mạnh phần cứng máy tính nội bộ của bạn. Yêu cầu tải sẵn mô hình `.gguf` và khai báo đường dẫn tại biến `MODEL_PATH`.
-    *   **Tối ưu hiệu suất:** Cài đặt `GPU_LAYERS=-1` để chuyển toàn bộ cấu trúc mạng nơ-ron sang bộ nhớ đồ họa (VRAM) nhằm gia tăng tốc độ xử lý phản hồi.
+### 2.1 Offline & Online Mode (`PROVIDER`)
 
-*   **CHẾ ĐỘ TỪ XA:**
-    *   **Thiết lập:** `set PROVIDER=openai_compatible`
-    *   **Đặc điểm:** Kết nối tới các API dịch vụ bên ngoài (như OpenAI, Anthropic, v.v.). Đòi hỏi cung cấp `BASE_URL`, `MODEL_ID`, và thiết lập biến môi trường chứa bộ khóa API (`API_KEY_ENV`).
-    *   **Tối ưu hiệu suất:** Phù hợp với nhu cầu xử lý quy trình logic phức tạp mà thiết bị phần cứng của bạn không đáp ứng được.
+*   **Offline mode (Mặc định & Khuyên dùng):**
+    *   **Cách thiết lập:** `set PROVIDER=local` cùng với `MODEL_PATH=` là đường dẫn đến model GGUF trên máy tính của bạn.
+    *   **Mô tả:** Chế độ này chạy 100% offline bằng phần cứng thiết bị, sử dụng các model AI GGUF open-source.
 
-### 2.2 Tùy chỉnh Các Chỉ số Suy luận
-Sửa đổi các thông số nhận thức để nâng cao chất lượng phản hồi từ phần mềm.
+*   **Online mode (Sử dụng API từ xa):**
+    *   **Cách thiết lập:** `set PROVIDER=openai_compatible`
+    *   **Mô tả:** Sử dụng để gọi LLM thông qua API của các nhà cung cấp như OpenAI, Anthropic, Google, ...
+    *   **Cách setup API ENV:**
+        1. Bấm nút Start trên bàn phím, gõ chữ: env
+        2. Chọn "Edit the system environment variables" (Sửa đổi biến môi trường hệ thống).
+        3. System Properties hiện ra, bạn bấm nút "Environment Variables..." ở dưới cùng.
+        4. Ở phần User variables, bạn bấm nút New...
+        5. Điền vào đó:
+            Variable name: OPENAI_API_KEY
+            Variable value: sk-12344566778... (Dán thật chính xác API Key của bạn vào đây).
+        6. Bấm OK.
 
-*   `CTX_SIZE`: Kích thước vùng nhớ ngữ cảnh (số lượng token) cho phiên làm việc. Khuyến nghị tăng thông số (ví dụ: `16384`) khi bạn cần cung cấp một tệp tài liệu lớn, hoặc một thư mục mã nguồn đồ sộ để phân tích nguyên văn.
-*   `TEMPERATURE`: Điều chỉnh tính đa dạng của chuỗi đầu ra.
-    *   `0.1`: Cho ra kết quả độ chính xác cao nhất và luôn bám sát dữ liệu cấu trúc gốc. Tối ưu cho thao tác sinh và gỡ lỗi mã nguồn lập trình.
-    *   `0.7`: Mở rộng khả năng chọn từ vựng ngẫu nhiên. Phù hợp cho thảo luận phương án thiết kế phần mềm.
-*   `MAX_TOKENS`: Mức trần cho quá trình phát sinh token đầu ra. Chỉ số `8192` giúp hạn chế hiện tượng kết quả tạo mã nguồn hoặc văn bản dài bị dừng đột ngột giữa chừng.
+### 2.2 Tùy Chỉnh Bộ Não Của AI
+Sửa đổi cách AI Agent suy nghĩ và phát sinh văn bản để có chất lượng đầu ra tốt hơn.
 
----
-
-## [►] PHẦN 3: TÙY CHỌN BẢO MẬT & MÔI TRƯỜNG AN TOÀN
-
-Open-source AI Agent có khả năng tự động thực thi các dòng lệnh trong hệ điều hành của bạn, do đó, các cài đặt bảo mật thư mục sau đây được bật mặc định.
-
-*   **Môi trường Hộp cát (Sandbox) (`SHELL_WORKSPACE_ONLY`):**
-    *   Giá trị đang được đặt là `1`. Trợ lý AI bị giới hạn hoạt động nghiêm ngặt trong thư mục cấu hình: các thay đổi tập tin và tương tác lệnh shell bị hạn chế cấp phép chỉ trên phạm vi thư mục `./workspace`.
-    *   **Lưu ý:** Chỉnh thông số này thành `0` sẽ vô hiệu hóa hoàn toàn cơ chế bảo mật (Sandbox), trao đặc quyền truy cập trên toàn thiết bị cho ứng dụng. Chỉ khi thực sự tự quản trị được mức độ bảo mật thì mới sử dụng thiết lập số 0.
-*   **Ngắt tự động kết nối (`MAX_ITERATIONS` & `MAX_REPEATS`):**
-    *   Phòng ngừa hiện tượng xử lý phần mềm treo vô hạn. `MAX_ITERATIONS=25` ấn định vòng lặp xử lý sẽ bị dừng ứng dụng ngay lập tức nếu tác vụ vẫn chưa hoàn thành xong sau 25 bước tương tác chu kỳ nội bộ.
+*   **`CTX_SIZE` (Khả năng ghi nhớ):** Bộ nhớ ngắn hạn của AI (tính bằng token). Cần thông số cao (VD: `16384`) để AI có thể đọc các tài liệu dài và xử lý các yêu cầu phức tạp.
+*   **`TEMPERATURE` (Sự sáng tạo):** Điều chỉnh sự sáng tạo của AI Agent trong câu trả lời (Thấp = logic/ ít sáng tạo, Cao = sáng tạo/ nhiều ý tưởng).
+    *   `0.1`: Logic, phân tích và độ chính xác cực cao. Tối ưu khi sinh mã nguồn, khai báo biến hoặc lập dàn bài kỹ thuật.
+    *   `0.7`: Sáng tạo và mang văn phong giao tiếp tự nhiên. Phù hợp nhất cho thảo luận và phát triển ý tưởng.
+*   **`MAX_TOKENS` (Độ dài đầu ra):** Độ dài tối đa tính theo từng chữ cho mỗi lần phản hồi của model. Chỉ số như `8192` vẫn có khả năng gặp hiện tượng mất chữ hoặc ngừng phản hồi với các kết quả dài.
 
 ---
 
-## [►] PHẦN 4: HƯỚNG DẪN VIẾT CÂU LỆNH YÊU CẦU
+## [!] Phần 3: Tính Năng Bảo Mật & Môi Trường An Toàn
 
-Giao tiếp với mô hình Agent đòi hỏi cấu trúc viết Prompt chuyên biệt hơn so với trợ lý nội dung (Chatbot AI). Các lệnh đưa vào nên có định nghĩa rõ ràng mục tiêu tổng, đi kèm định dạng theo bước mô tả thay vì hỏi ngắn gọn.
+Vì Offline Agent có tính năng chạy command trên máy tính nên đi kèm với nó là các cơ chế bảo vệ nghiêm ngặt để đảm bảo AI không vô tình phá hủy hệ thống.
 
-### [!] Cách viết chưa tối ưu (Chỉ hợp Chatbot)
-> "Viết một đoạn mã Python để tải thông tin giá tiền số."
+*   **Default sandbox (`SHELL_WORKSPACE_ONLY`):**
+    *   Giá trị luôn được cài sẵn là `1`. Trợ lý của bạn bị khóa trong một không gian hoạt động an toàn. Mọi lệnh sửa file hay kịch bản shell chỉ được ép chạy bên trong thư mục `./workspace`.
+    *   **[!] Cảnh Báo:** Đổi giá trị này thành `0` tức là vô hiệu hóa sandbox, cho phép AI truy cập sửa tên tệp trên toàn máy tính.
+*   **Anti-loop (`MAX_ITERATIONS` & `MAX_REPEATS`):**
+    *   Để tránh các trường hợp model tạo loop tool và lặp vô tận, `MAX_ITERATIONS=60` giữ cho hệ thống sẽ tự kết thúc nếu model gọi 60 lần tool liên tục. (Tăng lên nếu bạn cần tạo nhiều file và ước tính được lượt sử dụng tool của model)
 
-### [★] Cách viết chuẩn (Dành cho Agent)
-> "Mục tiêu: Viết ứng dụng theo dõi giá Crypto.
-> 1. Sử dụng tính năng trình duyệt web của bạn để truy cập `coinmarketcap.com`.
-> 2. Phân tích cấu trúc thư mục DOM nhằm tìm kiếm thành phần giao diện chứa mức Bitcoin giá mới nhất.
-> 3. Tạo một tập lệnh Python theo nguyên lý thu thập dữ liệu (web scraper) trực tiếp và xuất thành tệp tên `crypto.py` trong workspace.
-> 4. Hãy sử dụng tính năng bash shell command để khởi chạy tập lệnh này và hiển thị thông báo thành công cho tôi kiểm tra."
+---
 
-**Lý do đạt chuẩn:** Câu lệnh này đưa rõ yêu cầu triển khai theo lộ trình. Ứng dụng Open-source AI Agent khi tiếp nhận sẽ tự vận hành liên hoàn các bộ công cụ tính năng (Web Browser - Command Line - Text Editor) theo tuần tự để cung cấp đúng quy trình dữ liệu bạn đề ra.
+## [>] Phần 4: Giao tiếp với AI Agent
 
-Hệ thống đang chờ lệnh phản hồi từ cửa sổ Terminal.
+Phần trả lời của AI Agent vẫn phụ thuộc vào model bạn chọn sử dụng, hệ thống chỉ cung cấp các công cụ và môi trường để LLM tiến hóa lên AI Agent.
+Hoạt động tốt với các mô hình 4B-8B dành cho máy tính tầm trung (Intel i7, 32GB Ram, RTX 3070ti).
+
+---
+
+## [>] Phần 5: LLM Download
+Các bạn có thể tìm và download các model GGUF tại: https://huggingface.co/
+
+---
+
+## [>] Phần 6: Cá nhân hóa Agent (users & developers)
+*   **User:** 
+    *   File `SOUL.md` và `USER.md` là nơi để bạn cá nhân hóa Agent. 
+    *   `SOUL.md`: Nơi để bạn cài đặt tính cách, vai trò, và các quy tắc ứng xử, hành vi của Agent.
+    *   `USER.md`: Nơi để bạn điền các thông tin cá nhân của bản thân, giúp Agent hiểu và phục vụ bạn tốt hơn.
+*   **Developer:** 
+    *   Với các developer, mọi người đều có thể fork dự án và phát triển thêm hoặc viết lại toàn bộ mã nguồn bằng AI CLI trên IDE như VSCode, Antigravity, v.v...
+    *   Bộ skill cũng thế, download hoặc tự viết ra 1 file `SKILL.md` và nói với AI CLI đăng ký skill cho Agent-01. Đây là cách dự án tránh việc Agent bị dính prompt injection không mong muốn.
+
+---
+
+## [Ω] Lời ngỏ từ sản xuất:
+Đây là dự án được tạo ra hoàn toàn 100% bằng AI Generator nên chắc chắn không thể tránh khỏi các sai sót, dự án vẫn sẽ được tiếp tục hoàn thiện dần theo quỹ thời gian mà mình có, HOẶC CHÍNH CÁC BẠN LÀ NGƯỜI SẼ HOÀN THÀNH NÓ. Đừng ngần ngại mà dùng project này như 1 món đồ có thể tháo lắp được, vì code được viết bởi AI nên AI có thể hoàn toàn đọc hiểu code, hãy hỏi nó để biết được thứ mà chính người tạo ra nó cũng không biết. Chúc các bạn thành công và chơi game AI 2026 này vui vẻ!
+Thanks & Best Regards,
+Minato.
+https://minato-makoto.github.io 

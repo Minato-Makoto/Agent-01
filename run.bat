@@ -2,182 +2,145 @@
 setlocal EnableExtensions
 pushd "%~dp0"
 if errorlevel 1 (
-    echo ERROR: cannot access repository directory.
+    echo ERROR: không thể truy cập thư mục repository.
     exit /b 1
 )
 set "PYTHONPATH=%~dp0src"
 
 REM ============================================================
-REM Tập lệnh Khởi chạy Agent-01 (Dành riêng cho Windows)
-REM
-REM [>] HƯỚNG DẪN KHỞI CHẠY NHANH
-REM ------------------------------------------------------------
-REM 1) Chế độ Cục bộ (Mặc định):
-REM    Đảm bảo đường dẫn biến MODEL_PATH và SERVER_EXE trỏ đến các tập tin hợp lệ.
-REM    Chạy lệnh: run.bat
-REM
-REM 2) Chế độ Từ xa (Mượn API bên ngoài):
-REM    set PROVIDER=openai_compatible
-REM    set BASE_URL=https://api.openai.com/v1
-REM    set MODEL_ID=gpt-4o
-REM    set OPENAI_API_KEY=YOUR_KEY
-REM    run.bat
-REM
-REM 3) Chế độ An toàn (Khóa quyền sửa file máy tính):
-REM    set SHELL_WORKSPACE_ONLY=1
-REM    run.bat
-REM
-REM [i] HƯỚNG DẪN CẤU HÌNH THÔNG SỐ
-REM ------------------------------------------------------------
-REM Bạn có thể đổi vĩnh viễn các thông số bằng cách sửa số đằng sau dấu "=" ở dưới.
-REM Hoặc đổi tạm thời dùng ngay ở Terminal:
-REM   set MAX_TOKENS=4096 && run.bat
-REM ============================================================
+REM Trình khởi chạy Agent-01 (Windows)
 
-REM ---- 1. Hệ thống & Chế độ Vận hành (Provider Mode) ----
+REM ---- 1) Provider ----
 
-REM [PROVIDER]
-REM Khái niệm: Công tắc chọn "nơi" AI sẽ suy luận.
-REM Tác động: Quyết định việc AI dùng sức mạnh phần cứng máy tính bạn (local) hay thông qua sức mạnh mạng API của dịch vụ đám mây (openai_compatible).
-REM Ví dụ:
-REM - PROVIDER=local (Mặc định): An toàn, riêng tư 100%, có thể rút mạng máy tính AI vẫn chạy.
-REM - PROVIDER=openai_compatible: Mượn năng lực tính toán cực lớn của OpenAI máy chủ.
+REM - PROVIDER=local: chạy model GGUF trên máy (cần SERVER_EXE + MODEL_PATH)
+REM - PROVIDER=openai_compatible: gọi model qua API (cần BASE_URL + MODEL_ID)
 if not defined PROVIDER set "PROVIDER=local"
 
-REM ---- 2. Cấu hình Máy chủ Cục bộ (Kích khoản khi PROVIDER=local) ----
+REM ---- 2) Cấu hình offline (chỉ dùng khi PROVIDER=local) ----
 
-REM [SERVER_EXE] & [MODEL_PATH]
-REM Khái niệm: Đường dẫn tới ứng dụng khởi động AI (SERVER_EXE) và file bộ não AI (MODEL_PATH - định dạng file là .gguf).
-REM Tác động: Nếu không trỏ vào đúng đường dẫn MODEL_PATH, phần mềm sẽ không thể khởi động vì "không có bộ não".
+REM BASE_URL:
+REM - URL cho llama-server, mặc định: http://127.0.0.1:8080
+REM
+REM SERVER_EXE:
+REM - Đường dẫn đến llama-server.exe.
+REM
+REM MODEL_PATH:
+REM - Đường dẫn đến model .gguf.
 REM Ví dụ:
-REM - MODEL_PATH="D:\Models\AI_Llama.gguf"
-if not defined SERVER_EXE set "SERVER_EXE=%~dp0llama-b8069-bin-win-cuda-13.1-x64\llama-server.exe"
+REM   set "MODEL_PATH=D:\Models\Qwen.gguf"
+if not defined SERVER_EXE set "SERVER_EXE=%~dp0llama-server\llama-server.exe"
 if not defined MODEL_PATH set "MODEL_PATH=D:\Personal\MinatoZeroFace\AI Agent\model\Qwen3VL-Instruct\Qwen3VL-4B-Instruct-Q4_K_M.gguf"
 
-REM ---- 3. Cấu hình Máy chủ Từ xa (Kích hoạt khi PROVIDER=openai_compatible) ----
+REM ---- 3) Cấu hình online (chỉ dùng khi PROVIDER=openai_compatible) ----
 
-REM [BASE_URL], [MODEL_ID], [API_KEY_ENV]
-REM Khái niệm: Dành cho khi bạn kết nối tới máy chủ ngoài. API_KEY_ENV là tên biến môi trường chứa pass giải mã khóa tài khoản bạn.
-REM Tác động: Nếu nhập thiếu BASE_URL hoặc quên khai báo API key, máy chủ sẽ chặn yêu cầu dẫn đến báo lỗi đỏ lòm.
+REM BASE_URL:
+REM - Địa chỉ endpoint chat-completions compatible.
+REM - Thường có dạng: https://host/v1
+REM
+REM MODEL_ID:
+REM - Định danh/ tên model mà nhà cung cấp yêu cầu.
+REM
+REM API_KEY_ENV:
+REM - Tên biến môi trường chứa API key (không phải giá trị key).
+REM - Mặc định: OPENAI_API_KEY
+REM - Xem thêm cách setup API ENV trong docs/TUTORIAL_EN.md/TUTORIAL_VI.md
 if not defined BASE_URL set "BASE_URL=http://127.0.0.1:8080"
 if not defined MODEL_ID set "MODEL_ID=local"
 if not defined API_KEY_ENV set "API_KEY_ENV=OPENAI_API_KEY"
 
-REM ---- 4. Tùy chỉnh Não Phản hồi (Inference Tuning) - MỤC QUAN TRỌNG NHẤT ----
+REM ---- 4) Tinh chỉnh inference ----
 
-REM [CTX_SIZE] (Kích thước: 1024, 2048, 4096, 8192, 16384...)
-REM Khái niệm: Kích thước bộ nhớ "ngắn hạn" của AI. Số lượng chữ tối đa mà AI được phép ghi nhớ trong một phiên trò chuyện (hay tính bằng Token).
-REM Tác động: Số lượng càng cao, AI càng nhớ được nhiều log cũ, đọc được file tài liệu dài. NHƯNG nó sẽ nuốt rất nhiều RAM / Card màn hình (VRAM).
-REM Ví dụ:
-REM - CTX_SIZE=8192: Đủ bộ nhớ đọc 1-2 file Word nhỏ, thích hợp Card đồ họa phổ thông.
-REM - CTX_SIZE=16384: Dành cho việc ép AI nhét một dự án to vào đầu để đọc. Nếu VRAM (Card đồ họa) dưới 12GB có thể lỗi đen màn.
+REM [CTX_SIZE]
+REM Kích thước context window (token). Tăng lên để nhớ được nhiều hơn,
+REM nhưng sẽ tốn RAM/VRAM hơn.
 if not defined CTX_SIZE set "CTX_SIZE=16384"
 
 REM [GPU_LAYERS] & [THREADS]
-REM Khái niệm: Phân bổ điện toán phần cứng.
-REM - GPU_LAYERS là ép bao nhiêu lớp não của AI chạy qua card Màn Hình (VRAM).
-REM - THREADS là số lõi của vi xử lý (CPU) cho phép trợ lực hệ thống.
-REM Tác động: Quyết định AI nhả chữ nhanh hay chậm. Giải phóng tối đa phần cứng.
-REM Ví dụ: 
-REM - GPU_LAYERS=-1 (Mặc định): Đẩy 100% mạng AI qua Card màn hình (Nhả chữ nhanh nhất thị trường). Nếu máy quá giựt/văng thì có thể tự hạ xuống sửa số bằng 30 hoặc 20.
-REM - THREADS=0 (Mặc định): Để máy tự động quyết định CPU rảnh bao nhiêu thì xài bấy nhiêu.
+REM GPU_LAYERS=-1: đẩy tối đa qua GPU (nếu local backend hỗ trợ).
+REM THREADS=0: để hệ thống tự chọn số lượng CPU thread.
 if not defined GPU_LAYERS set "GPU_LAYERS=-1"
 if not defined THREADS set "THREADS=0"
 
-REM [TEMPERATURE] (Khoảng giá trị: 0.0 đến 2.0)
-REM Khái niệm: Độ "sáng tạo", hoặc "ngẫu hứng" khi lấy từ của AI.
-REM Tác động: Càng thấp thì văn càng nguyên tắc, kỹ thuật. Càng cao thì AI càng dùng từ bay bổng, bất ngờ, dễ bị ảo giác chế lời điêu toa.
-REM Ví dụ:
-REM - TEMPERATURE=0.1 (Mặc định): Chuyên cho việc code, sửa logic phần mềm. AI không "vẽ râu ria", trả lời khô khan nhưng trúng thứ cần tìm.
-REM - TEMPERATURE=0.8: Viết email, viết nội dung cho trang Facebook. Cần sự mở rộng từ điển cao nhất để nghe giống người thật.
+REM [TEMPERATURE]
+REM Độ "ngẫu nhiên/sáng tạo" của output.
+REM - thấp (0.1): ổn định, hợp code/phân tích.
+REM - cao (0.7+): đa dạng hơn nhưng dễ lệch hơn.
 if not defined TEMPERATURE set "TEMPERATURE=0.1"
 
-REM [TOP_P] (Khoảng giá trị: 0.0 đến 1.0)
-REM Khái niệm: Màng lọc tỷ lệ % từ khóa. AI sẽ sắp xếp các từ tiếp theo có khả năng được nó chọn từ tốt nhất (VD: từ "Tôi" là 80%, "Tớ" là 10%) dần xuống thấp. TOP_P sẽ lấy từ cao nhất xuống tới khi ĐỦ tổng tỷ lệ P. Phần từ rác ở dưới đáy bảng sẽ bị gạch bỏ hoàn toàn khỏi bộ nhớ.
-REM Tác động: Dùng để chặn AI ném ra những từ vô lý.
-REM Ví dụ:
-REM - TOP_P=0.9 (Mặc định): Loại bỏ 10% các từ khóa xấu/có khả năng bị điên nhất. Giúp giữ lại 90% bộ từ vựng, không làm AI bị thu hẹp không gian dùng từ mềm mại.
-REM - TOP_P=0.1: Chặn đứng 90% từ khóa. Ép AI chỉ được bốc chữ trong một rổ nhỏ các từ đúng logic nhất. Lấy ra output như cái máy.
+REM [TOP_P]
+REM Nucleus sampling. Thường để 0.9.
 if not defined TOP_P set "TOP_P=0.9"
 
-REM [TOP_K] (Khoảng giá trị: 1 trở lên)
-REM Khái niệm: Màng lọc chốt số lượng chữ chuẩn (Không liên quan tỷ lệ %). TOP_K ép AI chỉ được nhìn đúng tới K cái tên từ khóa điểm cao nhất nằm trên top.
-REM Tác động: Gọt đi đuôi chữ xấu. Dùng rất tốt kết hợp với lúc set Temperature thật to. Temperature làm câu từ bay bổng (dễ hỏng), TOP_K sẽ níu lại bảo đảm dù bay bổng kiểu gì thì từ cuối cùng xuất ra cũng được tuyển chọn ngữ pháp.
-REM Ví dụ:
-REM - TOP_K=40 (Mặc định): Mỗi lần chuẩn bị viết 1 từ, AI chỉ được nhìn 40 cái tên cao điểm nhất để bốc 1 từ lên bảng.
-REM - TOP_K=1: Ép AI chỉ được chọn duy nhất tên đỉnh bảng. Hệ quả: chạy chương trình 10 lần thì sẽ phun ra chữ đúng y hệt 10 lần (y xì đúc như photo bài nhau).
+REM [TOP_K]
+REM Giới hạn tập token được xem mỗi bước. Thường để 40.
 if not defined TOP_K set "TOP_K=40"
 
-REM [REPEAT_PENALTY] (Khoảng giá trị: 1.0 trở lên)
-REM Khái niệm: Hình phạt lặp từ. Khi AI định dùng lại chữ nó vừa mới xuất ra câu trên, điểm số của từ đó bị đè thụt xuống.
-REM Tác động: Phòng chống AI nhảy vào lỗi lặp vô hạn (Ví dụ vòng lập: "Tôi đang đang đang đang").
-REM Ví dụ:
-REM - REPEAT_PENALTY=1.0: Không trừng phạt (Tắt chế độ này). AI lặp từ thoải mái tùy ý.
-REM - REPEAT_PENALTY=1.1 (Mặc định): Mức phạt vừa chuẩn nhất. AI viết tự nhiên, không lặp thành đoạn văn rườm rà.
-REM - REPEAT_PENALTY=1.5: Phạt quá nặng. AI sẽ tìm mọi cách chạy trốn từ nó vừa dùng xong. Hậu quả là nó sẽ thốt ra những tự dở hơi không làm được việc.
+REM [REPEAT_PENALTY]
+REM Phạt lặp token. Thường để 1.1.
 if not defined REPEAT_PENALTY set "REPEAT_PENALTY=1.1"
 
 REM [SEED] & [REASONING_EFFORT]
-REM Khái niệm:
-REM - SEED: Khóa định sẵn của chuỗi chọn phần mềm. (-1 là mở hệ phát máy tự tạo/Ngẫu nhiên đổi khác chuỗi).
-REM - REASONING_EFFORT: Bắt AI dừng bao lâu trong tiềm thức để nghiền ngẫm kết quả cấu trúc bài. (Chủng hệ như OpenAI đời model o1 mới mở tính năng khóa này).
-REM Ví dụ: Chỉnh SEED=42. Khi chạy ứng dụng nhiều lần, bạn sẽ bắt phần mềm này hoạt động cho ra văn bản luôn trùng và có cùng quá trình mắc lỗi. Tiện nhất để xem mình sửa Code đã thực sự vượt cái lỗi cũ ở lượt trước chưa.
+REM - SEED=-1: ngẫu nhiên mỗi lần. Đặt số cụ thể nếu cần tái lập kết quả.
+REM - REASONING_EFFORT: low|medium|high|extra_high (nếu backend/model hỗ trợ).
 if not defined SEED set "SEED=-1"
 if not defined REASONING_EFFORT set "REASONING_EFFORT=low"
 
-REM [MAX_TOKENS] (Chỉ số giới hạn vòng trả lời)
-REM Khái niệm: Độ dài tối đa bức thư/đoạn tin nhắn cho Mỗi Một lần AI In ra trên cửa sổ trả lời trả về bạn.
-REM Tác động: Khống chế việc máy bị treo VRAM của hệ do kéo chuỗi sinh vô hạn.
-REM Ví dụ:
-REM - MAX_TOKENS=8192: Chỉnh khá cao để phần mềm kịp thời in phun toàn bộ đoạn Code dài vô cấu trả về cửa số mà không phanh gắt, gián đoạn lệnh in cắt ngang trang.
+REM [MAX_TOKENS]
+REM Giới hạn độ dài tối đa mỗi lần model trả lời.
 if not defined MAX_TOKENS set "MAX_TOKENS=8192"
 
-REM ---- 5. Dấu thời gian phản hồi máy chủ & Lệnh Mạng ----
+REM ---- 5) Network + timeout ----
 
 REM [HOST] & [PORT]
-REM Khái niệm: Điểm kết nối địa chỉ thiết bị máy chủ.
+REM Địa chỉ/port của llama-server local.
 if not defined HOST set "HOST=127.0.0.1"
 if not defined PORT set "PORT=8080"
 
 REM [BOOT_TIMEOUT], [REQUEST_TIMEOUT], [HEALTH_TIMEOUT], [SHUTDOWN_TIMEOUT]
-REM Khái niệm: Tính bằng (Giây). Vòng lặp ngưỡng chờ phần mềm tính giây (gọi khởi chạy máy chủ, trả request gửi API, độ ngậm ping khi gửi nhận truy cập, thoát lưu).
-REM Ảnh hưởng: Khi cắm cái não AI (.gguf) nặng quá khổ dung lượng Ram máy lên HDD ổ thường xoay cơ xoắn từ. Tốc bật máy rất trễ. Để BOOT_TIMEOUT=240, nới rông lề giây lên tránh ứng dụng rớt tắt báo văng ứng dụng chả ra đâu.
+REM Các ngưỡng timeout tính theo giây:
+REM - BOOT_TIMEOUT: chờ server local khởi động.
+REM - HEALTH_TIMEOUT: timeout từng lần health check.
+REM - REQUEST_TIMEOUT: timeout mỗi request model.
+REM - SHUTDOWN_TIMEOUT: chờ local process tắt.
 if not defined BOOT_TIMEOUT set "BOOT_TIMEOUT=120"
 if not defined HEALTH_TIMEOUT set "HEALTH_TIMEOUT=2"
 if not defined REQUEST_TIMEOUT set "REQUEST_TIMEOUT=300"
 if not defined SHUTDOWN_TIMEOUT set "SHUTDOWN_TIMEOUT=5"
 
 REM [COMPAT_RETRY_LIMIT] & [MAX_REQUESTS_PER_MINUTE]
-REM Khái niệm: Thông số cố định lần chặn gửi lại phần lỗi API đứt gãy kết nối mạng/ 1 phút tối đa cho thả request.
-REM Ảnh hưởng: Nếu AI gặp truy sai ngắt lạp truy gửi không thoát khỏi vô mạch lỗi. Nó chận bay tiền dịch vụ (Thẻ trả API bên ngoài/chặn đập tiền ngu).
+REM - COMPAT_RETRY_LIMIT: số lần thử lại khi provider không hợp payload.
+REM - MAX_REQUESTS_PER_MINUTE: chặn request storm.
 if not defined COMPAT_RETRY_LIMIT set "COMPAT_RETRY_LIMIT=8"
 if not defined MAX_REQUESTS_PER_MINUTE set "MAX_REQUESTS_PER_MINUTE=60"
 
-REM ---- 6. Thông số ngắt bộ khung phần mềm Agent ----
+REM ---- 6) An toàn vòng lặp agent ----
 
 REM [MAX_ITERATIONS], [MAX_REPEATS], [AGENT_TIMEOUT]
-REM Khái niệm: Số vòng cho phép để AI chạy nhiệm vụ trước khi bạn cưỡng chế gạt điện tắt (MAX_ITERATIONS). Số lần ứng dụng cho phép dùng một tool xịt (trượt lặp quá trình) - (MAX_REPEATS), độ rộng thời gian tính chẵn trên giây cả lần quy trình.
-REM Ví dụ: MAX_ITERATIONS=25 tức phần mềm chỉ nhồi vòng phân gỡ file tìm cho đủ tối lượng tới chu kỳ thao tác 25 đóng và thoát ngay phần mềm ngắt điện trả cửa sổ do hệ phán quá bí.
+REM - MAX_ITERATIONS: giới hạn số vòng tool-call mỗi turn.
+REM - MAX_REPEATS: giới hạn lặp tool với cùng argument.
+REM - AGENT_TIMEOUT: timeout tổng mỗi turn (giây).
 if not defined MAX_ITERATIONS set "MAX_ITERATIONS=60"
 if not defined MAX_REPEATS set "MAX_REPEATS=3"
 if not defined AGENT_TIMEOUT set "AGENT_TIMEOUT=300"
 
-REM ---- 7. Thiết lập bổ sung tập Công cụ ----
+REM ---- 7) Workspace + tools ----
 
 REM [WORKSPACE], [EXTRA_ARGS]
-REM Khái niệm: Ấn định vùng thiết lập cho phép hộp làm Workspace bảo vệ phần lõi (Code ứng dụng, mã cá nhân).
+REM - WORKSPACE: thư mục làm việc của Agent.
+REM - EXTRA_ARGS: truyền thêm tham số vào CLI.
 if not defined WORKSPACE set "WORKSPACE=%~dp0workspace"
 if not defined EXTRA_ARGS set "EXTRA_ARGS="
 
 REM [AGENTFORGE_BROWSER_HEADLESS] & [AGENTFORGE_DESKTOP_CONTROL]
-REM Khái niệm: Tắt mở xem phần mềm xử quá trình công cụ (Browser).
-REM Ví dụ: 0 = Cho khởi duyệt chương trình qua hiển thị tab windows pop-up lên màn. 1 = Chạy dấu nhẹ cửa sổ dưới ngầm task cho bạn không thấy để không chiếm diện tích máy đang mở coi phim (Headless).
+REM - AGENTFORGE_BROWSER_HEADLESS=0: mở browser để xem.
+REM - AGENTFORGE_BROWSER_HEADLESS=1: chạy ẩn.
+REM - AGENTFORGE_DESKTOP_CONTROL=1: bật desktop tools (chuột/bàn phím/screenshot).
 if not defined AGENTFORGE_BROWSER_HEADLESS set "AGENTFORGE_BROWSER_HEADLESS=0"
 if not defined AGENTFORGE_DESKTOP_CONTROL set "AGENTFORGE_DESKTOP_CONTROL=1"
 
 REM [TOOL_TIMEOUT_*]
-REM Khái niệm: Mức hẹn đóng tính chặn Mili-giây (Ms)/ Giây(S). Các Tool khi gửi không truy tải được qua cấu hình.
-REM Tác động: AI chạy bộ ứng dụng duyệt tìm, Photoshop. Do web lỗi phản chậm sẽ không để chương trình đóng lag phanh vô cực phần mềm.
+REM Timeout riêng cho từng nhóm tool (ms/s):
+REM browser, desktop, web, photoshop, process_list.
 if not defined TOOL_TIMEOUT_BROWSER_NAV_MS set "TOOL_TIMEOUT_BROWSER_NAV_MS=30000"
 if not defined TOOL_TIMEOUT_BROWSER_ACTION_MS set "TOOL_TIMEOUT_BROWSER_ACTION_MS=5000"
 if not defined TOOL_TIMEOUT_BROWSER_WAIT_MS set "TOOL_TIMEOUT_BROWSER_WAIT_MS=10000"
@@ -189,13 +152,11 @@ if not defined TOOL_TIMEOUT_PHOTOSHOP_S set "TOOL_TIMEOUT_PHOTOSHOP_S=30"
 if not defined TOOL_TIMEOUT_PROCESS_LIST_S set "TOOL_TIMEOUT_PROCESS_LIST_S=10"
 
 REM [SHELL_WORKSPACE_ONLY]
-REM Khái niệm: Lớp phân chốt ứng dụng hạn khóa đọc dòng thiết bị từ Command Line sang (Terminal).
-REM Ví dụ: 
-REM - SHELL_WORKSPACE_ONLY=1 (Mặc định): An tâm thả AI tạo, truy sửa tệp vì nó KHÔNG bị tràn file thoát khỏi hệ mục phân giới thư Workspace ứng dụng vào máy ổ bộ hệ gốc bạn.
-REM - SHELL_WORKSPACE_ONLY=0: Tắt khoá. Dành cho phép uỷ nhiệm, cho dòng AI nhảy thẳng toàn kho máy, hệ máy. (Phải cực am hiểm uỷ phần code chạy riêng nếu không banh ổ cứng bộ nhớ hệ).
+REM - SHELL_WORKSPACE_ONLY=1: shell tool chỉ được chạy trong workspace.
+REM - SHELL_WORKSPACE_ONLY=0: mở khóa (nguy hiểm, chỉ dùng khi bạn kiểm soát được).
 if not defined SHELL_WORKSPACE_ONLY set "SHELL_WORKSPACE_ONLY=1"
 
-REM Normalize quoted env inputs (support both: set VAR=value and set VAR="value")
+REM Chuẩn hóa biến môi trường (hỗ trợ cả 2 kiểu: set VAR=value và set VAR="value")
 set "PROVIDER=%PROVIDER:"=%"
 set "SERVER_EXE=%SERVER_EXE:"=%"
 set "MODEL_PATH=%MODEL_PATH:"=%"
@@ -207,73 +168,73 @@ set "WORKSPACE=%WORKSPACE:"=%"
 if not exist "%WORKSPACE%" (
     mkdir "%WORKSPACE%" >nul 2>&1
     if errorlevel 1 (
-        echo ERROR: cannot create workspace directory: %WORKSPACE%
+        echo ERROR: không tạo được thư mục workspace: %WORKSPACE%
         goto :fail
     )
 )
 
 python --version >nul 2>&1
 if errorlevel 1 (
-    echo ERROR: Python is not available in PATH.
-    echo Install Python 3.10+ and retry.
+    echo ERROR: chưa tìm thấy Python trong PATH.
+    echo Hãy cài Python 3.10+ rồi chạy lại.
     goto :fail
 )
 
-REM Ensure deps for first-run users (download repo then run.bat)
+REM Tự động cài Python packages nếu máy chưa có đầy đủ.
 python -c "import rich,bs4,playwright,socketio,yaml,pyautogui" >nul 2>&1
 if errorlevel 1 (
-    echo Installing Python dependencies from requirements.txt...
+    echo Đang cài thư viện Python từ requirements.txt...
     python -m pip install -r requirements.txt
     if errorlevel 1 (
-        echo ERROR: dependency installation failed.
-        echo Try: python -m pip install --upgrade pip
+        echo ERROR: cài dependencies thất bại.
+        echo Thử: python -m pip install --upgrade pip
         goto :fail
     )
 )
 
-REM Ensure Playwright browser runtime for browser skill (best effort).
-REM If this step fails, core runtime still works, but browser tools may fail.
+REM Tự động cài Chromium runtime cho Playwright (best effort).
+REM Nếu bước này fail, core vẫn chạy được, nhưng browser tools có thể lỗi.
 python -c "from playwright.sync_api import sync_playwright; p=sync_playwright().start(); b=p.chromium.launch(headless=True); b.close(); p.stop()" >nul 2>&1
 if errorlevel 1 (
-    echo Installing Playwright Chromium runtime...
+    echo Đang cài Playwright Chromium runtime...
     python -m playwright install chromium >nul 2>&1
     if errorlevel 1 (
-        echo WARNING: Could not auto-install Playwright Chromium runtime.
-        echo WARNING: Browser skill may fail until you run:
+        echo WARNING: Không thể tự động cài Playwright Chromium runtime.
+        echo WARNING: Browser tool có thể lỗi đến khi bạn chạy:
         echo WARNING:   python -m playwright install chromium
     )
 )
 
 if /I "%PROVIDER%"=="local" (
     if "%MODEL_PATH%"=="" (
-        echo ERROR: MODEL_PATH is required when PROVIDER=local.
-        echo Example:
+        echo ERROR: MODEL_PATH là bắt buộc khi PROVIDER=local.
+        echo Ví dụ:
         echo   set MODEL_PATH=D:\models\your-model.gguf
         echo   run.bat
         goto :fail
     )
     if not exist "%SERVER_EXE%" (
-        echo ERROR: llama-server.exe not found: %SERVER_EXE%
+        echo ERROR: không tìm thấy llama-server.exe: %SERVER_EXE%
         goto :fail
     )
     if not exist "%MODEL_PATH%" (
-        echo ERROR: model file not found: %MODEL_PATH%
+        echo ERROR: không tìm thấy file model: %MODEL_PATH%
         goto :fail
     )
     goto :run_local
 ) else if /I "%PROVIDER%"=="openai_compatible" (
     if "%BASE_URL%"=="" (
-        echo ERROR: BASE_URL is required in openai_compatible mode.
+        echo ERROR: BASE_URL là bắt buộc ở chế độ openai_compatible.
         goto :fail
     )
     if "%MODEL_ID%"=="" (
-        echo ERROR: MODEL_ID is required in openai_compatible mode.
+        echo ERROR: MODEL_ID là bắt buộc ở chế độ openai_compatible.
         goto :fail
     )
     goto :run_remote
 ) else (
-    echo ERROR: invalid PROVIDER value: "%PROVIDER%"
-    echo Allowed values: local, openai_compatible
+    echo ERROR: giá trị PROVIDER không hợp lệ: "%PROVIDER%"
+    echo Giá trị hợp lệ: local, openai_compatible
     goto :fail
 )
 
@@ -338,7 +299,7 @@ set "EXIT_CODE=1"
 if not defined CI (
     if /I not "%AGENTFORGE_NO_PAUSE_ON_FAIL%"=="1" (
         echo.
-        echo Startup failed. Press any key to close this window...
+        echo Failed to start Agent-01. Press any key to close the window...
         pause >nul
     )
 )
