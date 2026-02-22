@@ -7,7 +7,7 @@ Agent-01 is a Windows-first AI agent runtime designed to be **100% offline** and
 ## [■] Ready to be Re-built
 
 **This is not just a software application; it's a modular toy designed for the AI era.** 
-Agent-01 was 100% generated, designed, and maintained by AI. The codebase is deliberately structured to be "AI-friendly." We encourage you to open this project in modern AI IDEs (like VSCode + Antigravity, Cursor, Windsurf, etc.) and ask the AI to read, understand, expand, or completely rewrite any module you want. You are holding a framework—a skeleton. It is up to you and your AI to give it flesh and blood.
+Agent-01 was 100% generated, designed, and maintained by AI. The codebase is deliberately structured to be "AI-friendly." I encourage you to open this project in modern AI IDEs (like VSCode + Antigravity, Cursor, Windsurf, etc.) and ask the AI to read, understand, expand, or completely rewrite any module you want. You are holding a framework—a skeleton. It is up to you and your AI to give it flesh and blood.
 
 ---
 
