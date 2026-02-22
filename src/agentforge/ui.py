@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import logging
 import sys
+import time
 from typing import Any, Dict, List, Optional
 
 from .__init__ import __version__
@@ -44,6 +45,11 @@ _BANNER_LINES = r"""
 /_/  |_\__, /\___/_/ /_/\__/_/    \____/_/   \__, /\___/
       /____/                                /____/
 """
+
+_TOOL_CALL_LIVE_REFRESH_INTERVAL_SECONDS = 1 / 24
+_TOOL_CALL_LIVE_PREVIEW_MAX_CHARS = 12_000
+_TOOL_CALL_LIVE_PREVIEW_MIN_LINES = 8
+_TOOL_CALL_LIVE_PREVIEW_MAX_LINES = 160
 
 def _render_payload(value: Any) -> str:
     if isinstance(value, str):
@@ -118,6 +124,8 @@ class ChatUI:
         self._tool_call_stream_body_style = self.palette.tool_body
         self._tool_call_stream_prefix_style = self.palette.lane
         self._tool_call_stream_live = None
+        self._tool_call_stream_last_refresh_at = 0.0
+        self._tool_call_stream_live_show_full = False
 
     def welcome(
         self,
@@ -244,6 +252,8 @@ class ChatUI:
         self._tool_call_stream_open = True
         self._tool_call_stream_buffer = ""
         self._tool_call_stream_prefix_style = self.palette.lane
+        self._tool_call_stream_last_refresh_at = 0.0
+        self._tool_call_stream_live_show_full = False
         if self._use_rich and self.console is not None:
             self._tool_call_stream_body_style = (
                 f"{self.palette.markdown_code_text} {self.palette.markdown_code_background}".strip()
@@ -274,6 +284,7 @@ class ChatUI:
         if not self._tool_call_stream_open:
             return
         if self._tool_call_stream_live is not None:
+            self._tool_call_stream_live_show_full = True
             self._stop_tool_call_live()
             self._tool_call_stream_open = False
             return
@@ -303,25 +314,34 @@ class ChatUI:
             refresh_per_second=20,
             transient=False,
             auto_refresh=False,
+            vertical_overflow="crop",
         )
         self._tool_call_stream_live.start()
-        self._refresh_tool_call_live()
+        self._refresh_tool_call_live(force=True)
 
-    def _refresh_tool_call_live(self) -> None:
+    def _refresh_tool_call_live(self, *, force: bool = False) -> None:
         if self._tool_call_stream_live is None:
             return
+        now = time.perf_counter()
+        if not force and (now - self._tool_call_stream_last_refresh_at) < _TOOL_CALL_LIVE_REFRESH_INTERVAL_SECONDS:
+            return
+        self._tool_call_stream_last_refresh_at = now
         self._tool_call_stream_live.update(self._build_tool_call_live_renderable(), refresh=True)
 
     def _stop_tool_call_live(self) -> None:
         if self._tool_call_stream_live is None:
             return
-        self._refresh_tool_call_live()
+        self._refresh_tool_call_live(force=True)
         self._tool_call_stream_live.stop()
         self._tool_call_stream_live = None
+        self._tool_call_stream_last_refresh_at = 0.0
 
     def _build_tool_call_live_renderable(self):
         content = self._tool_call_stream_buffer if self._tool_call_stream_buffer else " "
-        content = self._format_tool_call_stream_content(content)
+        if self._tool_call_stream_live_show_full:
+            content = self._format_tool_call_stream_content(content)
+        else:
+            content = self._tool_call_live_preview_content(content)
         code_text = Text(
             content,
             style=self._tool_call_stream_body_style,
@@ -334,6 +354,31 @@ class ChatUI:
             prefix_style=self._tool_call_stream_prefix_style,
             content_style=self._tool_call_stream_body_style,
         )
+
+    def _tool_call_live_preview_content(self, content: str) -> str:
+        preview = content
+        if len(preview) > _TOOL_CALL_LIVE_PREVIEW_MAX_CHARS:
+            preview = preview[-_TOOL_CALL_LIVE_PREVIEW_MAX_CHARS:]
+
+        max_lines = self._tool_call_live_preview_line_budget(reserve_lines=4)
+        lines = preview.splitlines()
+        if preview.endswith("\n"):
+            lines.append("")
+        if len(lines) <= max_lines:
+            return preview
+        return "\n".join(lines[-max_lines:])
+
+    def _tool_call_live_preview_line_budget(self, reserve_lines: int) -> int:
+        available = max(_TOOL_CALL_LIVE_PREVIEW_MIN_LINES, self._terminal_height() - reserve_lines)
+        return max(_TOOL_CALL_LIVE_PREVIEW_MIN_LINES, min(_TOOL_CALL_LIVE_PREVIEW_MAX_LINES, available))
+
+    def _terminal_height(self) -> int:
+        if self.console is not None:
+            try:
+                return max(12, int(self.console.size.height))
+            except Exception:
+                pass
+        return 24
 
     def _format_tool_call_stream_content(self, content: str) -> str:
         text = content or ""

@@ -93,3 +93,90 @@ def test_tool_call_stream_formatter_keeps_partial_json_raw():
     raw = '{"path":"workspace/AGENT.md"'
     rendered = ui._format_tool_call_stream_content(raw)
     assert rendered == raw
+
+
+def test_tool_call_live_uses_crop_vertical_overflow(monkeypatch):
+    captured = {"kwargs": {}, "started": 0}
+
+    class _FakeConsole:
+        def __init__(self, *args, **kwargs):
+            del args, kwargs
+            self.file = sys.stdout
+
+        def push_theme(self, theme):
+            del theme
+
+        def print(self, *args, **kwargs):
+            del args, kwargs
+
+    class _FakeLive:
+        def __init__(self, renderable, **kwargs):
+            del renderable
+            captured["kwargs"] = kwargs
+
+        def start(self):
+            captured["started"] += 1
+
+        def update(self, renderable, refresh):
+            del renderable, refresh
+
+        def stop(self):
+            return None
+
+    monkeypatch.setattr(ui_module, "HAS_RICH", True)
+    monkeypatch.setattr(ui_module, "Console", _FakeConsole)
+    monkeypatch.setattr(ui_module, "Live", _FakeLive)
+    monkeypatch.setattr(sys.stdout, "isatty", lambda: True, raising=False)
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: True, raising=False)
+
+    ui = ChatUI(verbose=False)
+    ui.tool_call_stream_start("read_file")
+
+    assert captured["started"] == 1
+    assert captured["kwargs"]["vertical_overflow"] == "crop"
+
+
+def test_tool_call_live_preview_tracks_tail_lines():
+    ui = ChatUI(verbose=False)
+
+    class _FakeConsole:
+        class _Size:
+            height = 12
+
+        size = _Size()
+
+    ui.console = _FakeConsole()
+    text = "\n".join(f"line {idx}" for idx in range(20))
+    preview = ui._tool_call_live_preview_content(text)
+
+    assert preview.startswith("line 12")
+    assert preview.endswith("line 19")
+    assert "line 0" not in preview
+
+
+def test_tool_call_live_refresh_throttles_rapid_updates(monkeypatch):
+    ui = ChatUI(verbose=False)
+    ui._tool_call_stream_buffer = '{"x": 1}'
+
+    class _LiveStub:
+        def __init__(self):
+            self.calls = 0
+
+        def update(self, renderable, refresh):
+            del renderable, refresh
+            self.calls += 1
+
+        def stop(self):
+            return None
+
+    live = _LiveStub()
+    ui._tool_call_stream_live = live
+
+    ticks = iter([10.0, 10.001, 10.2])
+    monkeypatch.setattr("agentforge.ui.time.perf_counter", lambda: next(ticks))
+
+    ui._refresh_tool_call_live()
+    ui._refresh_tool_call_live()
+    ui._refresh_tool_call_live()
+
+    assert live.calls == 2
