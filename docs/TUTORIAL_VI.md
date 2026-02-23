@@ -91,5 +91,7 @@ Các bạn có thể tìm và download các model GGUF tại: https://huggingfac
 ## [Ω] Lời ngỏ từ sản xuất:
 Đây là dự án được tạo ra hoàn toàn 100% bằng AI Generator nên chắc chắn không thể tránh khỏi các sai sót, dự án vẫn sẽ được tiếp tục hoàn thiện dần theo quỹ thời gian mà mình có, HOẶC CHÍNH CÁC BẠN LÀ NGƯỜI SẼ HOÀN THÀNH NÓ. Đừng ngần ngại mà dùng project này như 1 món đồ có thể tháo lắp được, vì code được viết bởi AI nên AI có thể hoàn toàn đọc hiểu code, hãy hỏi nó để biết được thứ mà chính người tạo ra nó cũng không biết. Chúc các bạn thành công và chơi game AI 2026 này vui vẻ!
 Thanks & Best Regards,
+
 Minato.
+
 https://minato-makoto.github.io 
