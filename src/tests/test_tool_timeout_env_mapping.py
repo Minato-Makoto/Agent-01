@@ -170,6 +170,16 @@ def test_runtime_config_reads_desktop_timeouts(monkeypatch):
     assert cfg.desktop_screenshot_s == 19
 
 
+def test_runtime_config_browser_defaults_are_agent_friendly(monkeypatch):
+    monkeypatch.delenv("TOOL_TIMEOUT_BROWSER_NAV_MS", raising=False)
+    monkeypatch.delenv("TOOL_TIMEOUT_BROWSER_ACTION_MS", raising=False)
+    monkeypatch.delenv("TOOL_TIMEOUT_BROWSER_WAIT_MS", raising=False)
+    cfg = load_tool_timeout_config()
+    assert cfg.browser_nav_ms == 60000
+    assert cfg.browser_action_ms == 15000
+    assert cfg.browser_wait_ms == 30000
+
+
 def test_desktop_screenshot_uses_workspace_output(monkeypatch, tmp_path):
     class _FakeImage:
         def save(self, path):

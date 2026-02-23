@@ -71,9 +71,9 @@ def parse_bool_env(name: str, default: bool) -> bool:
 
 @dataclass(frozen=True)
 class ToolTimeoutConfig:
-    browser_nav_ms: int = 30000
-    browser_action_ms: int = 5000
-    browser_wait_ms: int = 10000
+    browser_nav_ms: int = 60000
+    browser_action_ms: int = 15000
+    browser_wait_ms: int = 30000
     desktop_action_ms: int = 5000
     desktop_screenshot_s: int = 15
     web_request_s: int = 30
@@ -90,13 +90,13 @@ class ShellPolicyConfig:
 def load_tool_timeout_config() -> ToolTimeoutConfig:
     return ToolTimeoutConfig(
         browser_nav_ms=parse_int_env(
-            "TOOL_TIMEOUT_BROWSER_NAV_MS", 30000, min_value=500, max_value=300000
+            "TOOL_TIMEOUT_BROWSER_NAV_MS", 60000, min_value=500, max_value=300000
         ),
         browser_action_ms=parse_int_env(
-            "TOOL_TIMEOUT_BROWSER_ACTION_MS", 5000, min_value=200, max_value=120000
+            "TOOL_TIMEOUT_BROWSER_ACTION_MS", 15000, min_value=200, max_value=120000
         ),
         browser_wait_ms=parse_int_env(
-            "TOOL_TIMEOUT_BROWSER_WAIT_MS", 10000, min_value=200, max_value=300000
+            "TOOL_TIMEOUT_BROWSER_WAIT_MS", 30000, min_value=200, max_value=300000
         ),
         desktop_action_ms=parse_int_env(
             "TOOL_TIMEOUT_DESKTOP_ACTION_MS", 5000, min_value=50, max_value=120000

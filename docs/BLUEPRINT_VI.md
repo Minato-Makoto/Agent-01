@@ -447,9 +447,9 @@ Bypass: gọi trực tiếp `python -m agentforge.cli --flag value` sẽ ghi đ�
 | `AGENTFORGE_UI_THEME` | chỉ env | `auto` | Chế độ màu UI: `auto` / `dark` / `light` |
 | `AGENTFORGE_BROWSER_HEADLESS` | chỉ env | `0` | `0`=hiển thị, `1`=ẩn |
 | `AGENTFORGE_DESKTOP_CONTROL` | chỉ env | `1` | `1` bật desktop tools, `0` tắt |
-| `TOOL_TIMEOUT_BROWSER_NAV_MS` | chỉ env | `30000` | Timeout `browser_navigate` (ms) |
-| `TOOL_TIMEOUT_BROWSER_ACTION_MS` | chỉ env | `5000` | Timeout click/type/select/get_content (ms) |
-| `TOOL_TIMEOUT_BROWSER_WAIT_MS` | chỉ env | `10000` | Timeout `browser_wait` (ms) |
+| `TOOL_TIMEOUT_BROWSER_NAV_MS` | chỉ env | `60000` | Timeout `browser_navigate` (ms) |
+| `TOOL_TIMEOUT_BROWSER_ACTION_MS` | chỉ env | `15000` | Timeout click/type/select/get_content (ms) |
+| `TOOL_TIMEOUT_BROWSER_WAIT_MS` | chỉ env | `30000` | Timeout `browser_wait` (ms) |
 | `TOOL_TIMEOUT_DESKTOP_ACTION_MS` | chỉ env | `5000` | Ngưỡng timeout thao tác desktop (ms) |
 | `TOOL_TIMEOUT_DESKTOP_SCREENSHOT_S` | chỉ env | `15` | Ngưỡng timeout chụp desktop (giây) |
 | `TOOL_TIMEOUT_WEB_REQUEST_S` | chỉ env | `30` | Timeout `http_request`/`web_scrape` (giây) |
