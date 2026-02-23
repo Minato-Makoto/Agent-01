@@ -7,6 +7,11 @@ if errorlevel 1 (
 )
 set "PYTHONPATH=%~dp0src"
 
+REM Local overrides (không commit): có thể đặt MODEL_PATH/API key tại run.local.bat
+if exist "%~dp0run.local.bat" (
+    call "%~dp0run.local.bat"
+)
+
 REM ============================================================
 REM Trình khởi chạy Agent-01 (Windows)
 
@@ -29,7 +34,7 @@ REM - Đường dẫn đến model .gguf.
 REM Ví dụ:
 REM   set "MODEL_PATH=D:\Models\Qwen.gguf"
 if not defined SERVER_EXE set "SERVER_EXE=%~dp0llama-server\llama-server.exe"
-if not defined MODEL_PATH set "MODEL_PATH=D:\Personal\MinatoZeroFace\AI Agent\model\Qwen3VL-Instruct\Qwen3VL-4B-Instruct-Q4_K_M.gguf"
+if not defined MODEL_PATH set "MODEL_PATH=C:\models\your-model.gguf"
 
 REM ---- 3) Cấu hình online (chỉ dùng khi PROVIDER=openai_compatible) ----
 
@@ -159,7 +164,7 @@ if not defined SHELL_WORKSPACE_ONLY set "SHELL_WORKSPACE_ONLY=1"
 REM Chuẩn hóa biến môi trường (hỗ trợ cả 2 kiểu: set VAR=value và set VAR="value")
 set "PROVIDER=%PROVIDER:"=%"
 set "SERVER_EXE=%SERVER_EXE:"=%"
-set "MODEL_PATH=%MODEL_PATH:"=%"
+if defined MODEL_PATH set "MODEL_PATH=%MODEL_PATH:"=%"
 set "BASE_URL=%BASE_URL:"=%"
 set "MODEL_ID=%MODEL_ID:"=%"
 set "API_KEY_ENV=%API_KEY_ENV:"=%"

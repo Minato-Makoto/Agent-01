@@ -1,0 +1,13 @@
+@echo off
+REM Local-only overrides for run.bat (this file is safe to copy to run.local.bat).
+REM run.local.bat is ignored by git, so personal paths/tokens are not committed.
+
+REM Example local GGUF path:
+set "MODEL_PATH=D:\models\your-model.gguf"
+
+REM Optional: switch provider quickly
+REM set "PROVIDER=local"
+REM set "PROVIDER=openai_compatible"
+
+REM Optional: API key env variable name (not the key value)
+REM set "API_KEY_ENV=OPENAI_API_KEY"

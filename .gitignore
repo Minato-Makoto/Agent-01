@@ -27,6 +27,7 @@ llama-server/*
 .env
 .env.*
 !.env.example
+run.local.bat
 
 # Reference repos (local development only)
 reference/
