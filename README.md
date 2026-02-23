@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./banner.jpg" alt="Agent-01 Banner" width="100%" />
+</p>
+
 # [■] Agent-01: Offline Agent Runtime
 
 Agent-01 is a Windows-first AI agent runtime designed to be **100% offline** and privacy-focused, empowering your personal computer with Large Language Models (LLMs).
