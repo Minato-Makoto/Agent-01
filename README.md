@@ -133,10 +133,10 @@ $env:PYTHONPATH='src'; python -m agentforge.cli --help
 
 *   **1.2** - Complete Photoshop utilization capabilities.
 *   **1.3** - Complete session management features.
-*   **1.4** - Add image generation module (dual config online & offline).
-*   **2.0** - Add skills to operate other Adobe Suite applications.
+*   **1.4** - Calling & receiving data from external APIs/ Access Tokens (Google, Telegram, Zalo, Facebook, Discord, etc.)
+*   **2.0** - Add image generation module (dual config online & offline).
 *   **2.1** - Upgrade long-term memory.
-*   **2.2** - Complete utilization capabilities across all Adobe software.
+*   **2.2** - Full automation via chat applications supporting chatbot creation.
 
 ---
 
