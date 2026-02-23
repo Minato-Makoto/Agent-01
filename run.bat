@@ -2,10 +2,15 @@
 setlocal EnableExtensions
 pushd "%~dp0"
 if errorlevel 1 (
-    echo ERROR: không thể truy cập thư mục repository.
+    echo ERROR: cannot access repository directory.
     exit /b 1
 )
 set "PYTHONPATH=%~dp0src"
+
+REM Local overrides (không commit): có thể đặt MODEL_PATH/API key tại run.local.bat
+if exist "%~dp0run.local.bat" (
+    call "%~dp0run.local.bat"
+)
 
 REM ============================================================
 REM Trình khởi chạy Agent-01 (Windows)
@@ -29,7 +34,7 @@ REM - Đường dẫn đến model .gguf.
 REM Ví dụ:
 REM   set "MODEL_PATH=D:\Models\Qwen.gguf"
 if not defined SERVER_EXE set "SERVER_EXE=%~dp0llama-server\llama-server.exe"
-if not defined MODEL_PATH set "MODEL_PATH=D:\Personal\MinatoZeroFace\AI Agent\model\Qwen3VL-Instruct\Qwen3VL-4B-Instruct-Q4_K_M.gguf"
+if not defined MODEL_PATH set "MODEL_PATH=C:\models\your-model.gguf"
 
 REM ---- 3) Cấu hình online (chỉ dùng khi PROVIDER=openai_compatible) ----
 
@@ -141,9 +146,9 @@ if not defined AGENTFORGE_DESKTOP_CONTROL set "AGENTFORGE_DESKTOP_CONTROL=1"
 REM [TOOL_TIMEOUT_*]
 REM Timeout riêng cho từng nhóm tool (ms/s):
 REM browser, desktop, web, photoshop, process_list.
-if not defined TOOL_TIMEOUT_BROWSER_NAV_MS set "TOOL_TIMEOUT_BROWSER_NAV_MS=30000"
-if not defined TOOL_TIMEOUT_BROWSER_ACTION_MS set "TOOL_TIMEOUT_BROWSER_ACTION_MS=5000"
-if not defined TOOL_TIMEOUT_BROWSER_WAIT_MS set "TOOL_TIMEOUT_BROWSER_WAIT_MS=10000"
+if not defined TOOL_TIMEOUT_BROWSER_NAV_MS set "TOOL_TIMEOUT_BROWSER_NAV_MS=60000"
+if not defined TOOL_TIMEOUT_BROWSER_ACTION_MS set "TOOL_TIMEOUT_BROWSER_ACTION_MS=15000"
+if not defined TOOL_TIMEOUT_BROWSER_WAIT_MS set "TOOL_TIMEOUT_BROWSER_WAIT_MS=30000"
 if not defined TOOL_TIMEOUT_DESKTOP_ACTION_MS set "TOOL_TIMEOUT_DESKTOP_ACTION_MS=5000"
 if not defined TOOL_TIMEOUT_DESKTOP_SCREENSHOT_S set "TOOL_TIMEOUT_DESKTOP_SCREENSHOT_S=15"
 if not defined TOOL_TIMEOUT_WEB_REQUEST_S set "TOOL_TIMEOUT_WEB_REQUEST_S=30"
@@ -159,35 +164,39 @@ if not defined SHELL_WORKSPACE_ONLY set "SHELL_WORKSPACE_ONLY=1"
 REM Chuẩn hóa biến môi trường (hỗ trợ cả 2 kiểu: set VAR=value và set VAR="value")
 set "PROVIDER=%PROVIDER:"=%"
 set "SERVER_EXE=%SERVER_EXE:"=%"
-set "MODEL_PATH=%MODEL_PATH:"=%"
+if defined MODEL_PATH set "MODEL_PATH=%MODEL_PATH:"=%"
 set "BASE_URL=%BASE_URL:"=%"
 set "MODEL_ID=%MODEL_ID:"=%"
 set "API_KEY_ENV=%API_KEY_ENV:"=%"
 set "WORKSPACE=%WORKSPACE:"=%"
+set "IS_HELP_REQUEST=0"
+set "EXTRA_ARGS_SCAN= %EXTRA_ARGS% "
+echo %EXTRA_ARGS_SCAN% | findstr /I /C:" --help " /C:" -h " >nul
+if not errorlevel 1 set "IS_HELP_REQUEST=1"
 
 if not exist "%WORKSPACE%" (
     mkdir "%WORKSPACE%" >nul 2>&1
     if errorlevel 1 (
-        echo ERROR: không tạo được thư mục workspace: %WORKSPACE%
+        echo ERROR: cannot create workspace directory: %WORKSPACE%
         goto :fail
     )
 )
 
 python --version >nul 2>&1
 if errorlevel 1 (
-    echo ERROR: chưa tìm thấy Python trong PATH.
-    echo Hãy cài Python 3.10+ rồi chạy lại.
+    echo ERROR: Python was not found in PATH.
+    echo Install Python 3.10+ and try again.
     goto :fail
 )
 
 REM Tự động cài Python packages nếu máy chưa có đầy đủ.
 python -c "import rich,bs4,playwright,socketio,yaml,pyautogui" >nul 2>&1
 if errorlevel 1 (
-    echo Đang cài thư viện Python từ requirements.txt...
+    echo Installing Python packages from requirements.txt...
     python -m pip install -r requirements.txt
     if errorlevel 1 (
-        echo ERROR: cài dependencies thất bại.
-        echo Thử: python -m pip install --upgrade pip
+        echo ERROR: failed to install dependencies.
+        echo Try: python -m pip install --upgrade pip
         goto :fail
     )
 )
@@ -196,45 +205,48 @@ REM Tự động cài Chromium runtime cho Playwright (best effort).
 REM Nếu bước này fail, core vẫn chạy được, nhưng browser tools có thể lỗi.
 python -c "from playwright.sync_api import sync_playwright; p=sync_playwright().start(); b=p.chromium.launch(headless=True); b.close(); p.stop()" >nul 2>&1
 if errorlevel 1 (
-    echo Đang cài Playwright Chromium runtime...
+    echo Installing Playwright Chromium runtime...
     python -m playwright install chromium >nul 2>&1
     if errorlevel 1 (
-        echo WARNING: Không thể tự động cài Playwright Chromium runtime.
-        echo WARNING: Browser tool có thể lỗi đến khi bạn chạy:
+        echo WARNING: could not auto-install Playwright Chromium runtime.
+        echo WARNING: browser tools may fail until you run:
         echo WARNING:   python -m playwright install chromium
     )
 )
 
 if /I "%PROVIDER%"=="local" (
+    if /I "%IS_HELP_REQUEST%"=="1" (
+        goto :run_local
+    )
     if "%MODEL_PATH%"=="" (
-        echo ERROR: MODEL_PATH là bắt buộc khi PROVIDER=local.
-        echo Ví dụ:
+        echo ERROR: MODEL_PATH is required when PROVIDER=local.
+        echo Example:
         echo   set MODEL_PATH=D:\models\your-model.gguf
         echo   run.bat
         goto :fail
     )
     if not exist "%SERVER_EXE%" (
-        echo ERROR: không tìm thấy llama-server.exe: %SERVER_EXE%
+        echo ERROR: llama-server.exe was not found: %SERVER_EXE%
         goto :fail
     )
     if not exist "%MODEL_PATH%" (
-        echo ERROR: không tìm thấy file model: %MODEL_PATH%
+        echo ERROR: model file was not found: %MODEL_PATH%
         goto :fail
     )
     goto :run_local
 ) else if /I "%PROVIDER%"=="openai_compatible" (
     if "%BASE_URL%"=="" (
-        echo ERROR: BASE_URL là bắt buộc ở chế độ openai_compatible.
+        echo ERROR: BASE_URL is required in openai_compatible mode.
         goto :fail
     )
     if "%MODEL_ID%"=="" (
-        echo ERROR: MODEL_ID là bắt buộc ở chế độ openai_compatible.
+        echo ERROR: MODEL_ID is required in openai_compatible mode.
         goto :fail
     )
     goto :run_remote
 ) else (
-    echo ERROR: giá trị PROVIDER không hợp lệ: "%PROVIDER%"
-    echo Giá trị hợp lệ: local, openai_compatible
+    echo ERROR: invalid PROVIDER value: "%PROVIDER%"
+    echo Valid values: local, openai_compatible
     goto :fail
 )
 

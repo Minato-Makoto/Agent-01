@@ -447,9 +447,9 @@ Bypass: calling `python -m agentforge.cli --flag value` directly overrides every
 | `AGENTFORGE_UI_THEME` | env only | `auto` | UI palette mode: `auto` / `dark` / `light` |
 | `AGENTFORGE_BROWSER_HEADLESS` | env only | `0` | `0`=visible, `1`=headless |
 | `AGENTFORGE_DESKTOP_CONTROL` | env only | `1` | `1` enables desktop control tools, `0` disables them |
-| `TOOL_TIMEOUT_BROWSER_NAV_MS` | env only | `30000` | `browser_navigate` timeout (ms) |
-| `TOOL_TIMEOUT_BROWSER_ACTION_MS` | env only | `5000` | click/type/select/get_content timeout (ms) |
-| `TOOL_TIMEOUT_BROWSER_WAIT_MS` | env only | `10000` | `browser_wait` timeout (ms) |
+| `TOOL_TIMEOUT_BROWSER_NAV_MS` | env only | `60000` | `browser_navigate` timeout (ms) |
+| `TOOL_TIMEOUT_BROWSER_ACTION_MS` | env only | `15000` | click/type/select/get_content timeout (ms) |
+| `TOOL_TIMEOUT_BROWSER_WAIT_MS` | env only | `30000` | `browser_wait` timeout (ms) |
 | `TOOL_TIMEOUT_DESKTOP_ACTION_MS` | env only | `5000` | desktop mouse/keyboard action timeout baseline (ms) |
 | `TOOL_TIMEOUT_DESKTOP_SCREENSHOT_S` | env only | `15` | desktop screenshot timeout baseline (s) |
 | `TOOL_TIMEOUT_WEB_REQUEST_S` | env only | `30` | `http_request`/`web_scrape` timeout (s) |
