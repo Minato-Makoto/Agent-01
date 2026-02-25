@@ -30,7 +30,7 @@ Agent-01 was 100% generated, designed, and maintained by AI. The codebase is del
 ## [+] Quick Start
 
 1. Install **Python 3.10+** (Node.js optional).
-2. Download **llama-server.exe** at: https://github.com/ggml-org/llama.cpp/releases and extract it to the `llama-server` directory of the project.
+2. Download **llama-server.exe** at: https://github.com/ggml-org/llama.cpp/releases/download/b8070/llama-b8070-bin-win-cuda-13.1-x64.zip and extract it to the `llama-server` directory of the project.
 3. Configure the environment following [Tutorial (EN)](docs/TUTORIAL_EN.md) or [Tutorial (VI)](docs/TUTORIAL_VI.md).
 4. Double-click `run.bat`.
 
