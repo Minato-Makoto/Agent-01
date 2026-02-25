@@ -8,7 +8,7 @@ Agent-01 is a Windows-first AI agent runtime designed to be **100% offline** and
 
 > **Version:** 1.1.1 · Python 3.10+ · Windows-first · Single launcher: `run.bat`
 
-## [■] Ready to be Re-built
+## [■] Ready to be Rebuilt
 
 **This is not just a software application; it's a modular toy designed for the AI era.** 
 Agent-01 was 100% generated, designed, and maintained by AI. The codebase is deliberately structured to be "AI-friendly." I encourage you to open this project in modern AI IDEs (like VSCode + Antigravity, Cursor, Windsurf, etc.) and ask the AI to read, understand, expand, or completely rewrite any module you want. You are holding a framework—a skeleton. It is up to you and your AI to give it flesh and blood.
@@ -21,7 +21,7 @@ Agent-01 was 100% generated, designed, and maintained by AI. The codebase is del
 
 *   **OS**: Windows 11
 *   **CPU**: Intel Core i7 10th Gen (or AMD equivalent)
-*   **RAM**: 32GB
+*   **RAM**: 32 GB
 *   **GPU**: NVIDIA RTX 3070 Ti (or equivalent with sufficient VRAM for GGUF models)
 *   **Storage**: Fast NVMe SSD recommended
 
@@ -30,7 +30,7 @@ Agent-01 was 100% generated, designed, and maintained by AI. The codebase is del
 ## [+] Quick Start
 
 1. Install **Python 3.10+** (Node.js optional).
-2. Download **llama-server.exe** at: https://github.com/ggml-org/llama.cpp/releases/download/b8070/llama-b8070-bin-win-cuda-13.1-x64.zip and extract it to the `llama-server` directory of the project.
+2. Download **llama-server.exe** from: https://github.com/ggml-org/llama.cpp/releases (I used: https://github.com/ggml-org/llama.cpp/releases/download/b8070/llama-b8070-bin-win-cuda-13.1-x64.zip), then extract llama-server.exe into the project's llama-server directory.
 3. Configure the environment following [Tutorial (EN)](docs/TUTORIAL_EN.md) or [Tutorial (VI)](docs/TUTORIAL_VI.md).
 4. Double-click `run.bat`.
 
@@ -119,7 +119,7 @@ graph TD
 
 Explore the documentation for configuration and architectural deep dives:
 
-*   [Tutorial User Guide (EN)](docs/TUTORIAL_EN.md) | [Hướng dẫn Sử dụng (VI)](docs/TUTORIAL_VI.md)
+*   [Tutorial (EN)](docs/TUTORIAL_EN.md) | [Hướng dẫn Sử dụng (VI)](docs/TUTORIAL_VI.md)
 *   [Blueprint Architecture (EN)](docs/BLUEPRINT_EN.md) | [Kiến trúc Hệ thống (VI)](docs/BLUEPRINT_VI.md)
 
 ---
@@ -138,8 +138,8 @@ $env:PYTHONPATH='src'; python -m agentforge.cli --help
 
 *   **1.2** - Complete Photoshop utilization capabilities.
 *   **1.3** - Complete session management features.
-*   **1.4** - Calling & receiving data from external APIs/ Access Tokens (Google, Telegram, Zalo, Facebook, Discord, etc.)
-*   **2.0** - Add image generation module (dual config online & offline).
+*   **1.4** - Integrate external APIs and access tokens (Google, Telegram, Zalo, Facebook, Discord, etc.)
+*   **2.0** - dual online/offline configuration.
 *   **2.1** - Upgrade long-term memory.
 *   **2.2** - Full automation via chat applications supporting chatbot creation.
 
